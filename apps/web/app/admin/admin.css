@@ -1,0 +1,117 @@
+.admin {
+  min-height: 100dvh;
+  padding: 0 clamp(16px, 3vw, 40px) 48px;
+  background: var(--paper);
+}
+
+/* 표가 30행까지 길어진다. 조작은 언제나 화면에 있어야 한다. */
+.admin-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 20px 0 0;
+  background: var(--paper);
+}
+
+.admin-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.admin-head h1 { margin: 0; font-size: var(--text-2); letter-spacing: -.035em; }
+.admin-counts { display: flex; align-items: center; gap: 18px; font: 700 15px/1 var(--display); }
+.admin-counts span[data-tone='alert'] { color: var(--ava); }
+.admin-counts span[data-tone='alert'] b { font-size: 24px; }
+.admin-counts b { font-size: 22px; }
+
+.admin-show {
+  display: flex;
+  margin: 16px 0 0;
+  padding: 14px 0;
+  border-top: var(--line-thin) solid var(--ink);
+  border-bottom: var(--line-thick) solid var(--ink);
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.admin-show span { margin-right: 8px; font-size: 15px; font-weight: 700; }
+.admin-filter { margin-left: auto; }
+
+.admin-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  font-size: 15px;
+  font-weight: 700;
+}
+.admin-button[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
+.admin-button:disabled { opacity: .35; }
+
+.admin-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.admin-table th,
+.admin-table td { padding: 8px 10px; border-bottom: var(--line-thin) solid color-mix(in srgb, var(--ink) 20%, transparent); text-align: left; vertical-align: middle; }
+.admin-table th { font: 700 13px/1 var(--display); letter-spacing: -.01em; white-space: nowrap; }
+.admin-table td:last-child { text-align: right; white-space: nowrap; }
+.admin-table td:last-child .admin-button + .admin-button { margin-left: 6px; }
+.admin-table tr[data-hidden='true'] { opacity: .45; }
+.admin-thumb { width: 40px; height: 40px; border: var(--line-thin) solid var(--ink); border-radius: var(--radius-small); object-fit: cover; }
+.admin-shelf { font: 700 15px/1 var(--mono); white-space: nowrap; }
+.admin-shelf small { display: block; margin-top: 4px; color: color-mix(in srgb, var(--ink) 52%, transparent); font: 700 12px/1 var(--display); }
+.admin-token { font: 700 15px/1 var(--mono); color: var(--gold); }
+
+.admin-status { padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.admin-status[data-status='MINTED'] { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+.admin-status[data-status='FAILED'] { background: var(--ava); color: var(--paper); }
+
+.admin-empty { padding: 64px 0; color: color-mix(in srgb, var(--ink) 60%, transparent); font-size: 17px; font-weight: 700; text-align: center; }
+
+.admin-page { min-width: 56px; text-align: center; font: 700 16px/1 var(--mono); }
+.admin-alert {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-left: var(--line-thick) solid var(--ava);
+  background: color-mix(in srgb, var(--ava) 10%, transparent);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.admin-gate { display: flex; max-width: 360px; min-height: 100dvh; margin: 0 auto; flex-direction: column; justify-content: center; gap: 4px; }
+.admin-gate h1 { margin: 0; font-size: var(--text-3); letter-spacing: -.035em; }
+.admin-gate > p { margin: 0 0 24px; color: color-mix(in srgb, var(--ink) 66%, transparent); font-size: 15px; font-weight: 700; }
+.admin-gate label { display: block; margin-bottom: 12px; }
+.admin-gate label span { display: block; margin-bottom: 8px; font: 700 13px/1 var(--display); }
+.admin-gate input {
+  width: 100%;
+  height: 56px;
+  padding: 0 16px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  outline: 0;
+  background: var(--paper);
+  font-size: 18px;
+  font-weight: 700;
+}
+.admin-gate input:focus { box-shadow: inset 0 0 0 2px var(--ava); }
+.admin-gate .admin-button { min-height: 52px; background: var(--ink); color: var(--paper); }
+.admin-gate .admin-alert { margin: 0 0 12px; }
+
+.admin-reason { display: block; margin-top: 6px; max-width: 32ch; color: var(--ember); font-size: 13px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
+
+.admin-thumb-button { display: block; padding: 0; border: 0; background: none; }
+.admin-thumb-button:hover .admin-thumb { border-color: var(--ava); }
+
+/* 앞 화면에 걸린 사진을 판단하는 자리. 판단하고 바로 내릴 수 있어야 한다. */
+.admin-viewer { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.admin-viewer-backdrop { position: absolute; inset: 0; border: 0; background: rgb(23 17 15 / .72); }
+.admin-viewer-panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow: auto;
+  border: var(--line-thick) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+}
+.admin-viewer-panel img { width: 100%; border-bottom: var(--line-thick) solid var(--ink); }
+.admin-viewer-foot { display: flex; padding: 14px 16px; align-items: center; gap: 10px; flex-wrap: wrap; }
+.admin-viewer-foot > div { margin-right: auto; }
+.admin-viewer-foot strong { font-size: 20px; letter-spacing: -.03em; }
+.admin-viewer-foot small { display: block; margin-top: 4px; color: color-mix(in srgb, var(--ink) 58%, transparent); font: 700 13px/1 var(--mono); }
