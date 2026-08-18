@@ -1,0 +1,7 @@
+{
+  "network": "avalancheFuji",
+  "chainId": 43113,
+  "address": "0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36",
+  "deploymentTransaction": "0xbea5a4290538de403ff2e892808e02d65eaec0ae9463711f77525a03af65974a",
+  "deploymentBlock": 57821222
+}

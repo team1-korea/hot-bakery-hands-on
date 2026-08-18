@@ -23,10 +23,24 @@ Next.js 프론트엔드와 백엔드에서 `AvalancheBakeryCertificate`를 조�
 ABI는 컨트랙트 빌드 후 다음 명령으로 추출할 수 있습니다.
 
 ```bash
-forge build
-jq '.abi' \
-  out/AvalancheBakeryCertificate.sol/AvalancheBakeryCertificate.json \
-  > AvalancheBakeryCertificate.abi.json
+./scripts/export-abi.sh
+```
+
+저장소에 커밋된 정식 ABI는 `abi/AvalancheBakeryCertificate.json`, Fuji 배포 정보는
+`deployments/43113.json`입니다. 프론트엔드와 백엔드는 이 파일을 공통 원본으로 사용합니다. 컨트랙트가
+변경되면 컨트랙트 담당자가 ABI를 다시 생성해 같은 pull request에 포함합니다.
+
+`apps/web/tsconfig.json`에서 다음 alias를 추가하면 Next.js 코드가 공용 ABI를 직접 import할 수 있습니다.
+
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@contracts/*": ["../../contracts/*"]
+    }
+  }
+}
 ```
 
 프론트엔드에는 ABI JSON과 컨트랙트 주소만 전달하면 됩니다. 서버 민터 개인키를 프론트엔드 저장소나
@@ -104,7 +118,7 @@ MINTER_PRIVATE_KEY=0x...
 ```ts
 import { createPublicClient, http, type Address } from 'viem'
 import { avalancheFuji } from 'viem/chains'
-import certificateAbi from './AvalancheBakeryCertificate.abi.json'
+import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
 
 const contractAddress = process.env
   .NEXT_PUBLIC_CERTIFICATE_ADDRESS as Address
@@ -315,7 +329,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { avalancheFuji } from 'viem/chains'
-import certificateAbi from './AvalancheBakeryCertificate.abi.json'
+import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
 
 const address = process.env.CERTIFICATE_ADDRESS as Address
 const account = privateKeyToAccount(process.env.MINTER_PRIVATE_KEY as Hex)

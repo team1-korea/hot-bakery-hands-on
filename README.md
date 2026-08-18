@@ -17,6 +17,8 @@ hot-bakery-hands-on/
 
 - 컨트랙트 개요와 로컬 실행: [contracts/README.md](./contracts/README.md)
 - 프론트엔드·백엔드 연동: [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md)
+- 공용 ABI: [contracts/abi/AvalancheBakeryCertificate.json](./contracts/abi/AvalancheBakeryCertificate.json)
+- Fuji 배포 정보: [contracts/deployments/43113.json](./contracts/deployments/43113.json)
 - Fuji 테스트넷 검증: [contracts/FUJI_SMOKE_TEST.md](./contracts/FUJI_SMOKE_TEST.md)
 
 Fuji 테스트 컨트랙트:

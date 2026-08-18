@@ -25,6 +25,15 @@ initial server minter. It does not grant the admin mint permission automatically
 
 Fuji 테스트넷 검증 결과는 [FUJI_SMOKE_TEST.md](./FUJI_SMOKE_TEST.md)에 기록되어 있습니다.
 
+## Integration artifacts
+
+- ABI: [`abi/AvalancheBakeryCertificate.json`](./abi/AvalancheBakeryCertificate.json)
+- Fuji deployment: [`deployments/43113.json`](./deployments/43113.json)
+- ABI regeneration: `./scripts/export-abi.sh`
+
+The frontend and backend should use the committed ABI rather than importing the full Foundry `out/` artifact. Whenever
+the contract interface changes, regenerate the ABI and commit it with the Solidity change.
+
 ## Operational safety
 
 - Never call `renounceRole(DEFAULT_ADMIN_ROLE, admin)`. If the last default admin renounces the role, role management is
