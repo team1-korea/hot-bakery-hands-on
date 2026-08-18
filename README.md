@@ -7,11 +7,14 @@ Avalanche Bakery 행사에서 사용하는 소프트웨어 모노레포입니다
 ```text
 hot-bakery-hands-on/
 ├── contracts/   # Avalanche 참가증서 컨트랙트와 Foundry 테스트
+├── apps/demo/   # 화면 흐름 검토용 Next.js 프로토타입
 └── apps/web/    # Next.js 서비스 예정 위치
 ```
 
-현재는 스마트 컨트랙트 패키지만 구현되어 있습니다. Next.js 서비스는 루트가 아니라 `apps/web/`에 추가해
-컨트랙트 패키지와 배포 주기를 분리합니다.
+Next.js 서비스는 루트가 아니라 `apps/web/`에 추가해 컨트랙트 패키지와 배포 주기를 분리합니다.
+
+`apps/demo/`는 참가자 화면과 행사장 TV의 흐름을 먼저 확정하기 위한 프로토타입입니다. 모든 상태가
+목업이며 컨트랙트를 호출하지 않습니다. 실제 발급 연동은 `apps/web/`에서 구현합니다.
 
 ## Smart contract
 

@@ -1,0 +1,81 @@
+.phone-sheet-layer {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+}
+
+.phone-sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: rgb(23 17 15 / .58);
+}
+
+.phone-sheet {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-height: 88%;
+  overflow: hidden;
+  border-top: var(--line-thick) solid var(--ink);
+  border-radius: 20px 20px 0 0;
+  background: var(--paper);
+  flex-direction: column;
+}
+
+.phone-sheet-head {
+  display: flex;
+  padding: 16px 16px 14px 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--ava);
+  color: var(--paper);
+}
+
+.phone-sheet-head h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -.03em;
+  word-break: keep-all;
+}
+
+.phone-sheet-close {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  border: 2px solid rgb(247 241 232 / .48);
+  border-radius: 8px;
+  flex: none;
+  place-items: center;
+  background: transparent;
+  color: var(--paper);
+  cursor: pointer;
+}
+
+.phone-sheet-close:hover { background: rgb(247 241 232 / .16); }
+.phone-sheet-close:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.phone-sheet-close svg { width: 22px; height: 22px; }
+
+.phone-sheet-body {
+  padding: 18px 20px 24px;
+  overflow-y: auto;
+  scrollbar-color: color-mix(in srgb, var(--ink) 42%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.phone-sheet-body .join-certificate { margin-top: 0; }
+
+.sheet-footnote {
+  margin: 16px 0 0;
+  color: color-mix(in srgb, var(--ink) 76%, transparent);
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
+  word-break: keep-all;
+}
+
+.sheet-footnote b { color: var(--ink); font: 700 15px/1 var(--mono); }

@@ -1,0 +1,22 @@
+node_modules/
+.next/
+out/
+*.log
+tsconfig.tsbuildinfo
+.DS_Store
+
+# 디자인 하네스(impeccable) 설치본. `npx impeccable install`로 각자 받는다.
+.claude/skills/
+
+# impeccable-ignore-start
+# Ephemeral review captures and per-developer runtime state.
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/hook.pending.json
+.impeccable/review/
+.impeccable/live/server.json
+.impeccable/live/sessions/
+.impeccable/live/previews/
+.impeccable/live/annotations/
+.impeccable/live/cache/
+# impeccable-ignore-end

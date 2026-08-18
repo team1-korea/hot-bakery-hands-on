@@ -1,0 +1,48 @@
+.join-page { position: fixed; inset: 0; overflow: hidden; background: var(--ava); color: var(--ink); font-family: var(--display); }
+.join-phone-canvas { position: relative; width: min(100%, 480px); height: 100dvh; min-height: 640px; margin: 0 auto; overflow: hidden; background: var(--paper); container-type: inline-size; }
+.join-page.is-embedded { position: absolute; width: 390px; height: 844px; }
+.join-page.is-embedded .join-phone-canvas { width: 390px; height: 844px; min-height: 0; }
+.join-page.is-embedded .join-content { height: 720px; min-height: 0; }
+.join-header { height: 124px; padding: max(16px, env(safe-area-inset-top)) 24px 12px; overflow: visible; background: var(--ava); color: var(--paper); }
+.join-brand { display: grid; min-height: 44px; align-items: center; grid-template-columns: 34px auto 1fr; gap: 10px; }
+.join-brand-end { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+.join-variant-tag { padding: 5px 9px; border: 2px solid var(--paper); border-radius: 999px; font: 700 11px/1 var(--mono); font-style: normal; letter-spacing: .06em; white-space: nowrap; }
+.join-brand-mark { display: block; width: 34px; height: 34px; color: var(--paper); }
+.join-brand strong { display: flex; flex-direction: column; }
+.join-brand strong b { display: block; font-size: 17px; line-height: .88; letter-spacing: -.025em; }
+.join-progress { display: grid; margin: 12px 0 0; padding: 0; grid-template-columns: repeat(4, 1fr); gap: 6px; list-style: none; }
+.join-progress li { min-width: 0; opacity: .5; }
+.join-progress li.is-current, .join-progress li.is-done { opacity: 1; }
+.join-progress i { display: block; height: 4px; margin-bottom: 7px; background: var(--ember); }
+.join-progress li.is-current i, .join-progress li.is-done i { background: var(--paper); }
+.join-progress span { display: block; overflow: hidden; visibility: hidden; font: 700 11px/1 var(--mono); text-overflow: clip; white-space: nowrap; }
+.join-progress li.is-current span { visibility: visible; }
+.join-content { height: calc(100dvh - 124px); min-height: 516px; }
+.join-step { display: flex; height: 100%; padding: 28px 24px 20px; flex-direction: column; }
+.join-step-heading h1 { max-width: 390px; margin: 0 0 10px; font-size: clamp(30px, 8cqw, 40px); font-weight: 900; line-height: 1.04; letter-spacing: -.035em; word-break: keep-all; }
+.join-step-heading p { max-width: 390px; margin: 0; color: color-mix(in srgb, var(--ink) 72%, transparent); font-size: 16px; line-height: 1.45; }
+.join-form, .join-actions { display: flex; margin-top: auto; flex-direction: column; gap: 10px; }
+.join-field { position: relative; display: block; }
+.join-field > span { display: block; margin-bottom: 8px; font: 700 12px/1 var(--mono); letter-spacing: .1em; }
+.join-field input { width: 100%; height: 64px; padding: 0 16px; border: 2px solid var(--ink); border-radius: 8px; outline: 0; background: var(--paper); color: var(--ink); font: 700 20px/1 var(--display); }
+.join-field input:focus { border-color: var(--ava); box-shadow: inset 0 0 0 2px var(--ava); }
+.join-field input::placeholder { color: color-mix(in srgb, var(--ink) 62%, transparent); }
+.code-field input { text-align: center; font: 700 32px/1 var(--mono); letter-spacing: .18em; }
+.nickname-field b { position: absolute; right: 14px; bottom: 24px; font: 700 12px/1 var(--mono); }
+.nickname-field input { padding-right: 72px; }
+.join-button { display: flex; width: 100%; min-height: 56px; border: 2px solid var(--ink); border-radius: 8px; align-items: center; justify-content: center; background: var(--paper); color: var(--ink); font: 900 17px/1 var(--display); cursor: pointer; }
+.join-button:active { transform: translateY(2px); }
+.join-button:disabled { opacity: .35; cursor: not-allowed; }
+.join-button.is-primary { border-color: var(--ink); background: var(--ink); color: var(--paper); }
+.join-button.is-secondary { background: var(--paper); color: var(--ink); }
+.join-button.is-text { min-height: 56px; border-color: transparent; background: transparent; font-size: 15px; }
+.join-or { display: flex; align-items: center; gap: 12px; color: color-mix(in srgb, var(--ink) 64%, transparent); font: 700 11px/1 var(--mono); }
+.join-or::before, .join-or::after { height: 2px; flex: 1; background: var(--ink); opacity: .18; content: ''; }
+@media (max-height: 700px) {
+  .join-header { height: 112px; padding-top: 12px; }
+  .join-brand { min-height: 44px; }
+  .join-progress { margin-top: 12px; }
+  .join-content { height: calc(100dvh - 112px); }
+  .join-step { padding-top: 20px; }
+  .join-step-heading h1 { font-size: 30px; }
+}
