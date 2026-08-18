@@ -1,0 +1,34 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+**/keystores/
+
+# Foundry dependencies and generated files
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+
+# Next.js / Node.js
+node_modules/
+.next/
+dist/
+coverage/
+.vercel/
+*.log
+
+# Local tools
+.DS_Store
+.claude/
+.omc/
+**/.omc/
+
+# Internal planning and review documents
+/CONCEPTS.md
+/DEVELOPER_QUESTIONS.md
+/PROJECT_OVERVIEW.md
+/REVIEW.md
+/contracts/SPEC.md
+/contracts/AUDIT_FINDINGS.md
+/contracts/AUDIT_FINDINGS_v2.md
