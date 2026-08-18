@@ -1,0 +1,99 @@
+.oven-light {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 58%, var(--ember) 0%, var(--ember) 18%, var(--ink) 72%);
+  opacity: .18;
+  transform: scale(1);
+  animation: oven-empty-heat var(--time-oven-empty) var(--ease-heat) infinite;
+}
+
+.oven.is-baking .oven-light {
+  animation:
+    oven-empty-heat var(--time-oven-empty) var(--ease-heat) infinite,
+    oven-heat-enter var(--time-oven-enter) var(--ease-settle) forwards,
+    oven-heat-settle var(--time-oven-settle) var(--ease-settle) var(--time-oven-enter) forwards,
+    oven-baking-heat var(--time-oven-bake) var(--ease-heat) calc(var(--time-oven-enter) + var(--time-oven-settle)) infinite;
+}
+
+.oven.is-completing .oven-light {
+  animation:
+    oven-empty-heat var(--time-oven-empty) var(--ease-heat) infinite,
+    oven-complete-heat var(--time-oven-complete) var(--ease-settle) forwards;
+}
+
+@keyframes oven-empty-heat {
+  0%, 100% { opacity: .18; }
+  50% { opacity: .26; }
+}
+
+@keyframes oven-heat-enter {
+  from { transform: scale(1); }
+  to { opacity: .52; transform: scale(1.06); }
+}
+
+@keyframes oven-heat-settle {
+  from { opacity: .52; transform: scale(1.06); }
+  to { opacity: .42; transform: scale(1.03); }
+}
+
+@keyframes oven-baking-heat {
+  0%, 100% { opacity: .36; transform: scale(1.03); }
+  50% { opacity: .44; transform: scale(1.03); }
+}
+
+@keyframes oven-complete-heat {
+  0% { transform: scale(1.03); animation-timing-function: var(--ease-settle); }
+  13.2075% { opacity: .58; transform: scale(1.08); animation-timing-function: var(--ease-settle); }
+  100% { opacity: .22; transform: scale(1); }
+}
+
+.oven-heat-lines {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 160px;
+  height: 140px;
+  margin-bottom: 28px;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
+  justify-self: center;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.oven-heat-lines path {
+  fill: none;
+  stroke: var(--paper);
+  stroke-linecap: square;
+  stroke-width: var(--line-thick);
+  opacity: .38;
+  animation: oven-heat-line var(--time-heat-line-empty) var(--ease-heat) infinite;
+}
+
+.oven-heat-lines path:nth-child(2) { animation-delay: 160ms; }
+.oven-heat-lines path:nth-child(3) { animation-delay: 320ms; }
+.oven.is-baking .oven-heat-lines path { animation-name: oven-baking-line; animation-duration: var(--time-heat-line-active); }
+.oven.is-completing .oven-heat-lines path { animation: oven-heat-line-return var(--time-heat-line-return) var(--ease-settle) forwards; }
+
+@keyframes oven-heat-line {
+  0%, 100% { opacity: .38; transform: translateY(6px); }
+  50% { opacity: .62; transform: translateY(-6px); }
+}
+
+@keyframes oven-baking-line {
+  0%, 100% { opacity: .48; transform: translateY(6px); }
+  50% { opacity: .72; transform: translateY(-6px); }
+}
+
+@keyframes oven-heat-line-return {
+  from { opacity: .72; transform: translateY(-6px); }
+  to { opacity: .38; transform: translateY(6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oven-light, .oven.is-completing .oven-light { animation: none !important; opacity: .22; transform: scale(1); }
+  .oven.is-baking .oven-light { animation: none !important; opacity: .40; transform: scale(1.03); }
+  .oven-heat-lines path, .oven.is-baking .oven-heat-lines path, .oven.is-completing .oven-heat-lines path { animation: none !important; transition: none !important; opacity: .38; transform: translateY(0); }
+}

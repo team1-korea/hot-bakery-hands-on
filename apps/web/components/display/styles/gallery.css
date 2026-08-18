@@ -1,0 +1,44 @@
+.bakery-floor[data-layout='gallery'] { background: var(--paper); }
+
+.bakery-floor[data-layout='gallery'] { grid-template-columns: 0 minmax(0, 1fr); }
+
+.bakery-floor[data-layout='gallery'] .production-wall {
+  border-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bakery-floor[data-layout='gallery'] .showcase {
+  width: auto;
+  height: calc(100% - 48px);
+  margin: 24px 72px;
+  padding: 20px 28px 28px;
+  border: var(--line-thin) solid var(--ink);
+}
+
+.bakery-floor[data-layout='gallery'] .showcase-heading { height: 72px; }
+.bakery-floor[data-layout='gallery'] .showcase-heading h2 { font-size: var(--text-4); }
+
+.bakery-floor[data-layout='gallery'] .shelf-frame {
+  height: calc(100% - 72px);
+  padding: 24px;
+}
+
+/*
+ * GALLERY는 오븐과 작업대를 물려 진열장만 남기는 모드다. 폭은 넓어지지만 줄 수는 그대로 세 줄이라
+ * 칸 높이는 LIVE와 거의 같다. 카드를 칸에 꽉 채우면 가로로 늘어나 사진이 얇은 띠가 되므로,
+ * LIVE와 같은 세로 비율을 유지한 채 칸 가운데에 놓는다. 카드 생김새는 두 모드에서 같아야 한다.
+ */
+.bakery-floor[data-layout='gallery'] .shelf-slot {
+  display: flex;
+  padding: 16px 20px 22px;
+  align-items: center;
+  justify-content: center;
+}
+
+.bakery-floor[data-layout='gallery'] .shelf-card-link,
+.bakery-floor[data-layout='gallery'] .empty-slot {
+  width: auto;
+  height: 100%;
+  aspect-ratio: 216 / 227;
+}
