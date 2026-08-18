@@ -1,0 +1,30 @@
+.bakery-floor[data-layout='gallery'] { background: var(--paper); }
+
+.bakery-floor[data-layout='gallery'] { grid-template-columns: 0 minmax(0, 1fr); }
+
+.bakery-floor[data-layout='gallery'] .production-wall {
+  border-width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.bakery-floor[data-layout='gallery'] .showcase {
+  width: auto;
+  height: calc(100% - 48px);
+  margin: 24px 72px;
+  padding: 20px 28px 28px;
+  border: var(--line-thin) solid var(--ink);
+}
+
+.bakery-floor[data-layout='gallery'] .showcase-heading { height: 72px; }
+.bakery-floor[data-layout='gallery'] .showcase-heading h2 { font-size: var(--text-4); }
+
+.bakery-floor[data-layout='gallery'] .shelf-frame {
+  height: calc(100% - 72px);
+  padding: 24px;
+}
+
+.bakery-floor[data-layout='gallery'] .shelf-slot { padding: 34px 22px 24px; }
+.bakery-floor[data-layout='gallery'] .certificate-card .card-caption { padding: 8px 16px; }
+.bakery-floor[data-layout='gallery'] .certificate-card .card-caption > strong { font-size: var(--text-3); }
+.bakery-floor[data-layout='gallery'] .card-nickname { font-size: var(--text-2); }

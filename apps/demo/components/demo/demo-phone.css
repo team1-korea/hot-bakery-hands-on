@@ -1,0 +1,41 @@
+.simulation-phone-device { position: absolute; z-index: 2; top: 36px; left: 622px; width: 356px; height: 744px; padding: 12px; border-radius: 48px; background: var(--ink); box-shadow: 0 18px 36px rgb(23 17 15 / .24); }
+.simulation-phone-device::after { position: absolute; inset: 0; border: 2px solid rgb(247 241 232 / .18); border-radius: inherit; content: ''; pointer-events: none; }
+.simulation-phone-screen { position: relative; width: 332px; height: 720px; overflow: hidden; border-radius: 38px; }
+.simulation-phone-scale { width: 390px; height: 844px; transform: scale(.85128); transform-origin: top left; }
+.simulation-speaker { position: absolute; z-index: 4; top: 4px; left: 150px; width: 56px; height: 4px; border-radius: 2px; background: rgb(247 241 232 / .32); }
+.simulation-volume { position: absolute; top: 126px; left: -3px; width: 3px; height: 96px; border-radius: 2px; background: var(--ink); }
+.simulation-power { position: absolute; top: 142px; right: -3px; width: 3px; height: 72px; border-radius: 2px; background: var(--ink); }
+
+.simulation-controls { position: fixed; z-index: 100; bottom: 16px; left: 50%; display: flex; height: 64px; padding: 4px; border: 2px solid rgb(247 241 232 / .24); border-radius: 8px; align-items: center; gap: 4px; background: rgb(23 17 15 / .96); color: var(--paper); transform: translateX(-50%); }
+.simulation-exit { display: flex; height: 56px; padding: 0 8px 0 4px; border-right: 2px solid rgb(247 241 232 / .24); align-items: center; }
+.simulation-controls[data-tools-open='true'] .simulation-exit { display: none; }
+.simulation-status { display: flex; height: 56px; padding: 0 16px; border-right: 2px solid rgb(247 241 232 / .24); align-items: center; gap: 12px; }
+.simulation-status b { min-width: 104px; font: 400 18px/1 var(--display); }
+.simulation-status span { min-width: 112px; font: 700 14px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.simulation-view-switch { display: flex; gap: 4px; }
+.simulation-view-switch button { min-width: 96px; }
+.simulation-controls button { min-width: 64px; height: 56px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--paper); font: 700 14px/1 var(--mono); cursor: pointer; }
+.simulation-controls button[aria-pressed='true'] { background: var(--paper); color: var(--ink); }
+.simulation-controls button:hover:not(:disabled):not([aria-pressed='true']) { background: rgb(247 241 232 / .12); }
+.simulation-controls button:focus-visible { outline: 2px solid var(--gold); outline-offset: -4px; }
+.simulation-controls button:disabled { opacity: .36; cursor: default; }
+.simulation-tools { position: relative; display: flex; height: 56px; padding-left: 8px; border-left: 2px solid rgb(247 241 232 / .24); align-items: center; }
+.simulation-tools-trigger { min-width: 96px !important; }
+.simulation-tools-menu { position: absolute; bottom: 64px; right: -4px; display: flex; padding: 8px; border: 2px solid rgb(247 241 232 / .24); border-radius: 8px; gap: 8px; background: rgb(23 17 15 / .96); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 160ms ease-out, transform 160ms ease-out; }
+.simulation-tools-menu[data-open='true'] { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.simulation-action-group { display: flex; padding: 0 4px; flex-direction: column; gap: 4px; }
+.simulation-action-group + .simulation-action-group { padding-left: 12px; border-left: 2px solid rgb(247 241 232 / .24); }
+.simulation-action-group > span { height: 20px; padding-left: 8px; color: rgb(247 241 232 / .64); font: 700 12px/20px var(--mono); letter-spacing: .04em; white-space: nowrap; }
+.simulation-action-group > div { display: flex; gap: 4px; }
+.simulation-action-group button { min-width: 96px; white-space: nowrap; }
+.simulation-action-group:first-child button { min-width: 112px; }
+.simulation-controls[data-tools-open='true'] .simulation-status,
+.simulation-controls[data-tools-open='true'] .simulation-view-switch { display: none; }
+.simulation-controls[data-tools-open='true'] .simulation-tools { padding-left: 0; border-left: 0; }
+.simulation-controls[data-tools-open='true'] .simulation-tools-menu { position: static; order: -1; height: 56px; padding: 0 8px 0 0; border: 0; background: transparent; transform: none; }
+.simulation-controls[data-tools-open='true'] .simulation-action-group { justify-content: center; padding-top: 0; padding-bottom: 0; }
+.simulation-controls[data-tools-open='true'] .simulation-action-group > span { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .simulation-tools-menu { transition: none; }
+}

@@ -1,0 +1,181 @@
+.join-phone-canvas:has(.join-complete) .join-header {
+  height: 88px;
+  padding-top: 18px;
+  border-bottom: 2px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.join-phone-canvas:has(.join-complete) .join-brand-mark { color: var(--ava); }
+.join-phone-canvas:has(.join-complete) .join-header .exit-link {
+  border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+  color: var(--ink);
+}
+.join-phone-canvas:has(.join-complete) .join-header .exit-link:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.join-phone-canvas:has(.join-complete) .join-progress { display: none; }
+.join-phone-canvas:has(.join-complete) .join-content { height: calc(100dvh - 88px); }
+.join-page.is-embedded .join-phone-canvas:has(.join-complete) .join-content { height: 756px; }
+
+.join-complete {
+  align-items: center;
+  padding-top: 20px;
+  text-align: center;
+}
+
+.complete-heading h1 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.035em;
+}
+
+.join-certificate {
+  position: relative;
+  display: grid;
+  width: min(86cqw, 360px);
+  aspect-ratio: 4 / 5;
+  margin: 18px auto 0;
+  overflow: hidden;
+  border: 4px solid var(--ink);
+  border-radius: 8px;
+  grid-template-rows: 56px minmax(0, 1fr) auto;
+  background: var(--paper);
+  text-align: left;
+}
+
+/* impeccable-disable-next-line side-tab: 증서 상단 골드 띠는 고정된 아트디렉션이다 */
+.join-certificate::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 2;
+  height: 10px;
+  background: var(--gold);
+  content: '';
+}
+
+.join-certificate-brand {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px 6px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.join-certificate-brand span {
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.025em;
+}
+
+.join-certificate-photo {
+  position: relative;
+  min-height: 0;
+  margin: 16px 20px 12px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+
+.join-certificate-photo > img { object-fit: cover; object-position: center; }
+
+.complete-cookie-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--paper);
+}
+
+.complete-cookie-placeholder > span {
+  position: relative;
+  width: 58%;
+  aspect-ratio: 1;
+  border: 5px solid var(--ink);
+  border-radius: 48% 52% 44% 56% / 54% 46% 58% 42%;
+  background: var(--gold);
+  transform: rotate(-4deg);
+}
+
+.complete-cookie-placeholder i {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ember);
+}
+
+.complete-cookie-placeholder i:nth-child(1) { top: 24%; left: 24%; }
+.complete-cookie-placeholder i:nth-child(2) { top: 44%; right: 20%; }
+.complete-cookie-placeholder i:nth-child(3) { right: 40%; bottom: 17%; }
+
+.join-certificate-id {
+  display: flex;
+  padding: 14px 18px 16px;
+  justify-content: center;
+  flex-direction: column;
+  border-top: 2px solid var(--ink);
+  background: var(--gold);
+}
+
+.join-certificate-id span {
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.join-certificate[data-pending='true'] .join-certificate-id { background: color-mix(in srgb, var(--ink) 10%, var(--paper)); }
+
+.join-certificate-id strong {
+  margin-top: 4px;
+  font-size: clamp(56px, 17cqw, 76px);
+  font-weight: 900;
+  line-height: .9;
+  letter-spacing: -.035em;
+}
+
+.join-certificate-id strong.is-pending {
+  font-size: 34px;
+  letter-spacing: -.02em;
+}
+
+.complete-process-open {
+  min-height: 56px;
+  margin: auto 0 0;
+  padding: 0 18px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 900 16px/1 var(--display);
+  cursor: pointer;
+}
+
+.complete-process-open:hover { background: var(--ink); color: var(--paper); }
+.complete-process-open:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.complete-shelf-note {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.complete-shelf-note b { font-size: 19px; }
+
+@media (max-height: 700px) {
+  .join-phone-canvas:has(.join-complete) .join-header { height: 76px; padding-top: 12px; }
+  .join-phone-canvas:has(.join-complete) .join-content { height: calc(100dvh - 76px); }
+  .join-complete { padding-top: 12px; }
+  .complete-heading h1 { font-size: 28px; }
+  .join-certificate { width: min(68cqw, 278px); margin-top: 10px; grid-template-rows: 46px minmax(0, 1fr) auto; }
+  .join-certificate-photo { margin: 10px 16px 8px; }
+  .join-certificate-id { padding: 10px 14px; }
+  .join-certificate-id strong { font-size: 44px; }
+  .complete-shelf-note { margin-top: 8px; }
+  .complete-process-open { min-height: 48px; font-size: 15px; }
+}

@@ -1,0 +1,89 @@
+@import 'tailwindcss';
+@import '../components/display/styles/stage.css';
+@import '../components/display/styles/workbench.css';
+@import '../components/display/styles/oven.css';
+@import '../components/display/styles/oven-effects.css';
+@import '../components/display/styles/showcase.css';
+@import '../components/display/styles/card.css';
+@import '../components/display/styles/certificate.css';
+@import '../components/display/styles/gallery.css';
+@import '../components/display/styles/dev-panel.css';
+@import '../components/styleguide/styleguide.css';
+@import './join/_shared/join-shell.css';
+@import './join/_shared/join-picker.css';
+@import './join/_shared/join-steps.css';
+@import './join/_shared/completion.css';
+@import './join/_shared/phone-sheet.css';
+@import './join/_variants/join-variants.css';
+@import '../components/demo/demo-shell.css';
+@import '../components/demo/demo-phone.css';
+@import '../components/nav/nav.css';
+@import './index.css';
+
+:root {
+  --ava: #e84142;
+  --ember: #b32b2c;
+  --paper: #f7f1e8;
+  --ink: #17110f;
+  --gold: #d9a441;
+  --text-1: 24px;
+  --text-2: 32px;
+  --text-3: 40px;
+  --text-4: 56px;
+  --text-5: 72px;
+  --line-thin: 2px;
+  --line-thick: 4px;
+  --radius-small: 8px;
+  --radius-arch: 160px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-move: cubic-bezier(0.45, 0, 0.20, 1);
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-heat: cubic-bezier(0.37, 0, 0.63, 1);
+  --time-move: 720ms;
+  --time-settle-gap: 120ms;
+  --time-card-drop: 480ms;
+  --time-counter: 320ms;
+  --time-shelf-shadow: 240ms;
+  --time-slot-light: 840ms;
+  --time-showcase-complete: 1200ms;
+  --time-oven-empty: 3600ms;
+  --time-oven-enter: 220ms;
+  --time-oven-settle: 280ms;
+  --time-oven-bake: 1800ms;
+  --time-oven-complete: 1060ms;
+  --time-heat-line-empty: 2400ms;
+  --time-heat-line-active: 1600ms;
+  --time-heat-line-return: 920ms;
+  --display: var(--font-sign-latin), var(--font-sign-korean), sans-serif;
+  --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+
+* { box-sizing: border-box; font-synthesis: none; }
+
+::selection { background: var(--ava); color: var(--paper); }
+
+input,
+textarea { caret-color: var(--ava); }
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--ink);
+  color: var(--ink);
+}
+
+button,
+select { font: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

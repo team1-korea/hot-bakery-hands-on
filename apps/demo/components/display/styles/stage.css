@@ -1,0 +1,120 @@
+.display-viewport {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.display-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  transform-origin: center;
+  background: var(--paper);
+}
+
+.display-canvas > div { width: 100%; height: 100%; }
+
+.bakery-scene,
+.slides-shell { width: 100%; height: 100%; }
+
+.top-bar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  height: 88px;
+  padding: 0 32px;
+  border-bottom: var(--line-thin) solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.brand-lockup { display: flex; align-items: center; min-width: 0; gap: 16px; }
+
+.brand-mark {
+  display: block;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+}
+
+.brand-lockup > strong {
+  font: 900 var(--text-2)/1 var(--display);
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.micro-label {
+  font: 700 var(--text-1)/1.2 var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bakery-floor {
+  display: grid;
+  width: 100%;
+  height: calc(100% - 88px);
+  grid-template-columns: 520px minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--paper);
+}
+
+.production-wall {
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  grid-template-rows: 650px 342px;
+  overflow: hidden;
+  border-right: var(--line-thick) solid var(--ink);
+  background: var(--ava);
+}
+
+.zone { position: relative; min-width: 0; height: 100%; overflow: hidden; }
+
+.zone-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  height: 96px;
+}
+
+.zone-note {
+  display: block;
+  color: rgb(23 17 15 / .58);
+  font: 700 var(--text-1)/1 var(--display);
+}
+
+.zone-heading h2 {
+  margin: 10px 0 0;
+  font: 900 var(--text-3)/1 var(--display);
+  letter-spacing: -0.04em;
+}
+
+.zone-heading.is-note-free h2 { margin-top: calc(var(--text-1) + 10px); }
+
+.zone-count {
+  min-width: 72px;
+  padding-top: 20px;
+  color: var(--ink);
+  text-align: right;
+  font: 900 var(--text-3)/1 var(--display);
+}
+
+.zone-count small { margin-left: 8px; font: 700 var(--text-1)/1 var(--mono); }
+.slides-shell { background: var(--paper); }
+.slides-top-bar { border-bottom-color: var(--ink); }
+
+.slide-canvas {
+  position: relative;
+  width: calc(100% - 160px);
+  height: calc(100% - 176px);
+  margin: 40px 80px;
+  border: var(--line-thick) solid var(--ink);
+  background: var(--paper);
+}
+
+.slide-canvas > .micro-label { position: absolute; top: 24px; right: 24px; color: var(--ember); }

@@ -1,0 +1,108 @@
+.workbench {
+  --queue-card-width: 180px;
+  width: 100%;
+  padding: 0 32px 32px;
+  background: transparent;
+}
+
+.workbench.has-qr { --queue-card-width: 180px; }
+
+.workbench-surface {
+  width: 100%;
+  height: 100%;
+  padding: 16px 20px 18px;
+  overflow: hidden;
+  border: var(--line-thin) solid var(--ink);
+  background: var(--paper);
+}
+
+.workbench-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  height: 52px;
+  border-bottom: var(--line-thin) solid rgb(23 17 15 / .24);
+}
+
+.workbench-heading h2,
+.workbench-heading strong {
+  margin: 0;
+  font: 900 var(--text-2)/1 var(--display);
+  letter-spacing: -.04em;
+}
+
+.workbench-content {
+  display: grid;
+  height: 220px;
+  padding-top: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.workbench.has-qr .workbench-content { grid-template-columns: 152px minmax(0, 1fr); }
+
+.workbench-grid {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  height: 206px;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.queue-card-position {
+  position: relative;
+  width: var(--queue-card-width);
+  height: 206px;
+  flex: 0 0 var(--queue-card-width);
+}
+
+.queue-card-position + .queue-card-position {
+  margin-left: calc((var(--queue-card-width) - 28px) * -1);
+}
+
+.queue-card-position.is-buried {
+  position: absolute;
+  left: 50%;
+  margin-left: 0;
+  transform: translateX(-50%);
+}
+
+.queue-card-position.is-buried + .queue-card-position { margin-left: 0; }
+.workbench-grid .queue-card-position:not(:last-child) .card-caption { visibility: hidden; }
+
+.queue-card-placeholder,
+.oven-card-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.qr-position { position: relative; z-index: 3; width: 152px; height: 206px; }
+
+.qr-block {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding-top: 2px;
+  background: var(--paper);
+  flex-direction: column;
+}
+
+.qr-code { width: 144px; height: 144px; flex: 0 0 auto; }
+
+.qr-copy {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.qr-copy strong {
+  font: 900 var(--text-1)/1 var(--display);
+  letter-spacing: -.04em;
+}

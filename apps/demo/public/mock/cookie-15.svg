@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900">
+  <rect width="600" height="900" fill="#E84142"/><rect x="48" y="48" width="504" height="804" fill="#F7F1E8" stroke="#17110F" stroke-width="18"/>
+  <circle cx="300" cy="450" r="210" fill="#D9A441" stroke="#17110F" stroke-width="18"/><path d="M200 450h200M300 350v200" stroke="#B32B2C" stroke-width="34"/>
+  <text x="300" y="800" text-anchor="middle" fill="#17110F" font-family="Arial Black, sans-serif" font-size="34">PORTRAIT CROP</text>
+</svg>
