@@ -56,3 +56,49 @@ textarea { caret-color: var(--ava); }
 
 img,
 svg { display: block; max-width: 100%; }
+
+/*
+ * 오류와 없는 주소.
+ * 휴대폰에서도 행사장 TV에서도 뜰 수 있어서 글자 크기를 화면 폭에 맡긴다.
+ */
+.oops {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 32px;
+  gap: 8px;
+  text-align: center;
+}
+
+.oops-mark {
+  margin: 0 0 24px;
+  color: var(--ava);
+  font: 900 clamp(14px, 2.2vw, 22px)/1 var(--display);
+  letter-spacing: 0.14em;
+}
+
+.oops h1 {
+  margin: 0;
+  font: 900 clamp(34px, 6vw, 72px)/1.05 var(--display);
+  letter-spacing: -0.04em;
+}
+
+.oops-note {
+  margin: 0;
+  color: rgb(23 17 15 / .62);
+  font: 700 clamp(15px, 2.4vw, 26px)/1.5 var(--display);
+}
+
+.oops-button {
+  display: inline-block;
+  margin-top: 28px;
+  padding: 16px 32px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--ink);
+  color: var(--paper);
+  font: 900 clamp(16px, 2.4vw, 26px)/1 var(--display);
+  text-decoration: none;
+}
