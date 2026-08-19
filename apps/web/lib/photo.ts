@@ -1,3 +1,5 @@
+import { ApiError } from './api/client';
+
 const MAX_EDGE = 1280;
 const QUALITY = 0.82;
 
@@ -7,7 +9,16 @@ const QUALITY = 0.82;
  * `imageOrientation: 'from-image'`가 EXIF 회전을 적용하므로 사진이 눕지 않는다.
  */
 export async function preparePhoto(file: File): Promise<{ blob: Blob; previewUrl: string }> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  /*
+   * 브라우저가 못 읽는 형식이면 여기서 걸린다.
+   * "잠시 후 다시 시도"라고 말하면 안 된다. 다시 시도해도 같은 파일은 계속 실패한다.
+   */
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    throw new ApiError('INVALID_PHOTO', '이 사진은 열지 못했어요. 다시 찍어 주세요.');
+  }
   const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
@@ -17,14 +28,14 @@ export async function preparePhoto(file: File): Promise<{ blob: Blob; previewUrl
   canvas.height = height;
 
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('canvas 2d context를 만들 수 없습니다.');
+  if (!context) throw new ApiError('INTERNAL', '사진을 준비하지 못했어요. 다시 시도해 주세요.');
   context.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
   const blob = await new Promise<Blob | null>((resolve) => {
     canvas.toBlob(resolve, 'image/jpeg', QUALITY);
   });
-  if (!blob) throw new Error('사진을 변환하지 못했습니다.');
+  if (!blob) throw new ApiError('INVALID_PHOTO', '사진을 변환하지 못했어요. 다시 찍어 주세요.');
 
   return { blob, previewUrl: URL.createObjectURL(blob) };
 }
