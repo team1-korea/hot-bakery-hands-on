@@ -7,5 +7,13 @@ import { getState } from '@/lib/server/store';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  return NextResponse.json<StateResponse>(getState());
+  const state = getState();
+  const sanitized: StateResponse = {
+    ...state,
+    entries: state.entries.map((entry) => ({
+      ...entry,
+      failureReason: null,
+    })),
+  };
+  return NextResponse.json<StateResponse>(sanitized);
 }
