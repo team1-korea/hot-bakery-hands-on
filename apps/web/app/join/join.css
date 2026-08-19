@@ -127,15 +127,69 @@
 }
 .join-photo img { width: 100%; height: 100%; object-fit: cover; }
 .join-photo p { max-width: 20ch; color: color-mix(in srgb, var(--ink) 60%, transparent); font-size: 15px; font-weight: 700; text-align: center; }
+/* 조정 화면. 틀 안에 보이는 것이 그대로 증서가 된다. */
+.photo-crop { margin-top: 20px; }
+.photo-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border: var(--line-thick) solid var(--ink);
+  border-radius: var(--radius-small);
+  overflow: hidden;
+  /* 축소해 생긴 빈 자리는 발행물에서도 이 색으로 채워진다. 미리보기와 결과가 같아야 한다. */
+  background: var(--paper);
+  touch-action: none;
+  cursor: grab;
+}
+.photo-frame:active { cursor: grabbing; }
+.photo-frame img { position: absolute; top: 0; left: 0; max-width: none; user-select: none; }
+.photo-frame.is-empty { display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ink) 6%, transparent); cursor: default; }
+.photo-frame.is-empty p { max-width: 20ch; color: color-mix(in srgb, var(--ink) 60%, transparent); font-size: 15px; font-weight: 700; text-align: center; }
+
+/*
+ * 채워야 할 목표 범위를 네 귀퉁이로만 짚어 준다. 사방에 선을 두르면 사진을 가린다.
+ * 테두리보다 안쪽에 둬야 "여기까지 채우라"는 말이 되고, 틀 경계를 되풀이하지 않는다.
+ * 어떤 사진 위에서도 같게 보이도록 흰 선에 그림자를 깐다.
+ */
+.photo-guide { position: absolute; inset: 0; pointer-events: none; }
+.photo-guide i {
+  position: absolute;
+  width: 13%;
+  height: 13%;
+  border: 3px solid #fff;
+  filter: drop-shadow(0 0 3px rgb(0 0 0 / .55));
+  opacity: .9;
+}
+.photo-guide i:nth-child(1) { top: 8%; left: 8%; border-right: 0; border-bottom: 0; }
+.photo-guide i:nth-child(2) { top: 8%; right: 8%; border-left: 0; border-bottom: 0; }
+.photo-guide i:nth-child(3) { bottom: 8%; left: 8%; border-right: 0; border-top: 0; }
+.photo-guide i:nth-child(4) { bottom: 8%; right: 8%; border-left: 0; border-top: 0; }
+
+.photo-fit {
+  display: block;
+  min-height: 40px;
+  margin: 10px 0 0 auto;
+  padding: 0 14px;
+  border: var(--line-thin) solid color-mix(in srgb, var(--ink) 22%, transparent);
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 72%, transparent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* `.join-step > p`가 (0,1,1)이라 같은 자리에서 이긴다. 여기도 자식 결합자로 맞춘다. */
+.join-step > .join-guide { max-width: none; margin: 12px 0 0; color: color-mix(in srgb, var(--ink) 62%, transparent); font-size: 14px; font-weight: 700; line-height: 1.5; }
+
 .join-photo-sources { display: flex; gap: 10px; }
 /* 두 길을 나란히 둬서 어느 쪽도 숨은 선택지로 보이지 않게 한다. */
 .join-photo-sources .join-button { flex: 1; min-width: 0; padding: 0 8px; font-size: 15px; }
 .join-photo-input { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-.join-review { display: grid; margin-top: 24px; grid-template-columns: 96px minmax(0, 1fr); gap: 16px; align-items: center; }
-.join-review img { width: 96px; height: 96px; border: var(--line-thin) solid var(--ink); border-radius: var(--radius-small); object-fit: cover; }
-.join-review strong { display: block; font-size: 24px; letter-spacing: -.03em; }
-.join-review small { display: block; margin-top: 6px; color: color-mix(in srgb, var(--ink) 66%, transparent); font-size: 14px; font-weight: 700; line-height: 1.4; word-break: keep-all; }
+.join-review { display: grid; margin-top: 20px; gap: 12px; justify-items: center; }
+.join-review img { width: 100%; aspect-ratio: 1; border: var(--line-thick) solid var(--ink); border-radius: var(--radius-small); object-fit: cover; }
+.join-review strong { display: block; font-size: 22px; letter-spacing: -.03em; word-break: keep-all; }
+.join-step > .join-warn { max-width: none; margin: 16px 0 0; color: var(--ember); font-size: 15px; font-weight: 700; line-height: 1.55; }
 
 .join-wait { display: flex; padding: 32px 20px max(20px, env(safe-area-inset-bottom)); flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .join-wait h1 { margin: 0; font-size: clamp(32px, 9vw, 44px); font-weight: 900; line-height: 1.05; letter-spacing: -.035em; word-break: keep-all; }

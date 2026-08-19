@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 
 import { ApiError, getMyEntry, getState, requestCode, submitEntry, verifyCode } from '@/lib/api/client';
 import { MAX_ENTRIES, type Entry } from '@/lib/api/types';
-import { preparePhoto } from '@/lib/photo';
+import { cropPhoto, loadPhoto, type CropRect, type PhotoSource } from '@/lib/photo';
 
 import { JoinShell } from './JoinShell';
 import { CodeStep, EmailStep, NicknameStep, PhotoStep, ReviewStep } from './JoinSteps';
@@ -27,6 +27,8 @@ export function JoinFlow() {
   const [code, setCode] = useState('');
   const [mockCode, setMockCode] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
+  const [source, setSource] = useState<PhotoSource | null>(null);
+  const [crop, setCrop] = useState<CropRect | null>(null);
   const [photo, setPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,6 +58,10 @@ export function JoinFlow() {
   useEffect(() => () => {
     if (photo) URL.revokeObjectURL(photo.previewUrl);
   }, [photo]);
+
+  useEffect(() => () => {
+    if (source) URL.revokeObjectURL(source.url);
+  }, [source]);
 
   const run = async (task: () => Promise<void>) => {
     setBusy(true);
@@ -89,13 +95,21 @@ export function JoinFlow() {
     if (!file) return;
 
     void run(async () => {
-      const prepared = await preparePhoto(file);
-      setPhoto((current) => {
-        if (current) URL.revokeObjectURL(current.previewUrl);
-        return prepared;
-      });
+      // 새 사진을 고르면 맞춰 둔 자리는 의미가 없다. 가운데에서 다시 시작한다.
+      setSource(await loadPhoto(file));
+      setCrop(null);
     });
   };
+
+  /* 조정 화면이 매 움직임마다 부른다. 참조가 바뀌면 그쪽 effect가 계속 돌아 안정시킨다. */
+  const changeCrop = useCallback((rect: CropRect) => setCrop(rect), []);
+
+  const confirmPhoto = () => run(async () => {
+    if (!source || !crop) throw new ApiError('INVALID_PHOTO', '쿠키 사진을 먼저 골라 주세요.');
+    const blob = await cropPhoto(source, crop);
+    setPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
+    setStage('nickname');
+  });
 
   const submit = () => run(async () => {
     if (!photo) throw new ApiError('INVALID_PHOTO', '쿠키 사진을 선택해 주세요.');
@@ -155,11 +169,13 @@ export function JoinFlow() {
       ) : null}
       {stage === 'photo' ? (
         <PhotoStep
-          previewUrl={photo?.previewUrl ?? null}
+          source={source}
+          crop={crop}
           error={error}
           busy={busy}
           onPhoto={choosePhoto}
-          onNext={() => setStage('nickname')}
+          onCrop={changeCrop}
+          onNext={confirmPhoto}
         />
       ) : null}
       {stage === 'nickname' ? (
