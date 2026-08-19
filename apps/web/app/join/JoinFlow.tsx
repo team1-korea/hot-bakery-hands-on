@@ -1,0 +1,155 @@
+'use client';
+
+import { useEffect, useState, type ChangeEvent } from 'react';
+
+import { ApiError, getMyEntry, requestCode, submitEntry, verifyCode } from '@/lib/api/client';
+import type { Entry } from '@/lib/api/types';
+import { preparePhoto } from '@/lib/photo';
+
+import { JoinShell } from './JoinShell';
+import { CodeStep, EmailStep, NicknameStep, PhotoStep, ReviewStep } from './JoinSteps';
+import { SubmittedView } from './SubmittedView';
+
+type Stage = 'loading' | 'email' | 'code' | 'photo' | 'nickname' | 'review';
+
+const STEP_OF: Record<Exclude<Stage, 'loading'>, number> = {
+  email: 1,
+  code: 1,
+  photo: 2,
+  nickname: 3,
+  review: 4,
+};
+
+export function JoinFlow() {
+  const [stage, setStage] = useState<Stage>('loading');
+  const [entry, setEntry] = useState<Entry | null>(null);
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [mockCode, setMockCode] = useState<string | null>(null);
+  const [nickname, setNickname] = useState('');
+  const [photo, setPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // 새로고침하거나 화면이 꺼졌다 켜져도 제출한 사람은 대기 화면으로 돌아온다.
+  useEffect(() => {
+    getMyEntry()
+      .then((existing) => {
+        if (existing) setEntry(existing);
+        else setStage('photo');
+      })
+      .catch(() => setStage('email'));
+  }, []);
+
+  useEffect(() => () => {
+    if (photo) URL.revokeObjectURL(photo.previewUrl);
+  }, [photo]);
+
+  const run = async (task: () => Promise<void>) => {
+    setBusy(true);
+    setError(null);
+    try {
+      await task();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : '잠시 후 다시 시도해 주세요.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const sendCode = () => run(async () => {
+    const result = await requestCode(email.trim());
+    setMockCode(result.mockCode ?? null);
+    setCode('');
+    setStage('code');
+  });
+
+  const confirmCode = () => run(async () => {
+    await verifyCode(email.trim(), code);
+    const existing = await getMyEntry();
+    if (existing) setEntry(existing);
+    else setStage('photo');
+  });
+
+  const choosePhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    void run(async () => {
+      const prepared = await preparePhoto(file);
+      setPhoto((current) => {
+        if (current) URL.revokeObjectURL(current.previewUrl);
+        return prepared;
+      });
+    });
+  };
+
+  const submit = () => run(async () => {
+    if (!photo) throw new ApiError('INVALID_PHOTO', '쿠키 사진을 선택해 주세요.');
+    setEntry(await submitEntry({ nickname: nickname.trim(), photo: photo.blob }));
+  });
+
+  if (entry) {
+    return (
+      <JoinShell step={4}>
+        <SubmittedView initialEntry={entry} />
+      </JoinShell>
+    );
+  }
+
+  if (stage === 'loading') {
+    return (
+      <JoinShell step={1}>
+        <section className="join-step" />
+      </JoinShell>
+    );
+  }
+
+  return (
+    <JoinShell step={STEP_OF[stage]}>
+      {stage === 'email' ? (
+        <EmailStep email={email} error={error} busy={busy} onEmail={setEmail} onNext={sendCode} />
+      ) : null}
+      {stage === 'code' ? (
+        <CodeStep
+          email={email}
+          code={code}
+          error={error}
+          busy={busy}
+          hint={mockCode ? `목 서버 인증 코드: ${mockCode}` : null}
+          onCode={setCode}
+          onNext={confirmCode}
+          onBack={() => setStage('email')}
+        />
+      ) : null}
+      {stage === 'photo' ? (
+        <PhotoStep
+          previewUrl={photo?.previewUrl ?? null}
+          error={error}
+          busy={busy}
+          onPhoto={choosePhoto}
+          onNext={() => setStage('nickname')}
+        />
+      ) : null}
+      {stage === 'nickname' ? (
+        <NicknameStep
+          nickname={nickname}
+          onNickname={setNickname}
+          onNext={() => setStage('review')}
+          onBack={() => setStage('photo')}
+        />
+      ) : null}
+      {stage === 'review' ? (
+        <ReviewStep
+          nickname={nickname}
+          previewUrl={photo?.previewUrl ?? null}
+          error={error}
+          busy={busy}
+          onSubmit={submit}
+          onBack={() => setStage('nickname')}
+        />
+      ) : null}
+    </JoinShell>
+  );
+}
