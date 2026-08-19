@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { logoutOperator, updateEntry, updateShow } from '@/lib/api/client';
+import { USING_MOCK_SERVER, logoutOperator, updateEntry, updateShow } from '@/lib/api/client';
 import { MAX_ENTRIES, SHELF_SLOTS, type Entry, type EntryStatus } from '@/lib/api/types';
 import { useEventState } from '@/lib/useEventState';
 
@@ -64,7 +64,8 @@ export function AdminBoard() {
             <span>제출 <b>{state.counts.submitted}</b> / {MAX_ENTRIES}</span>
             <span>진열 <b>{state.counts.minted}</b></span>
             <span data-tone={failedCount > 0 ? 'alert' : undefined}>실패 <b>{failedCount}</b></span>
-            <button className="admin-button" type="button" onClick={logout}>나가기</button>
+            {USING_MOCK_SERVER ? <span className="admin-mock">목 서버</span> : null}
+          <button className="admin-button" type="button" onClick={logout}>나가기</button>
           </div>
         </header>
 

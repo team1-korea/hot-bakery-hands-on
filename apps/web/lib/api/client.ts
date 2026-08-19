@@ -8,6 +8,12 @@ import type { ApiErrorBody, ApiErrorCode, Entry, Session, ShowState, StateRespon
  */
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 
+/**
+ * 백엔드 주소가 없으면 같은 앱의 목 라우트를 쓰고 있다는 뜻이다.
+ * 이때 `tokenId`와 `txHash`는 실제 발행 결과가 아니므로 화면이 진짜인 척하지 않아야 한다.
+ */
+export const USING_MOCK_SERVER = BASE.length === 0;
+
 export class ApiError extends Error {
   constructor(readonly code: ApiErrorCode, message: string) {
     super(message);

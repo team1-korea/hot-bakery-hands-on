@@ -3,6 +3,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
 
+import { USING_MOCK_SERVER } from '@/lib/api/client';
 import { SHELF_SLOTS, type Entry } from '@/lib/api/types';
 
 import { CookieCard } from './CookieCard';
@@ -90,7 +91,7 @@ export function Showcase({
               >
                 <span className="slot-light" aria-hidden="true" />
                 {entry ? (
-                  entry.txHash ? (
+                  entry.txHash && !USING_MOCK_SERVER ? (
                     <a
                       className="shelf-card-link"
                       href={`${C_CHAIN_EXPLORER_TX}/${encodeURIComponent(entry.txHash)}`}
