@@ -13,7 +13,11 @@ hot-bakery-hands-on/
 
 Next.js 서비스는 루트가 아니라 `apps/web/`에 두어 컨트랙트 패키지와 배포 주기를 분리합니다.
 
-- 시스템 API 계약: [API.md](./API.md) — 프론트·백엔드·컨트랙트 담당자가 함께 보는 문서
+- **작업 전에 먼저**: [AGENTS.md](./AGENTS.md) — 문서 우선순위와 이미 확정된 결정
+- API 계약: [API_REFERENCE.md](./API_REFERENCE.md) — 엔드포인트, 요청·응답, 오류 코드
+- 백엔드 구현: [PIPELINE.md](./PIPELINE.md) — 제출부터 민팅까지
+- 결정 기록: [DECISIONS.md](./DECISIONS.md) — 무엇을 왜 정했는지
+- 설계 배경과 역할 경계: [API.md](./API.md)
 - 화면 설명과 실행 방법: [apps/web/README.md](./apps/web/README.md)
 
 `apps/demo/`는 참가자 화면과 행사장 TV의 흐름을 확정하기 위해 만든 프로토타입입니다. 모든 상태가
