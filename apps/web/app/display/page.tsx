@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 
@@ -7,6 +8,12 @@ import './display.css';
 
 /** 행사장에서 켜 두는 화면이라 캐시하지 않는다. */
 export const dynamic = 'force-dynamic';
+
+/** 행사장 안에서만 쓰는 화면이다. 검색 결과에 나올 이유가 없다. */
+export const metadata: Metadata = {
+  title: '행사장 화면 · Avalanche Bakery',
+  robots: { index: false, follow: false },
+};
 
 async function joinUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL;
