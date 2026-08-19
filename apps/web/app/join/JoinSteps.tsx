@@ -99,11 +99,19 @@ export function PhotoStep({ previewUrl, error, busy, onPhoto, onNext }: {
   onPhoto: (event: ChangeEvent<HTMLInputElement>) => void;
   onNext: () => void;
 }) {
-  const input = useRef<HTMLInputElement>(null);
+  /*
+   * 사진을 가져오는 길을 둘로 나눠 놓는다.
+   *
+   * 하나의 입력에 `capture`를 걸면 카메라만 열리고 앨범이 막힌다. 아예 빼면 이번엔
+   * 무엇이 열릴지 기기마다 달라진다. 참가자가 누르기 전에 무엇이 열릴지 알게 하려고
+   * 입력을 둘 두고 버튼도 둘 둔다.
+   */
+  const camera = useRef<HTMLInputElement>(null);
+  const album = useRef<HTMLInputElement>(null);
 
   return (
     <section className="join-step">
-      <h1>쿠키 사진을<br />한 장 찍어 주세요</h1>
+      <h1>쿠키 사진을<br />한 장 올려 주세요</h1>
       <p>이 사진이 그대로 증서에 담겨요.</p>
 
       <div className="join-photo">
@@ -119,17 +127,29 @@ export function PhotoStep({ previewUrl, error, busy, onPhoto, onNext }: {
 
       <input
         className="join-photo-input"
-        ref={input}
+        ref={camera}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={onPhoto}
       />
+      <input
+        className="join-photo-input"
+        ref={album}
+        type="file"
+        accept="image/*"
+        onChange={onPhoto}
+      />
 
       <div className="join-actions">
-        <button className="join-button" type="button" onClick={() => input.current?.click()}>
-          {previewUrl ? '다시 찍기' : '카메라 열기'}
-        </button>
+        <div className="join-photo-sources">
+          <button className="join-button" type="button" disabled={busy} onClick={() => camera.current?.click()}>
+            {previewUrl ? '다시 찍기' : '카메라로 찍기'}
+          </button>
+          <button className="join-button" type="button" disabled={busy} onClick={() => album.current?.click()}>
+            앨범에서 고르기
+          </button>
+        </div>
         <button
           className="join-button"
           data-tone="primary"
