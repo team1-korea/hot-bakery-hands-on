@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type ChangeEvent } from 'react';
 
-import { ApiError, getMyEntry, requestCode, submitEntry, verifyCode } from '@/lib/api/client';
-import type { Entry } from '@/lib/api/types';
+import { ApiError, getMyEntry, getState, requestCode, submitEntry, verifyCode } from '@/lib/api/client';
+import { MAX_ENTRIES, type Entry } from '@/lib/api/types';
 import { preparePhoto } from '@/lib/photo';
 
 import { JoinShell } from './JoinShell';
@@ -30,6 +30,7 @@ export function JoinFlow() {
   const [photo, setPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [full, setFull] = useState(false);
 
   // 새로고침하거나 화면이 꺼졌다 켜져도 제출한 사람은 대기 화면으로 돌아온다.
   useEffect(() => {
@@ -39,6 +40,17 @@ export function JoinFlow() {
         else setStage('photo');
       })
       .catch(() => setStage('email'));
+
+    /*
+     * 자리가 남았는지 들어오자마자 확인한다.
+     *
+     * 만석 판단의 주인은 서버다(`SHOWCASE_FULL`). 다만 서버만 믿으면 참가자는 메일을
+     * 인증하고 사진을 찍고 이름까지 쓴 뒤에야 자리가 없다는 말을 듣는다. 여기서 미리
+     * 알려 주고, 확인에 실패하면 그냥 평소대로 진행시킨다.
+     */
+    getState()
+      .then((state) => setFull(state.counts.submitted >= MAX_ENTRIES))
+      .catch(() => {});
   }, []);
 
   useEffect(() => () => {
@@ -94,6 +106,24 @@ export function JoinFlow() {
     return (
       <JoinShell step={4}>
         <SubmittedView initialEntry={entry} />
+      </JoinShell>
+    );
+  }
+
+  /*
+   * 내 제출 내역 조회가 끝난 뒤에만 만석을 알린다.
+   * 두 요청은 따로 돌아오므로, 먼저 온 만석 응답을 그대로 믿으면 이미 제출한 사람이
+   * 자기 대기 화면 직전에 "자리가 없다"는 말을 한 번 보게 된다.
+   */
+  if (full && stage !== 'loading') {
+    return (
+      <JoinShell step={0}>
+        <section className="join-wait">
+          <h1>오늘은 자리가<br />다 찼어요</h1>
+          <p className="join-closed">
+            진열장 {MAX_ENTRIES}칸이 모두 찼습니다.<br />운영자에게 말씀해 주세요.
+          </p>
+        </section>
       </JoinShell>
     );
   }

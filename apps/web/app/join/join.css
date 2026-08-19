@@ -163,3 +163,4 @@
 .join-certificate-foot { display: flex; padding: 16px; align-items: baseline; justify-content: space-between; gap: 12px; }
 .join-certificate-foot strong { font-size: 22px; letter-spacing: -.03em; word-break: keep-all; }
 .join-certificate-foot b { color: var(--gold); font: 700 22px/1 var(--mono); }
+.join-closed { margin: 20px 0 0; font-size: 17px; font-weight: 700; line-height: 1.55; color: rgb(23 17 15 / .66); word-break: keep-all; }
