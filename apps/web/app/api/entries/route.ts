@@ -20,7 +20,7 @@ export async function POST(request: Request) {
   const photo = form.get('photo');
 
   if (!nickname || nickname.length > 12) {
-    return fail('INVALID_NICKNAME', '이름은 1~12자로 적어 주세요.');
+    return fail('INVALID_NICKNAME', '닉네임은 1~12자로 적어 주세요.');
   }
   if (!(photo instanceof File) || photo.size === 0) {
     return fail('INVALID_PHOTO', '쿠키 사진을 선택해 주세요.');

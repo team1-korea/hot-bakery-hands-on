@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 
 import { BrandMark } from '@/components/BrandMark';
 
-export const JOIN_STEPS = ['로그인', '사진', '이름', '제출'] as const;
+export const JOIN_STEPS = ['로그인', '사진', '닉네임', '제출'] as const;
 
 /** `step`이 0이면 참가 흐름 밖이다. 밟을 수 없는 단계를 막대로 약속하지 않는다. */
 export function JoinShell({ step, children }: { step: number; children: ReactNode }) {

@@ -118,7 +118,7 @@ null
 | `photo` | 파일 | 4MB 이하, `image/jpeg` `image/png` `image/webp` |
 | `nickname` | 문자열 | 1~12자, 앞뒤 공백 제거 |
 
-프론트가 이미 긴 변 1280px JPEG로 재인코딩해서 보냅니다. 실제로 오는 것은 `image/jpeg` 200KB 안팎이며 HEIC는 올라오지 않습니다.
+프론트가 정사각형으로 잘라 긴 변 1080px JPEG로 재인코딩해서 보냅니다. 실제로 오는 것은 `image/jpeg` 200KB 안팎이며 HEIC는 올라오지 않습니다.
 
 ```http
 POST /api/entries

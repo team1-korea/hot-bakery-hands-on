@@ -139,7 +139,7 @@ export function AdminBoard() {
             <tr>
               <th>칸</th>
               <th>사진</th>
-              <th>이름</th>
+              <th>닉네임</th>
               <th>상태</th>
               <th>증서</th>
               <th>조작</th>
