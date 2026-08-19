@@ -21,10 +21,12 @@ const WORKBENCH_STATUSES = new Set<EntryStatus>([
 
 export function BakeryScene({
   state,
+  stale,
   qrSvg,
   onShelfPage,
 }: {
   state: StateResponse;
+  stale: boolean;
   qrSvg: string;
   onShelfPage: (page: number) => void;
 }) {
@@ -60,7 +62,7 @@ export function BakeryScene({
 
   return (
     <section className="bakery-scene">
-      <TopBar />
+      <TopBar stale={stale} />
       <LayoutGroup id="bakery-entry-flow">
         <motion.div
           className="bakery-floor"

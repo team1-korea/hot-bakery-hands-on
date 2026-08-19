@@ -23,7 +23,7 @@ function useStageScale() {
 }
 
 export function DisplayStage({ qrSvg }: { qrSvg: string }) {
-  const state = useEventState();
+  const { state, stale } = useEventState();
   const scale = useStageScale();
 
   return (
@@ -32,6 +32,7 @@ export function DisplayStage({ qrSvg }: { qrSvg: string }) {
         <div className="display-canvas" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
           <BakeryScene
             state={state}
+            stale={stale}
             qrSvg={qrSvg}
             onShelfPage={(page) => void updateShow({ shelfPage: page })}
           />
