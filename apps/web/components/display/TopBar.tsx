@@ -1,4 +1,10 @@
-export function TopBar() {
+/**
+ * `stale`는 상태를 못 받고 있다는 뜻이다.
+ *
+ * 끊긴 TV는 멀쩡해 보이는 옛날 화면을 계속 띄운다. 방금 제출한 참가자는 자기 쿠키가
+ * 왜 안 나오는지 모르고 운영자도 모른다. 그래서 이 알림은 뒷줄에서도 읽혀야 한다.
+ */
+export function TopBar({ stale = false }: { stale?: boolean }) {
   return (
     <header className="top-bar">
       <div className="brand-lockup">
@@ -8,6 +14,12 @@ export function TopBar() {
         </svg>
         <strong>AVALANCHE BAKERY</strong>
       </div>
+      {stale ? (
+        <p className="top-bar-offline" role="status">
+          <i aria-hidden="true" />
+          연결 끊김 — 화면이 멈춰 있습니다
+        </p>
+      ) : null}
     </header>
   );
 }

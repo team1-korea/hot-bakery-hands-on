@@ -26,7 +26,7 @@ function readableReason(reason: string) {
 }
 
 export function AdminBoard() {
-  const state = useEventState();
+  const { state, stale } = useEventState();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [failedOnly, setFailedOnly] = useState(false);
   const [zoomed, setZoomed] = useState<Entry | null>(null);
@@ -118,6 +118,12 @@ export function AdminBoard() {
           </button>
         </div>
       </div>
+
+      {stale ? (
+        <p className="admin-alert">
+          서버에서 응답이 없어요. 이 화면과 행사장 TV가 모두 멈춰 있습니다.
+        </p>
+      ) : null}
 
       {state.counts.submitted >= MAX_ENTRIES ? (
         <p className="admin-alert">진열장이 다 찼어요. 지금부터 참가자는 사진을 보낼 수 없습니다.</p>

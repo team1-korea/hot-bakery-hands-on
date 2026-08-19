@@ -118,3 +118,33 @@
 }
 
 .slide-canvas > .micro-label { position: absolute; top: 24px; right: 24px; color: var(--ember); }
+
+/* 연결이 끊긴 동안에만 나타난다. 정상일 때는 상단 바에 아무것도 늘지 않는다. */
+.top-bar-offline {
+  display: flex;
+  align-items: center;
+  margin: 0 0 0 auto;
+  padding: 10px 20px;
+  gap: 12px;
+  border: var(--line-thin) solid var(--ink);
+  background: var(--ava);
+  color: var(--paper);
+  font: 900 var(--text-2)/1 var(--display);
+  letter-spacing: -0.02em;
+}
+
+.top-bar-offline i {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--paper);
+  animation: offline-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes offline-pulse {
+  50% { opacity: .25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-bar-offline i { animation: none; }
+}
