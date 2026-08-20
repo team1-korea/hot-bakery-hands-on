@@ -66,16 +66,43 @@
 3. `API_REFERENCE.md`를 갱신한다
 4. 다른 담당자에게 알린다
 
+## 목 서버
+
+`apps/web/lib/server/store.ts`가 **백엔드 전체를 흉내내는 173줄**입니다. 참가자·카드·사진·화면
+상태를 `globalThis`에 얹은 메모리 저장소이고, `schedulePipeline()`이 `setTimeout`으로 굽는
+과정을 돌립니다. 덕분에 DB·Privy·Pinata·체인 없이 `npm run dev`만으로 전체 흐름이 돕니다.
+
+**프론트 담당자는 이것만으로 개발합니다.** 아래처럼 환경변수가 없으면 목, 있으면 실제로 붙는
+구조를 유지하세요. **프론트에 Postgres 설치를 요구하지 않습니다.**
+
+| 없으면 | 있으면 |
+|---|---|
+| `DATABASE_URL` → 메모리 | Postgres |
+| `PRIVY_APP_ID` → 목 인증 | Privy |
+| `PINATA_JWT` → 가짜 CID | 실제 핀 |
+
+목이 흉내내지 못하는 것은 [API.md](./API.md) 3절에 있습니다. 실제 구현으로 옮길 때
+`setTimeout`은 `after()`로 바꿔야 합니다 — 서버리스에서는 응답 후 함수가 얼어붙습니다.
+
 ## 커밋하지 않는 것
 
 비밀키, `.env`, keystore, Foundry 빌드 결과, 로컬 에이전트 문서. `.gitignore`를 확인하세요.
 
 ## 담당 경계
 
-| 영역 | 무엇 |
-|---|---|
-| 프론트엔드 | `apps/web/app/`, `components/`, Privy 로그인 연동 |
-| 백엔드 | `apps/web/app/api/`, DB, IPFS, 민팅 |
-| 컨트랙트 | `contracts/` — 배포된 컨트랙트는 변경하지 않습니다 |
+| 영역 | 무엇 | 담당 |
+|---|---|---|
+| 참가자·TV 화면 | `app/join/`, `app/display/`, `components/`, Privy 로그인 연동 | 프론트 |
+| 운영자 화면 | `app/admin/` — **화면과 API 둘 다** | 백엔드 |
+| 백엔드 | `app/api/`, DB, IPFS, 민팅 | 백엔드 |
+| API 계약 문서 | `API_REFERENCE.md`·`PIPELINE.md`·`DECISIONS.md` | 백엔드 |
+| 컨트랙트 | `contracts/` — 배포된 컨트랙트는 변경하지 않습니다 | — |
+
+**공용 파일**은 만드는 쪽이 재사용 가능한 형태로 내줍니다. 자기 화면 전용으로 가두지 마세요.
+
+| 파일 | 만드는 쪽 | 같이 쓰는 쪽 |
+|---|---|---|
+| `lib/photo.ts` — 자르기·프레임 합성 | 프론트 | 운영자 화면의 **대리 업로드**가 같은 합성을 씁니다 |
+| `lib/api/types.ts` — 응답 계약 | 백엔드가 문서로 정하고 프론트가 반영 | 양쪽 |
 
 `apps/demo/`는 흐름 확정용 프로토타입입니다. **더 이상 고치지 않습니다.**
