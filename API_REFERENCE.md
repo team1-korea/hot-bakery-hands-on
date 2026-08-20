@@ -6,6 +6,70 @@ Avalanche Bakery 백엔드가 제공하는 엔드포인트 목록입니다.
 - **타입 정본**: `apps/web/lib/api/types.ts`. 이 문서와 다르면 타입이 맞습니다.
 - **배경 설명**은 [API.md](./API.md), 컨트랙트 호출은 [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md).
 
+## 이 문서 읽는 법
+
+| 보는 사람 | 읽을 곳 |
+|---|---|
+| **참가자·TV 화면 담당** | 「프론트가 부르는 것」 → 「참가자」 → 「공개」 → 「타입」 → 「오류 형식」. **「운영자」 앞에서 멈추면 됩니다** |
+| **백엔드·운영자 화면 담당** | 전부 |
+
+---
+
+## 프론트가 부르는 것
+
+**전부 다섯 개**입니다. 운영자 화면을 뺀 것이고, 참가자 폰과 행사장 TV가 씁니다.
+
+### 참가자 폰 (`/join`)
+
+```
+구글 로그인 (Privy)          ← 백엔드 호출 없음
+        ↓
+POST /api/participants       닉네임 등록 → TV 작업대에 카드가 뜬다
+        ↓
+사진 촬영 · 자르기 · 프레임 합성   ← 전부 브라우저 안. 백엔드 호출 없음
+        ↓
+POST /api/entries            합성본 한 장 제출 → 카드가 오븐으로 들어간다
+        ↓
+GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진다
+```
+
+| 메서드 | 경로 | 인증 | 언제 |
+|---|---|---|---|
+| `POST` | `/api/participants` | 참가자 | 로그인·닉네임 직후 **한 번** |
+| `POST` | `/api/entries` | 참가자 | 합성이 끝난 뒤 **한 번** |
+| `GET` | `/api/entries` | 참가자 | 등록 후 **3초마다** |
+
+### 행사장 TV (`/display`)
+
+| 메서드 | 경로 | 인증 | 언제 |
+|---|---|---|---|
+| `GET` | `/api/state` | 없음 | **1초마다** |
+| `PATCH` | `/api/admin/show` | **운영자** | 진열장 쪽을 넘길 때 |
+
+> ⚠️ **TV를 켜기 전에 그 브라우저에서 `/admin` 로그인을 먼저 하세요.**
+> 진열장 페이저가 운영자 인증 엔드포인트를 부릅니다(`DisplayStage.tsx` → `updateShow`).
+> 로그인이 없으면 쪽 넘기기만 `401`로 실패합니다. 화면 표시 자체는 영향받지 않습니다.
+> 행사 당일 준비 체크리스트에 넣으세요.
+
+### 이미지
+
+**엔드포인트가 아닙니다.** `Entry.photoUrl`에 담겨 오는 URL을 `<img src>`에 그대로 쓰면 됩니다.
+그 값이 우리 라우트일 수도, Supabase Storage 공개 URL일 수도 있습니다. **프론트는 구별하지
+않습니다.** TV는 `next/image`를 `unoptimized`로 씁니다.
+
+`photoUrl`이 `null`이면 아직 사진을 안 낸 카드(`JOINED`)입니다. **오류가 아닙니다** —
+기본 쿠키 그림을 그리세요.
+
+### 폴링 주기
+
+| 화면 | 경로 | 주기 |
+|---|---|---|
+| TV | `GET /api/state` | 1초 |
+| 참가자 폰 | `GET /api/entries` | 3초 |
+| 운영자 화면 | `GET /api/state` | 1초 |
+
+캐시하지 마세요. `GET /api/state`는 `force-dynamic`입니다.
+
 ---
 
 ## 인증 방식
@@ -56,19 +120,21 @@ Authorization: Bearer <privy-access-token>
 
 ## 엔드포인트 목록
 
-| 메서드 | 경로 | 인증 | 용도 |
-|---|---|---|---|
-| `POST` | `/api/participants` | 참가자 | **등록.** 닉네임을 넘기고 카드를 만든다 |
-| `GET` | `/api/entries` | 참가자 | 내 제출 조회 |
-| `POST` | `/api/entries` | 참가자 | 합성 증서 제출 |
-| `GET` | `/api/state` | 없음 | TV·운영자 화면 폴링 |
-| `GET` | `/api/photos/{entryId}` | 없음 | 사진 바이트 |
-| `POST` | `/api/admin/session` | 없음 | 운영자 로그인 |
-| `GET` | `/api/admin/session` | 운영자 | 로그인 상태 확인 |
-| `DELETE` | `/api/admin/session` | 운영자 | 운영자 로그아웃 |
-| `PATCH` | `/api/admin/entries/{id}` | 운영자 | 카드 내리기·재시도 |
-| `POST` | `/api/admin/entries/{id}/photo` | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
-| `PATCH` | `/api/admin/show` | 운영자 | 앞 화면 전환 |
+| 메서드 | 경로 | 인증 | 부르는 화면 | 용도 |
+|---|---|---|---|---|
+| `POST` | `/api/participants` | 참가자 | 폰 | **등록.** 닉네임을 넘기고 카드를 만든다 |
+| `GET` | `/api/entries` | 참가자 | 폰 | 내 항목 조회 |
+| `POST` | `/api/entries` | 참가자 | 폰 | 합성 증서 제출 |
+| `GET` | `/api/state` | 없음 | **TV**·운영자 | 화면 폴링 |
+| `GET` | `/api/photos/{entryId}` | 없음 | 전부 | 증서 이미지 바이트 |
+| `PATCH` | `/api/admin/show` | 운영자 | **TV**·운영자 | 앞 화면 전환·쪽 넘기기 |
+| `POST` | `/api/admin/session` | 없음 | 운영자 | 로그인 |
+| `GET` | `/api/admin/session` | 운영자 | 운영자 | 로그인 상태 확인 |
+| `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
+| `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
+| `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
+
+**TV가 `PATCH /api/admin/show`를 부릅니다.** 그래서 TV 브라우저에도 운영자 로그인이 필요합니다.
 
 ---
 
@@ -271,7 +337,97 @@ Content-Type: image/jpeg
 
 ---
 
+## 타입
+
+### `Entry`
+
+```ts
+type Entry = {
+  id: string;
+  nickname: string;
+  status: EntryStatus;
+  photoUrl: string | null;         // 프론트가 합성한 증서 이미지. JOINED에서는 null
+  certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
+  tokenId: string | null;          // uint256이므로 문자열
+  txHash: string | null;
+  shelfIndex: number | null;       // 진열장 슬롯(0-based). 배정 후 불변
+  hidden: boolean;                 // 운영자가 TV에서 내린 카드
+  failureReason: string | null;    // FAILED일 때만. 참가자에게 보여주지 않음
+  submittedAt: string;             // ISO 8601
+};
+```
+
+### `EntryStatus`
+
+```
+JOINED → SUBMITTED → PINNED → MINTING → MINTED
+   └─────────┴──────────┴─────────┴──→ FAILED
+```
+
+| 상태 | 뜻 | 화면 |
+|---|---|---|
+| `JOINED` | 로그인·닉네임 등록 완료. 사진은 아직 없음 | TV 작업대에 카드가 떨어진다 |
+| `SUBMITTED` | 합성 증서를 받음 | **카드가 오븐으로 들어간다** |
+| `PINNED` | 증서와 메타데이터 IPFS 핀 완료 | 오븐에 머문다 |
+| `MINTING` | 민팅 트랜잭션 전송, 영수증 대기 | 오븐에 머문다 |
+| `MINTED` | 영수증 성공 + `CertificateIssued` 확인 | 카드가 진열장에 놓인다 |
+| `FAILED` | 어느 단계든 실패 | 작업대로 돌아온다. 운영자에게 재시도 버튼 |
+
+세 구역은 **누가 손대야 하는가**로 나뉩니다 — 작업대(`JOINED`·`FAILED`)는 사람 손이 필요한 것,
+오븐(`SUBMITTED`·`PINNED`·`MINTING`)은 기계가 처리 중인 것, 진열장(`MINTED`)은 끝난 것입니다.
+자세한 것은 [PIPELINE.md](./PIPELINE.md)를 보세요.
+
+> `JOINED` 카드에는 `photoUrl`이 없습니다. **오류가 아닙니다.** 프론트가 기본 쿠키 그림을 그립니다.
+
+### `ShowState`
+
+```ts
+type ShowState = {
+  layout: 'LIVE' | 'GALLERY';   // LIVE는 작업대+오븐, GALLERY는 진열장만 크게
+  qrVisible: boolean;
+  shelfPage: number;            // 지금 TV에 보이는 진열장 쪽(0부터)
+};
+```
+
+### 상수
+
+```ts
+SHELF_SLOTS = 15   // 진열장 한 쪽의 칸 수 (5×3 격자)
+MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
+```
+
+---
+
+## 오류 형식
+
+```jsonc
+{ "error": { "code": "INVALID_NICKNAME", "message": "닉네임은 1~12자로 적어 주세요." } }
+```
+
+`message`는 **참가자에게 그대로 보여줍니다.** 화면은 이 문장을 다시 쓰지 않습니다. 한국어 완성 문장으로 주세요.
+
+| code | 상태 | 뜻 |
+|---|---:|---|
+| `UNAUTHENTICATED` | 401 | 참가자 토큰 또는 운영자 세션 없음·만료 |
+| `WALLET_NOT_FOUND` | 400 | Privy 사용자에게 embedded EVM 지갑이 없음 |
+| `ALREADY_SUBMITTED` | 409 | 이미 사진을 냄 |
+| `INVALID_PHOTO` | 400 | 사진 형식·크기 문제 |
+| `INVALID_NICKNAME` | 400 | 닉네임 길이 문제 |
+| `SHOWCASE_FULL` | 409 | 정원 초과 |
+| `NOT_FOUND` | 404 | 없는 항목 |
+| `INTERNAL` | 500 | 그 외 |
+
+> **`types.ts`의 `ApiErrorCode`가 아직 이 표와 다릅니다.** Privy 연동과 함께 맞춰야 합니다.
+> `WALLET_NOT_FOUND`를 추가하고, 쓰이지 않는 `INVALID_EMAIL`·`INVALID_CODE`를 지웁니다.
+
+---
+
+<!-- ─────────── 프론트는 여기까지 보면 됩니다 ─────────── -->
+
 ## 운영자
+
+> 이 아래는 **운영자 화면 담당(=백엔드)** 몫입니다. 참가자·TV 화면에는 필요 없습니다.
+> 다만 `PATCH /api/admin/show`만은 TV도 부릅니다(위 「행사장 TV」 참고).
 
 비밀번호는 서버 환경변수 `OPERATOR_PASSCODE`입니다. **비어 있으면 아무도 통과하지 못합니다** — 설정을 잊었을 때 열리는 쪽이 아니라 잠기는 쪽으로 실패합니다.
 
@@ -359,91 +515,6 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 // 200 — 갱신된 ShowState
 { "layout": "GALLERY", "qrVisible": false, "shelfPage": 1 }
 ```
-
----
-
-## 타입
-
-### `Entry`
-
-```ts
-type Entry = {
-  id: string;
-  nickname: string;
-  status: EntryStatus;
-  photoUrl: string | null;         // 프론트가 합성한 증서 이미지. JOINED에서는 null
-  certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
-  tokenId: string | null;          // uint256이므로 문자열
-  txHash: string | null;
-  shelfIndex: number | null;       // 진열장 슬롯(0-based). 배정 후 불변
-  hidden: boolean;                 // 운영자가 TV에서 내린 카드
-  failureReason: string | null;    // FAILED일 때만. 참가자에게 보여주지 않음
-  submittedAt: string;             // ISO 8601
-};
-```
-
-### `EntryStatus`
-
-```
-JOINED → SUBMITTED → PINNED → MINTING → MINTED
-   └─────────┴──────────┴─────────┴──→ FAILED
-```
-
-| 상태 | 뜻 | 화면 |
-|---|---|---|
-| `JOINED` | 로그인·닉네임 등록 완료. 사진은 아직 없음 | TV 작업대에 카드가 떨어진다 |
-| `SUBMITTED` | 합성 증서를 받음 | **카드가 오븐으로 들어간다** |
-| `PINNED` | 증서와 메타데이터 IPFS 핀 완료 | 오븐에 머문다 |
-| `MINTING` | 민팅 트랜잭션 전송, 영수증 대기 | 오븐에 머문다 |
-| `MINTED` | 영수증 성공 + `CertificateIssued` 확인 | 카드가 진열장에 놓인다 |
-| `FAILED` | 어느 단계든 실패 | 작업대로 돌아온다. 운영자에게 재시도 버튼 |
-
-세 구역은 **누가 손대야 하는가**로 나뉩니다 — 작업대(`JOINED`·`FAILED`)는 사람 손이 필요한 것,
-오븐(`SUBMITTED`·`PINNED`·`MINTING`)은 기계가 처리 중인 것, 진열장(`MINTED`)은 끝난 것입니다.
-자세한 것은 [PIPELINE.md](./PIPELINE.md)를 보세요.
-
-> `JOINED` 카드에는 `photoUrl`이 없습니다. **오류가 아닙니다.** 프론트가 기본 쿠키 그림을 그립니다.
-
-### `ShowState`
-
-```ts
-type ShowState = {
-  layout: 'LIVE' | 'GALLERY';   // LIVE는 작업대+오븐, GALLERY는 진열장만 크게
-  qrVisible: boolean;
-  shelfPage: number;            // 지금 TV에 보이는 진열장 쪽(0부터)
-};
-```
-
-### 상수
-
-```ts
-SHELF_SLOTS = 15   // 진열장 한 쪽의 칸 수 (5×3 격자)
-MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
-```
-
----
-
-## 오류 형식
-
-```jsonc
-{ "error": { "code": "INVALID_NICKNAME", "message": "닉네임은 1~12자로 적어 주세요." } }
-```
-
-`message`는 **참가자에게 그대로 보여줍니다.** 화면은 이 문장을 다시 쓰지 않습니다. 한국어 완성 문장으로 주세요.
-
-| code | 상태 | 뜻 |
-|---|---:|---|
-| `UNAUTHENTICATED` | 401 | 참가자 토큰 또는 운영자 세션 없음·만료 |
-| `WALLET_NOT_FOUND` | 400 | Privy 사용자에게 embedded EVM 지갑이 없음 |
-| `ALREADY_SUBMITTED` | 409 | 이미 사진을 냄 |
-| `INVALID_PHOTO` | 400 | 사진 형식·크기 문제 |
-| `INVALID_NICKNAME` | 400 | 닉네임 길이 문제 |
-| `SHOWCASE_FULL` | 409 | 정원 초과 |
-| `NOT_FOUND` | 404 | 없는 항목 |
-| `INTERNAL` | 500 | 그 외 |
-
-> **`types.ts`의 `ApiErrorCode`가 아직 이 표와 다릅니다.** Privy 연동과 함께 맞춰야 합니다.
-> `WALLET_NOT_FOUND`를 추가하고, 쓰이지 않는 `INVALID_EMAIL`·`INVALID_CODE`를 지웁니다.
 
 ---
 
