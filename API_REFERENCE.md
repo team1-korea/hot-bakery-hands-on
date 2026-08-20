@@ -128,6 +128,7 @@ Authorization: Bearer <privy-access-token>
 | `GET` | `/api/state` | 없음 | **TV**·운영자 | 화면 폴링 |
 | `GET` | `/api/photos/{entryId}` | 없음 | 전부 | 증서 이미지 바이트 |
 | `PATCH` | `/api/admin/show` | 운영자 | **TV**·운영자 | 앞 화면 전환·쪽 넘기기 |
+| `GET` | `/api/admin/state` | 운영자 | 운영자 | **운영자 명단.** 실패 사유 포함 |
 | `POST` | `/api/admin/session` | 없음 | 운영자 | 로그인 |
 | `GET` | `/api/admin/session` | 운영자 | 운영자 | 로그인 상태 확인 |
 | `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
@@ -434,6 +435,43 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
 
 쿠키에는 비밀번호가 아니라 `sha256('bakery-operator:' + passcode)`를 담습니다.
 
+### `GET /api/admin/state`
+
+**운영자 화면은 공개 `GET /api/state`가 아니라 이것을 폴링합니다.** 1초 주기.
+
+공개 응답에는 넣을 수 없는 것들이 여기에는 들어갑니다.
+
+```jsonc
+// 200
+{
+  "entries": [
+    {
+      // 공개 Entry의 모든 필드에 더해
+      "failureReason": "IPFS 업로드 실패: 504",   // 왜 실패했는지
+      "walletAddress": "0x10dd...f608",          // 체인에서 대조할 때
+      "autoHidden": true                          // 스위퍼가 내린 것인지
+    }
+  ],
+  "show": { "layout": "LIVE", "qrVisible": true, "shelfPage": 0 },
+  "counts": { "submitted": 12, "minted": 9 }
+}
+```
+
+**왜 엔드포인트를 나누나.** 공개 `GET /api/state`는 인증이 없어 TV URL을 아는 사람이면
+누구나 봅니다. 그렇다고 같은 엔드포인트가 운영자 쿠키 여부에 따라 다른 것을 뱉게 만들면,
+나중에 캐시 헤더 한 줄이나 CDN 설정 하나만 잘못돼도 그대로 샙니다. **분리하는 편이
+안전합니다.**
+
+운영자 화면이 `failureReason`을 보지 못하면 행사 당일 **무엇이 왜 실패했는지 알 수 없어
+대응을 고를 수 없습니다.** 실패 사유에 따라 할 일이 다릅니다 — 재시도로 되는 것, 가스를
+채워야 하는 것, 새 사진을 받아야 하는 것, 그리고 **절대 재시도하면 안 되는 것**
+(`AlreadyIssued`).
+
+`hidden`은 **TV에서만** 감춥니다. 이 응답에서는 **내려간 카드도 그대로 내려보내세요** —
+나중에 그 참가자가 사진을 가져오면 다시 올려야 합니다.
+
+---
+
 ### `POST /api/admin/session` — 로그인
 
 ```jsonc
@@ -480,6 +518,22 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 
 응답은 갱신된 `Entry`입니다. `retry`는 `status`가 `FAILED`일 때만 받습니다. 없는 항목이면 `404 NOT_FOUND`입니다.
 
+**`retry`는 처음부터 다시 하지 않습니다.** 남아 있는 것을 보고 실패한 지점부터 재개합니다.
+
+| 남아 있는 것 | 재개 지점 |
+|---|---|
+| `metadata_cid` | 민팅부터 |
+| `certificate_cid`만 | 메타데이터 핀부터 |
+| `certificate_path`만 | 증서 이미지 핀부터 |
+
+> ⚠️ **`AlreadyIssued`로 실패한 건은 재시도하면 안 됩니다.** 트랜잭션이 이미 성공했는데 DB
+> 갱신 전에 함수가 죽은 경우입니다. 재시도를 반복하면 이미 발행된 증서를 영영 못 찾습니다.
+> **운영자에게 판단을 넘기지 말고 서버가 알아서 처리하세요** — `CertificateIssued` 이벤트를
+> `recipient`로 조회해 `tokenId`를 건져 `MINTED`로 마무리합니다.
+> 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
+
+**`hidden`을 다시 올릴 때 `auto_hidden_at`을 지우지 마세요.** 스위퍼가 또 내립니다.
+
 ---
 
 ### `POST /api/admin/entries/{id}/photo`
@@ -488,6 +542,13 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 시작합니다. `JOINED`(또는 `FAILED`) 행을 `SUBMITTED`로 올립니다.
 
 `Content-Type: multipart/form-data`, 필드는 `photo` 하나. 참가자 제출과 같습니다.
+
+**`JOINED`와 `FAILED` 모두에서 받습니다.** 사진이 문제였던 실패는 재시도로 해결되지 않고
+새 사진을 받아야 합니다.
+
+> ⚠️ **`FAILED` 건에 새 사진을 올릴 때는 `certificate_cid`와 `metadata_cid`를 비우세요.**
+> 그것들은 **이전 이미지**의 CID입니다. 안 비우면 재개 로직이 핀을 건너뛰고 **옛 사진으로
+> 민팅합니다.**
 
 > **운영자 화면에서도 프레임 합성을 거쳐야 합니다.** 서버는 이미지를 다시 그리지 않으므로,
 > 운영자가 원본 사진을 고르면 그 화면에서 참가자와 같은 합성을 한 뒤 보내야 합니다.

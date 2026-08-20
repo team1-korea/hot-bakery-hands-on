@@ -70,6 +70,11 @@ create table entries (
 
   hidden          boolean not null default false,
 
+  -- 스위퍼가 자동으로 내린 시각. 운영자가 내린 것과 구분합니다.
+  -- 스위퍼는 이 값이 null인 행만 건드리고, 한 번 내린 뒤에는 다시 손대지 않습니다.
+  -- 그래야 늦게 온 참가자를 운영자가 다시 올렸을 때 스위퍼가 또 내리지 않습니다.
+  auto_hidden_at  timestamptz,
+
   -- **운영자 전용입니다.** GET /api/state에 절대 넣지 마세요.
   failure_reason  text,
 
@@ -92,6 +97,31 @@ create table entries (
 
 -- 민팅 대기열을 집어갈 때(PINNED)와 스위퍼가 훑을 때 씁니다.
 create index entries_status_shelf_idx on entries (status, shelf_index);
+
+-- ---------------------------------------------------------------------------
+-- show_state — TV 화면 상태 (행 하나)
+-- ---------------------------------------------------------------------------
+-- 운영자가 바꾸고 TV가 따라갑니다. **서버가 들고 있어야 합니다.**
+-- 서버리스는 인보케이션마다 메모리가 다르므로, 프로세스 안에 두면 운영자가
+-- GALLERY로 바꿔도 TV는 계속 LIVE를 봅니다.
+
+create table show_state (
+  -- 행이 하나뿐이어야 합니다. true만 허용되는 PK로 강제합니다.
+  id          boolean primary key default true check (id),
+
+  -- LIVE는 작업대와 오븐을 함께, GALLERY는 진열장만 크게 보여줍니다.
+  layout      text not null default 'LIVE' check (layout in ('LIVE', 'GALLERY')),
+
+  -- 참가 QR. 접수 중에는 켜고 발표 중에는 끕니다.
+  qr_visible  boolean not null default true,
+
+  -- 지금 TV에 보이는 진열장 쪽(0부터). 저절로 넘어가지 않고 사람이 넘깁니다.
+  shelf_page  integer not null default 0 check (shelf_page >= 0),
+
+  updated_at  timestamptz not null default now()
+);
+
+insert into show_state default values;
 
 -- ---------------------------------------------------------------------------
 -- shelf_index 배정
@@ -148,8 +178,13 @@ $$ language plpgsql;
 -- ② 오래 방치된 JOINED → hidden
 --    로그인만 하고 사라진 사람의 카드가 행사 내내 작업대에 남습니다.
 --
---   update entries set hidden = true
+--   update entries set hidden = true, auto_hidden_at = now()
 --   where status = 'JOINED' and hidden = false
+--     and auto_hidden_at is null                        -- 이미 한 번 내린 건 다시 안 건드린다
 --     and status_changed_at < now() - interval '10 minutes';
 --
---   되돌릴 수 있어야 합니다. 늦게 온 참가자가 사진을 내면 hidden을 false로 풉니다.
+--   되돌릴 수 있어야 합니다. 늦게 온 참가자가 사진을 내면 운영자가 hidden을 false로 풉니다.
+--   auto_hidden_at은 그대로 두세요. 그래야 스위퍼가 또 내리지 않습니다.
+--
+--   ⚠️ hidden은 **TV에서만** 감춥니다. 운영자 명단에서는 계속 보여야 합니다.
+--      나중에 그 참가자가 사진을 가져오면 다시 올려야 하기 때문입니다.
