@@ -677,6 +677,7 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 NEXT_PUBLIC_PRIVY_APP_ID=
 NEXT_PUBLIC_API_BASE_URL=      # 비우면 같은 오리진
 NEXT_PUBLIC_SITE_URL=          # QR이 가리킬 주소. 비우면 요청 호스트
+NEXT_PUBLIC_CHAIN_ID=          # 43113=Fuji(기본), 43114=메인넷. 익스플로러 링크
 
 # 서버 전용 — NEXT_PUBLIC_ 접두어를 붙이지 않는다
 PRIVY_APP_ID=
