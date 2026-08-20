@@ -4,6 +4,27 @@ Supabase Postgres. 테이블 세 개가 전부입니다.
 
 **실행 정본은 [`schema.sql`](./schema.sql)입니다.** 이 문서와 다르면 SQL이 맞습니다.
 Supabase SQL Editor에 그 파일을 붙여 넣으면 끝이고, 마이그레이션 도구는 쓰지 않습니다.
+**여러 번 돌려도 안전합니다** — 이미 있는 것은 건너뜁니다.
+
+## 연결
+
+`DATABASE_URL`에는 **Session pooler 주소**를 씁니다. 대시보드의 `Connect` → Session pooler.
+
+```
+postgresql://postgres.<ref>:<비밀번호>@aws-0-<리전>.pooler.supabase.com:5432/postgres
+```
+
+> ⚠️ **직접 연결(`db.<ref>.supabase.co`)을 쓰지 마세요.** 그 호스트는 **IPv6 전용**이라
+> Vercel과 대부분의 로컬 네트워크에서 붙지 않습니다. 로컬에서 우연히 됐더라도 배포하면
+> 터집니다.
+
+> ⚠️ **비밀번호에 `$`가 있으면 `\$`로 이스케이프하세요.** Next가 dotenv 확장을 하므로
+> `pass$word`의 `$word`가 빈 문자열로 치환됩니다. **따옴표로는 막히지 않습니다** —
+> 큰따옴표·작은따옴표 모두 확장됩니다. 증상은 "비밀번호 인증 실패"라 원인을 찾기 어렵습니다.
+
+**RLS를 켜세요.** 대시보드에서 스키마를 처음 돌릴 때 "without RLS"를 고르면 꺼진 채로
+만들어집니다. `schema.sql`에 `enable row level security` 세 줄이 들어 있으니 다시 돌리면
+켜집니다.
 
 ```
 participants                    entries

@@ -14,7 +14,7 @@
 -- 주소가 entries에 있으면 `select *` 한 번으로 그대로 새어 나갑니다. 테이블을
 -- 나눠 두면 state 쿼리가 이 테이블을 조인하지 않는 한 샐 수가 없습니다.
 
-create table participants (
+create table if not exists participants (
   id             uuid primary key default gen_random_uuid(),
 
   -- Privy DID. 서버가 토큰을 검증해서 얻습니다.
@@ -32,16 +32,19 @@ create table participants (
 -- entries — TV에 뜨는 카드 한 장
 -- ---------------------------------------------------------------------------
 
-create type entry_status as enum (
-  'JOINED',     -- 로그인·닉네임 등록 완료. 사진 없음        → 작업대
-  'SUBMITTED',  -- 합성 증서를 받음                        → 오븐
-  'PINNED',     -- 증서와 메타데이터 IPFS 핀 완료           → 오븐
-  'MINTING',    -- 민팅 트랜잭션 전송, 영수증 대기          → 오븐
-  'MINTED',     -- 영수증 성공 + CertificateIssued 확인     → 진열장
-  'FAILED'      -- 어느 단계든 실패                        → 작업대
-);
+do $$ begin
+  create type entry_status as enum (
+    'JOINED',     -- 로그인·닉네임 등록 완료. 사진 없음        → 작업대
+    'SUBMITTED',  -- 합성 증서를 받음                        → 오븐
+    'PINNED',     -- 증서와 메타데이터 IPFS 핀 완료           → 오븐
+    'MINTING',    -- 민팅 트랜잭션 전송, 영수증 대기          → 오븐
+    'MINTED',     -- 영수증 성공 + CertificateIssued 확인     → 진열장
+    'FAILED'      -- 어느 단계든 실패                        → 작업대
+  );
+exception when duplicate_object then null;
+end $$;
 
-create table entries (
+create table if not exists entries (
   id              uuid primary key default gen_random_uuid(),
 
   -- 한 사람당 한 장. 컨트랙트도 hasBeenIssued로 주소당 한 장을 강제합니다.
@@ -96,7 +99,7 @@ create table entries (
 );
 
 -- 민팅 대기열을 집어갈 때(PINNED)와 스위퍼가 훑을 때 씁니다.
-create index entries_status_shelf_idx on entries (status, shelf_index);
+create index if not exists entries_status_shelf_idx on entries (status, shelf_index);
 
 -- ---------------------------------------------------------------------------
 -- show_state — TV 화면 상태 (행 하나)
@@ -105,7 +108,7 @@ create index entries_status_shelf_idx on entries (status, shelf_index);
 -- 서버리스는 인보케이션마다 메모리가 다르므로, 프로세스 안에 두면 운영자가
 -- GALLERY로 바꿔도 TV는 계속 LIVE를 봅니다.
 
-create table show_state (
+create table if not exists show_state (
   -- 행이 하나뿐이어야 합니다. true만 허용되는 PK로 강제합니다.
   id          boolean primary key default true check (id),
 
@@ -121,7 +124,7 @@ create table show_state (
   updated_at  timestamptz not null default now()
 );
 
-insert into show_state default values;
+insert into show_state (id) values (true) on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Row Level Security
