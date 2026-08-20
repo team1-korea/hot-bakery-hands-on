@@ -594,8 +594,9 @@ PRIVY_APP_SECRET=
 OPERATOR_PASSCODE=
 DATABASE_URL=
 PINATA_JWT=
-AVALANCHE_RPC_URL=
-MINTER_PRIVATE_KEY=
+AVALANCHE_RPC_URL=          # 비우면 Fuji 공개 RPC
+CERTIFICATE_ADDRESS=        # 비우면 deployments/43113.json의 주소
+MINTER_PRIVATE_KEY=         # 없으면 읽기 전용. 민팅만 실패한다
 ```
 
 민터 개인키, RPC URL, IPFS 토큰에 **`NEXT_PUBLIC_`을 붙이면 안 됩니다.** 브라우저 번들에 들어갑니다.
