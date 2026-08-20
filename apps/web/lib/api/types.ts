@@ -8,10 +8,15 @@
 /**
  * 발행 파이프라인 상태. 백엔드는 이 순서로만 전이시키고, 실패는 어느 단계에서든 FAILED로 간다.
  * MINTED는 트랜잭션 제출이 아니라 영수증 성공과 CertificateIssued 이벤트를 확인한 뒤에만 쓴다.
+ *
+ * TV의 세 구역은 "누가 손대야 하는가"로 나뉜다.
+ *   작업대 = JOINED·FAILED (사람 손이 필요)
+ *   오븐   = SUBMITTED·PINNED·MINTING (기계가 처리 중)
+ *   진열장 = MINTED (끝)
  */
 export type EntryStatus =
+  | 'JOINED'
   | 'SUBMITTED'
-  | 'RENDERED'
   | 'PINNED'
   | 'MINTING'
   | 'MINTED'
@@ -21,14 +26,15 @@ export type Entry = {
   id: string;
   nickname: string;
   status: EntryStatus;
-  /** 참가자가 올린 원본 쿠키 사진. */
+  /** 프론트가 프레임까지 합성해 올린 증서 이미지. JOINED에서는 null이다. */
   photoUrl: string | null;
-  /** 합성이 끝난 증서 이미지. RENDERED 이후에 채워진다. */
-  certificateUrl: string | null;
   /** uint256이므로 문자열로 내려준다. JSON에 bigint를 넣지 않는다. */
   tokenId: string | null;
   txHash: string | null;
-  /** 진열장 슬롯 번호(0-based). 제출 순서대로 배정하고 이후 바뀌지 않는다. */
+  /**
+   * 진열장 슬롯 번호(0-based). JOINED에서는 null이고, 사진 제출 때 배정된 뒤 바뀌지 않는다.
+   * 등록 시점에 배정하면 로그인만 하고 사라진 사람이 칸을 영구히 점유해 격자에 구멍이 남는다.
+   */
   shelfIndex: number | null;
   /** 운영자가 TV에서 내린 카드. */
   hidden: boolean;
@@ -58,11 +64,6 @@ export type StateResponse = {
   counts: { submitted: number; minted: number };
 };
 
-export type Session = {
-  participantId: string;
-  email: string;
-};
-
 export type ApiErrorBody = {
   error: {
     code: ApiErrorCode;
@@ -71,9 +72,8 @@ export type ApiErrorBody = {
 };
 
 export type ApiErrorCode =
-  | 'INVALID_EMAIL'
-  | 'INVALID_CODE'
   | 'UNAUTHENTICATED'
+  | 'WALLET_NOT_FOUND'
   | 'ALREADY_SUBMITTED'
   | 'INVALID_PHOTO'
   | 'INVALID_NICKNAME'

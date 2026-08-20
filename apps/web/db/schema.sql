@@ -124,6 +124,22 @@ create table show_state (
 insert into show_state default values;
 
 -- ---------------------------------------------------------------------------
+-- Row Level Security
+-- ---------------------------------------------------------------------------
+-- **정책을 하나도 만들지 않는다.** RLS를 켜고 정책이 없으면 전면 차단이고, 그것이 우리가
+-- 원하는 상태다.
+--
+-- 브라우저는 Supabase에 직접 붙지 않는다. Next.js 서버가 DATABASE_URL로 붙고, 그 연결은
+-- 테이블 소유자라 RLS를 우회한다(FORCE ROW LEVEL SECURITY를 걸지 않는 한). 그래서 켜도
+-- 우리 코드는 그대로 돌고, anon/authenticated 키를 쥔 외부인만 막힌다.
+--
+-- 끄면 anon 키가 어디로든 새는 순간 participants의 지갑 주소와 Privy DID가 그대로 읽힌다.
+
+alter table participants enable row level security;
+alter table entries     enable row level security;
+alter table show_state  enable row level security;
+
+-- ---------------------------------------------------------------------------
 -- shelf_index 배정
 -- ---------------------------------------------------------------------------
 -- 사진 제출 트랜잭션 안에서 부르세요.

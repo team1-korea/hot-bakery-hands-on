@@ -15,8 +15,8 @@ import {
 } from './motion';
 
 const STATUS_LABEL = {
+  JOINED: '사진 기다리는 중',
   SUBMITTED: '사진 도착',
-  RENDERED: '증서 준비',
   PINNED: '굽기 대기',
   MINTING: '굽는 중',
   MINTED: '진열 완료',
@@ -43,7 +43,7 @@ export function CookieCard({
 }) {
   const reduceMotion = useReducedMotion();
   const minted = entry.status === 'MINTED';
-  const imageUrl = minted ? entry.certificateUrl ?? entry.photoUrl : entry.photoUrl;
+  const imageUrl = entry.photoUrl;
   const variation = ((imageNumber(entry) - 1) % 15) + 1;
   const innerInitial = reduceMotion ? false
     : motionPhase === 'enter' ? { y: -28, scale: 1, rotate: 0 }

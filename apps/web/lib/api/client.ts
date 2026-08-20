@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ApiErrorCode, Entry, Session, ShowState, StateResponse } from './types';
+import type { ApiErrorBody, ApiErrorCode, Entry, ShowState, StateResponse } from './types';
 
 /**
  * 화면이 서버와 이야기하는 유일한 통로.
@@ -73,22 +73,26 @@ function json(body: unknown): RequestInit {
   };
 }
 
-export function requestCode(email: string) {
-  return call<{ ok: true; mockCode?: string }>('/api/auth/request-code', json({ email }));
+/**
+ * 로그인·닉네임 직후의 등록. **사진보다 먼저다.**
+ *
+ * 여기서 카드가 생겨 TV 작업대에 올라간다. 사진을 못 올리는 참가자를 운영자가 대신
+ * 처리하려면 지갑 주소와 닉네임이 먼저 서버에 있어야 한다.
+ *
+ * 같은 사람이 두 번 불러도 카드는 한 장이다. 새로고침해도 안전하다.
+ */
+export function registerParticipant(nickname: string) {
+  return call<Entry>('/api/participants', json({ nickname }));
 }
 
-export function verifyCode(email: string, code: string) {
-  return call<Session>('/api/auth/verify', json({ email, code }));
-}
-
-export function getSession() {
-  return call<Session>('/api/auth/session');
-}
-
-export function submitEntry(input: { nickname: string; photo: Blob }) {
+/**
+ * 프레임까지 합성이 끝난 증서를 낸다. 카드가 오븐으로 들어간다.
+ *
+ * 닉네임은 등록 때 이미 받았으므로 보내지 않는다. 등록하지 않았으면 404다.
+ */
+export function submitEntry(input: { photo: Blob }) {
   const form = new FormData();
-  form.set('nickname', input.nickname);
-  form.set('photo', input.photo, 'cookie.jpg');
+  form.set('photo', input.photo, 'certificate.jpg');
   return call<Entry>('/api/entries', { method: 'POST', body: form }, SUBMIT_TIMEOUT_MS);
 }
 

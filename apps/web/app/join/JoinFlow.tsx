@@ -2,30 +2,29 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from 'react';
 
-import { ApiError, getMyEntry, getState, requestCode, submitEntry, verifyCode } from '@/lib/api/client';
+import { ApiError, getMyEntry, getState, registerParticipant, submitEntry } from '@/lib/api/client';
 import { MAX_ENTRIES, type Entry } from '@/lib/api/types';
 import { cropPhoto, loadPhoto, type CropRect, type PhotoSource } from '@/lib/photo';
 
 import { JoinShell } from './JoinShell';
-import { CodeStep, EmailStep, NicknameStep, PhotoStep, ReviewStep } from './JoinSteps';
+import { NicknameStep, PhotoStep, ReviewStep } from './JoinSteps';
 import { SubmittedView } from './SubmittedView';
 
-type Stage = 'loading' | 'email' | 'code' | 'photo' | 'nickname' | 'review';
+/**
+ * 닉네임이 사진보다 먼저다. 등록이 끝나야 TV에 카드가 올라가고, 사진을 못 올리는
+ * 참가자를 운영자가 대신 처리할 수 있다.
+ */
+type Stage = 'loading' | 'nickname' | 'photo' | 'review';
 
 const STEP_OF: Record<Exclude<Stage, 'loading'>, number> = {
-  email: 1,
-  code: 1,
+  nickname: 1,
   photo: 2,
-  nickname: 3,
-  review: 4,
+  review: 3,
 };
 
 export function JoinFlow() {
   const [stage, setStage] = useState<Stage>('loading');
   const [entry, setEntry] = useState<Entry | null>(null);
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
-  const [mockCode, setMockCode] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
   const [source, setSource] = useState<PhotoSource | null>(null);
   const [crop, setCrop] = useState<CropRect | null>(null);
@@ -36,12 +35,17 @@ export function JoinFlow() {
 
   // 새로고침하거나 화면이 꺼졌다 켜져도 제출한 사람은 대기 화면으로 돌아온다.
   useEffect(() => {
+    /*
+     * 이미 사진까지 낸 사람은 대기 화면으로, 등록만 한 사람은 사진 단계로 돌아온다.
+     * 새로고침하거나 화면이 꺼졌다 켜져도 처음부터 다시 하지 않는다.
+     */
     getMyEntry()
       .then((existing) => {
-        if (existing) setEntry(existing);
-        else setStage('photo');
+        if (existing?.photoUrl) setEntry(existing);
+        else if (existing) { setNickname(existing.nickname); setStage('photo'); }
+        else setStage('nickname');
       })
-      .catch(() => setStage('email'));
+      .catch(() => setStage('nickname'));
 
     /*
      * 자리가 남았는지 들어오자마자 확인한다.
@@ -75,18 +79,15 @@ export function JoinFlow() {
     }
   };
 
-  const sendCode = () => run(async () => {
-    const result = await requestCode(email.trim());
-    setMockCode(result.mockCode ?? null);
-    setCode('');
-    setStage('code');
-  });
-
-  const confirmCode = () => run(async () => {
-    await verifyCode(email.trim(), code);
-    const existing = await getMyEntry();
-    if (existing) setEntry(existing);
-    else setStage('photo');
+  /*
+   * 닉네임을 넣는 순간 등록한다. 여기서 TV 작업대에 카드가 올라간다.
+   *
+   * TODO(Privy): 이 앞에 구글 로그인이 들어간다. 지금은 목 인증이라 바로 등록된다.
+   *   `PRIVY_APP_ID`가 생기면 로그인 → 토큰 → 이 호출 순서가 된다.
+   */
+  const confirmNickname = () => run(async () => {
+    await registerParticipant(nickname.trim());
+    setStage('photo');
   });
 
   const choosePhoto = (event: ChangeEvent<HTMLInputElement>) => {
@@ -108,12 +109,12 @@ export function JoinFlow() {
     if (!source || !crop) throw new ApiError('INVALID_PHOTO', '쿠키 사진을 먼저 골라 주세요.');
     const blob = await cropPhoto(source, crop);
     setPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
-    setStage('nickname');
+    setStage('review');
   });
 
   const submit = () => run(async () => {
     if (!photo) throw new ApiError('INVALID_PHOTO', '쿠키 사진을 선택해 주세요.');
-    setEntry(await submitEntry({ nickname: nickname.trim(), photo: photo.blob }));
+    setEntry(await submitEntry({ photo: photo.blob }));
   });
 
   if (entry) {
@@ -152,19 +153,13 @@ export function JoinFlow() {
 
   return (
     <JoinShell step={STEP_OF[stage]}>
-      {stage === 'email' ? (
-        <EmailStep email={email} error={error} busy={busy} onEmail={setEmail} onNext={sendCode} />
-      ) : null}
-      {stage === 'code' ? (
-        <CodeStep
-          email={email}
-          code={code}
+      {stage === 'nickname' ? (
+        <NicknameStep
+          nickname={nickname}
           error={error}
           busy={busy}
-          hint={mockCode ? `목 서버 인증 코드: ${mockCode}` : null}
-          onCode={setCode}
-          onNext={confirmCode}
-          onBack={() => setStage('email')}
+          onNickname={setNickname}
+          onNext={confirmNickname}
         />
       ) : null}
       {stage === 'photo' ? (
@@ -178,14 +173,6 @@ export function JoinFlow() {
           onNext={confirmPhoto}
         />
       ) : null}
-      {stage === 'nickname' ? (
-        <NicknameStep
-          nickname={nickname}
-          onNickname={setNickname}
-          onNext={() => setStage('review')}
-          onBack={() => setStage('photo')}
-        />
-      ) : null}
       {stage === 'review' ? (
         <ReviewStep
           nickname={nickname}
@@ -193,7 +180,7 @@ export function JoinFlow() {
           error={error}
           busy={busy}
           onSubmit={submit}
-          onBack={() => setStage('nickname')}
+          onBack={() => setStage('photo')}
         />
       ) : null}
     </JoinShell>
