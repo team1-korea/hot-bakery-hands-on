@@ -13,15 +13,28 @@ hot-bakery-hands-on/
 
 Next.js 서비스는 루트가 아니라 `apps/web/`에 두어 컨트랙트 패키지와 배포 주기를 분리합니다.
 
-- **작업 전에 먼저**: [AGENTS.md](./AGENTS.md) — 문서 우선순위와 이미 확정된 결정
-- API 계약: [API_REFERENCE.md](./API_REFERENCE.md) — 엔드포인트, 요청·응답, 오류 코드
-- 백엔드 구현: [PIPELINE.md](./PIPELINE.md) — 제출부터 민팅까지
-- 결정 기록: [DECISIONS.md](./DECISIONS.md) — 무엇을 왜 정했는지
-- 설계 배경과 역할 경계: [API.md](./API.md)
-- 화면 설명과 실행 방법: [apps/web/README.md](./apps/web/README.md)
-
 `apps/demo/`는 참가자 화면과 행사장 TV의 흐름을 확정하기 위해 만든 프로토타입입니다. 모든 상태가
 목업이며 더 이상 고치지 않습니다.
+
+## Documentation
+
+**[AGENTS.md](./AGENTS.md)부터 읽으세요.** 문서 우선순위, 담당 경계, 이미 확정돼 다시 정하지
+않는 것들이 있습니다.
+
+| 하려는 일 | 문서 |
+|---|---|
+| 참가자·TV 화면을 붙인다 | [API_REFERENCE.md](./API_REFERENCE.md) — 「프론트가 부르는 것」부터 「오류 형식」까지. 운영자 API 앞에서 멈추면 됩니다 |
+| 백엔드를 구현한다 | [PIPELINE.md](./PIPELINE.md) 제출부터 민팅까지 · [API_REFERENCE.md](./API_REFERENCE.md) 전부 |
+| 테이블을 만지거나 쿼리를 쓴다 | [apps/web/db/README.md](./apps/web/db/README.md) — 스키마 정본은 옆의 `schema.sql` |
+| 운영자 화면을 만든다 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) — 행사 당일 시나리오와 만들 것 목록 |
+| 컨트랙트를 호출한다 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) |
+| 왜 이렇게 정했는지 알고 싶다 | [DECISIONS.md](./DECISIONS.md) |
+| 역할 경계와 남은 위험을 본다 | [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| 앱을 실행한다 | [apps/web/README.md](./apps/web/README.md) |
+
+> `ARCHITECTURE.md`는 `API.md`였습니다. 이름이 엔드포인트 문서처럼 읽혀
+> [API_REFERENCE.md](./API_REFERENCE.md)와 헷갈렸습니다. **엔드포인트 명세는
+> `API_REFERENCE.md` 하나뿐입니다.**
 
 ## Smart contract
 

@@ -6,10 +6,14 @@ import { useOvenSlots } from './ovenSlots';
 export type CardMotionPhase = 'enter' | 'to-oven' | 'to-shelf';
 type BoundaryMove = { entry: Entry; phase: Exclude<CardMotionPhase, 'enter'> };
 const MIN_OVEN_MS = 2_000; const MAX_ACTIVE_MOVES = 1;
+/**
+ * 카드가 놓일 구역. "누가 손대야 하는가"로 나뉜다.
+ * 작업대에 남는 것은 전부 운영자가 볼 것이다 — 사진을 아직 안 낸 사람과 실패한 사람.
+ */
 function zone(status: EntryStatus) {
-  if (status === 'MINTING') return 'oven';
   if (status === 'MINTED') return 'shelf';
-  return 'workbench';
+  if (status === 'JOINED' || status === 'FAILED') return 'workbench';
+  return 'oven';   // SUBMITTED · PINNED · MINTING
 }
 function boundaryMove(previous: Entry, next: Entry): BoundaryMove | null {
   const from = zone(previous.status);

@@ -4,7 +4,128 @@ Avalanche Bakery 백엔드가 제공하는 엔드포인트 목록입니다.
 
 - **Base URL**: 프론트와 같은 오리진. 분리하면 `NEXT_PUBLIC_API_BASE_URL`로 지정합니다.
 - **타입 정본**: `apps/web/lib/api/types.ts`. 이 문서와 다르면 타입이 맞습니다.
-- **배경 설명**은 [API.md](./API.md), 컨트랙트 호출은 [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md).
+- **배경 설명**은 [ARCHITECTURE.md](./ARCHITECTURE.md), 컨트랙트 호출은 [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md).
+
+## 이 문서 읽는 법
+
+| 보는 사람 | 읽을 곳 |
+|---|---|
+| **참가자·TV 화면 담당** | 「프론트가 부르는 것」 → 「참가자」 → 「공개」 → 「타입」 → 「오류 형식」. **「운영자」 앞에서 멈추면 됩니다** |
+| **백엔드·운영자 화면 담당** | 전부 |
+
+---
+
+## 프론트가 부르는 것
+
+**전부 다섯 개**입니다. 운영자 화면을 뺀 것이고, 참가자 폰과 행사장 TV가 씁니다.
+
+### 참가자 폰 (`/join`)
+
+```
+구글 로그인 (Privy)          ← 백엔드 호출 없음
+        ↓
+POST /api/participants       닉네임 등록 → TV 작업대에 카드가 뜬다
+        ↓
+사진 촬영 · 자르기 · 프레임 합성   ← 전부 브라우저 안. 백엔드 호출 없음
+        ↓
+POST /api/entries            합성본 한 장 제출 → 카드가 오븐으로 들어간다
+        ↓
+GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진다
+```
+
+| 메서드 | 경로 | 인증 | 언제 |
+|---|---|---|---|
+| `POST` | `/api/participants` | 참가자 | 로그인·닉네임 직후 **한 번** |
+| `POST` | `/api/entries` | 참가자 | 합성이 끝난 뒤 **한 번** |
+| `GET` | `/api/entries` | 참가자 | 등록 후 **3초마다** |
+
+### 행사장 TV (`/display`)
+
+| 메서드 | 경로 | 인증 | 언제 |
+|---|---|---|---|
+| `GET` | `/api/state` | 없음 | **1초마다** |
+| `PATCH` | `/api/admin/show` | **운영자** | 진열장 쪽을 넘길 때 |
+
+> ⚠️ **TV를 켜기 전에 그 브라우저에서 `/admin` 로그인을 먼저 하세요.**
+> 진열장 페이저가 운영자 인증 엔드포인트를 부릅니다(`DisplayStage.tsx` → `updateShow`).
+> 로그인이 없으면 쪽 넘기기만 `401`로 실패합니다. 화면 표시 자체는 영향받지 않습니다.
+> 행사 당일 준비 체크리스트에 넣으세요.
+
+### 이미지
+
+**엔드포인트가 아닙니다.** `Entry.photoUrl`에 담겨 오는 URL을 `<img src>`에 그대로 쓰면 됩니다.
+그 값이 우리 라우트일 수도, Supabase Storage 공개 URL일 수도 있습니다. **프론트는 구별하지
+않습니다.** TV는 `next/image`를 `unoptimized`로 씁니다.
+
+`photoUrl`이 `null`이면 아직 사진을 안 낸 카드(`JOINED`)입니다. **오류가 아닙니다** —
+기본 쿠키 그림을 그리세요.
+
+### Privy 없이 개발하기
+
+로컬 개발(`NODE_ENV !== 'production'`)에서 Privy 설정 세 개
+(`NEXT_PUBLIC_PRIVY_APP_ID`·`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 **전부 비우면** 백엔드가
+목 인증으로 돕니다. 토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로,
+Privy 계정 없이도 화면 전체를 개발할 수 있습니다.
+
+| 어떻게 | 값 |
+|---|---|
+| 헤더 | `x-dev-participant: alice` |
+| 쿠키 | `bakery_dev_participant=alice` |
+| 둘 다 없음 | 전부 같은 한 사람으로 취급 |
+
+**같은 이름이면 항상 같은 참가자**입니다(이름을 해시해서 DID와 지갑 주소를 만듭니다).
+새로고침해도 카드가 두 장 생기지 않고, 이름만 바꾸면 폰 여러 대를 흉내낼 수 있습니다.
+
+```bash
+# 참가자 두 명을 만들어 TV에 카드 두 장 띄우기
+curl -X POST localhost:3000/api/participants \
+  -H 'content-type: application/json' -H 'x-dev-participant: alice' \
+  -d '{"nickname":"쿠키왕"}'
+
+curl -X POST localhost:3000/api/participants \
+  -H 'content-type: application/json' -H 'x-dev-participant: bob' \
+  -d '{"nickname":"반죽왕"}'
+
+# alice가 사진 제출 → 카드가 오븐으로
+curl -X POST localhost:3000/api/entries \
+  -H 'x-dev-participant: alice' -F 'photo=@cookie.jpg'
+```
+
+브라우저에서 여러 명을 흉내내려면 시크릿 창을 쓰거나 콘솔에서 쿠키를 바꾸세요.
+
+```js
+document.cookie = 'bakery_dev_participant=alice; path=/';
+```
+
+> 실제 Privy 검증은 백엔드에 구현돼 있습니다. 다만 **일부 값만 넣으면 목으로 돌아가지 않고
+> `401`로 잠깁니다.** 실제 모드에서는 App ID와 Secret을 함께 설정하고, 프론트가 받은 access
+> token을 Bearer 헤더로 보내야 합니다. 운영(`NODE_ENV=production`)은 세 값이 모두 없어도 목으로
+> 열리지 않고 `401`로 실패합니다.
+
+### 화면을 채워 보려면
+
+TV 애니메이션을 확인하려면 카드가 여러 상태로 흩어져 있어야 합니다.
+
+| 보고 싶은 것 | 방법 |
+|---|---|
+| 작업대에 대기 카드 | 등록만 하고 사진을 안 냅니다 (`JOINED`) |
+| 오븐 → 진열장 이동 | 사진을 제출하면 목 파이프라인이 약 7.6초에 걸쳐 굽습니다 |
+| 실패 카드 | `.env.local`에 `MOCK_FAILURE_RATE=1` |
+| 진열장 두 쪽 | 15장 넘게 제출합니다 |
+| 처음부터 다시 | `DATABASE_URL`이 없으면 **서버 재시작**으로 비워집니다 |
+
+`DATABASE_URL`이 있으면 Postgres에 남습니다. 그때는 운영자 화면의 초기화 버튼을 쓰거나
+`apps/web/db/reset.sql`을 돌리세요.
+
+### 폴링 주기
+
+| 화면 | 경로 | 주기 |
+|---|---|---|
+| TV | `GET /api/state` | 1초 |
+| 참가자 폰 | `GET /api/entries` | 3초 |
+| 운영자 화면 | `GET /api/admin/state` | 1초 |
+
+캐시하지 마세요. `GET /api/state`는 `force-dynamic`입니다.
 
 ---
 
@@ -22,13 +143,17 @@ Avalanche Bakery 백엔드가 제공하는 엔드포인트 목록입니다.
 
 로그인은 **프론트에서 Privy가 처리**합니다(구글 로그인). 백엔드에는 로그인 엔드포인트가 없습니다.
 
+> 백엔드의 Privy token 검증과 embedded EVM 지갑 조회는 구현돼 있습니다. 프론트는 Privy Google
+> 로그인 뒤 받은 access token을 아래 헤더로 붙여야 합니다. 계정 없이 화면만 개발할 때는 위
+> 「Privy 없이 개발하기」의 로컬 목 인증을 쓰세요.
+
 1. 프론트엔드가 Privy Google 로그인을 실행한다
 2. Privy가 참가자에게 embedded EVM 지갑을 만들고 Google 계정과 연결한다
 3. 프론트엔드가 Privy access token을 참가자 API 요청에 붙인다
 4. 백엔드가 Privy 서버 SDK로 토큰의 **서명·만료·앱 ID**를 검증하고 Privy DID를 얻는다
 5. 백엔드가 검증된 사용자의 linked accounts에서 **embedded EVM 지갑 주소를 확인한다**
    (identity token을 함께 쓰거나 Privy Users API를 조회)
-6. 최초 제출 때 `privyUserId`(DID)와 `walletAddress`를 저장하고, 이후 조회는 검증된 DID로 찾는다
+6. 최초 등록(`POST /api/participants`) 때 DID와 `walletAddress`를 저장하고, 이후 조회는 검증된 DID로 찾는다
 
 ```http
 Authorization: Bearer <privy-access-token>
@@ -56,19 +181,23 @@ Authorization: Bearer <privy-access-token>
 
 ## 엔드포인트 목록
 
-| 메서드 | 경로 | 인증 | 용도 |
-|---|---|---|---|
-| `POST` | `/api/participants` | 참가자 | **등록.** 닉네임을 넘기고 카드를 만든다 |
-| `GET` | `/api/entries` | 참가자 | 내 제출 조회 |
-| `POST` | `/api/entries` | 참가자 | 합성 증서 제출 |
-| `GET` | `/api/state` | 없음 | TV·운영자 화면 폴링 |
-| `GET` | `/api/photos/{entryId}` | 없음 | 사진 바이트 |
-| `POST` | `/api/admin/session` | 없음 | 운영자 로그인 |
-| `GET` | `/api/admin/session` | 운영자 | 로그인 상태 확인 |
-| `DELETE` | `/api/admin/session` | 운영자 | 운영자 로그아웃 |
-| `PATCH` | `/api/admin/entries/{id}` | 운영자 | 카드 내리기·재시도 |
-| `POST` | `/api/admin/entries/{id}/photo` | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
-| `PATCH` | `/api/admin/show` | 운영자 | 앞 화면 전환 |
+| 메서드 | 경로 | 인증 | 부르는 화면 | 용도 |
+|---|---|---|---|---|
+| `POST` | `/api/participants` | 참가자 | 폰 | **등록.** 닉네임을 넘기고 카드를 만든다 |
+| `GET` | `/api/entries` | 참가자 | 폰 | 내 항목 조회 |
+| `POST` | `/api/entries` | 참가자 | 폰 | 합성 증서 제출 |
+| `GET` | `/api/state` | 없음 | **TV** | 공개 화면 폴링 |
+| `GET` | `/api/photos/{entryId}` | 없음 | 전부 | 증서 이미지 바이트 |
+| `PATCH` | `/api/admin/show` | 운영자 | **TV**·운영자 | 앞 화면 전환·쪽 넘기기 |
+| `GET` | `/api/admin/state` | 운영자 | 운영자 | **운영자 명단.** 실패 사유 포함 |
+| `POST` | `/api/admin/session` | 없음 | 운영자 | 로그인 |
+| `GET` | `/api/admin/session` | 운영자 | 운영자 | 로그인 상태 확인 |
+| `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
+| `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
+| `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
+| `POST` | `/api/admin/reset` | 운영자 | 운영자 | 테스트 데이터 삭제. `ALLOW_DB_RESET=1`일 때만 존재 |
+
+**TV가 `PATCH /api/admin/show`를 부릅니다.** 그래서 TV 브라우저에도 운영자 로그인이 필요합니다.
 
 ---
 
@@ -98,7 +227,6 @@ Authorization: Bearer <privy-access-token>
   "nickname": "쿠키왕",
   "status": "JOINED",
   "photoUrl": null,
-  "certificateUrl": null,
   "tokenId": null,
   "txHash": null,
   "shelfIndex": null,
@@ -144,7 +272,6 @@ Authorization: Bearer eyJhbGci...
   "nickname": "쿠키왕",
   "status": "MINTED",
   "photoUrl": "/api/photos/859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
-  "certificateUrl": null,
   "tokenId": "1001",
   "txHash": "0x4f3c8a...",
   "shelfIndex": 0,
@@ -196,7 +323,6 @@ photo=<binary>
   "nickname": "쿠키왕",
   "status": "SUBMITTED",
   "photoUrl": "/api/photos/859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
-  "certificateUrl": null,   // 쓰지 않는다. 제거 대상
   "tokenId": null,
   "txHash": null,
   "shelfIndex": 0,
@@ -227,7 +353,8 @@ photo=<binary>
 
 ### `GET /api/state`
 
-행사장 TV와 운영자 화면이 **1초마다** 부릅니다. 캐시하지 마세요.
+행사장 TV가 **1초마다** 부릅니다. 운영자 화면은 실패 사유와 지갑 주소가 포함된
+`GET /api/admin/state`를 따로 폴링합니다. 캐시하지 마세요.
 
 ```http
 GET /api/state
@@ -271,97 +398,6 @@ Content-Type: image/jpeg
 
 ---
 
-## 운영자
-
-비밀번호는 서버 환경변수 `OPERATOR_PASSCODE`입니다. **비어 있으면 아무도 통과하지 못합니다** — 설정을 잊었을 때 열리는 쪽이 아니라 잠기는 쪽으로 실패합니다.
-
-쿠키에는 비밀번호가 아니라 `sha256('bakery-operator:' + passcode)`를 담습니다.
-
-### `POST /api/admin/session` — 로그인
-
-```jsonc
-// 요청
-{ "passcode": "..." }
-```
-
-```http
-200 OK
-set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSite=Lax
-```
-
-```jsonc
-{ "ok": true }
-```
-
-비밀번호가 틀리면 `401 UNAUTHENTICATED`, 서버에 값이 없으면 `500 INTERNAL`입니다.
-
-### `GET /api/admin/session` — 상태 확인
-
-```jsonc
-// 200
-{ "ok": true }
-// 쿠키 없거나 만료 → 401 UNAUTHENTICATED
-```
-
-### `DELETE /api/admin/session` — 로그아웃
-
-노트북을 남에게 넘길 때 씁니다. 쿠키를 지웁니다.
-
-```jsonc
-// 200
-{ "ok": true }
-```
-
----
-
-### `PATCH /api/admin/entries/{id}`
-
-```jsonc
-{ "hidden": true }   // 앞 화면에서 내리거나 다시 올린다
-{ "retry": true }    // FAILED인 항목을 다시 시도한다
-```
-
-응답은 갱신된 `Entry`입니다. `retry`는 `status`가 `FAILED`일 때만 받습니다. 없는 항목이면 `404 NOT_FOUND`입니다.
-
----
-
-### `POST /api/admin/entries/{id}/photo`
-
-**운영자 대리 업로드입니다.** 참가자가 사진을 못 올릴 때 운영자가 대신 올려 파이프라인을
-시작합니다. `JOINED`(또는 `FAILED`) 행을 `SUBMITTED`로 올립니다.
-
-`Content-Type: multipart/form-data`, 필드는 `photo` 하나. 참가자 제출과 같습니다.
-
-> **운영자 화면에서도 프레임 합성을 거쳐야 합니다.** 서버는 이미지를 다시 그리지 않으므로,
-> 운영자가 원본 사진을 고르면 그 화면에서 참가자와 같은 합성을 한 뒤 보내야 합니다.
-> `lib/photo.ts`를 재사용하세요.
-
-응답은 `POST /api/entries`와 같은 `Entry`입니다.
-
-| 상황 | 응답 |
-|---|---|
-| 없는 항목 | `404 NOT_FOUND` |
-| 이미 사진이 있음 | `409 ALREADY_SUBMITTED` |
-| 정원(30) 초과 | `409 SHOWCASE_FULL` |
-| 사진 형식·크기 문제 | `400 INVALID_PHOTO` |
-
----
-
-### `PATCH /api/admin/show`
-
-```jsonc
-{ "layout": "GALLERY" }   // 'LIVE' | 'GALLERY'
-{ "qrVisible": false }
-{ "shelfPage": 1 }
-```
-
-```jsonc
-// 200 — 갱신된 ShowState
-{ "layout": "GALLERY", "qrVisible": false, "shelfPage": 1 }
-```
-
----
-
 ## 타입
 
 ### `Entry`
@@ -372,10 +408,10 @@ type Entry = {
   nickname: string;
   status: EntryStatus;
   photoUrl: string | null;         // 프론트가 합성한 증서 이미지. JOINED에서는 null
-  certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
   tokenId: string | null;          // uint256이므로 문자열
   txHash: string | null;
-  shelfIndex: number | null;       // 진열장 슬롯(0-based). 배정 후 불변
+  shelfIndex: number | null;       // 진열장 슬롯(0-based). JOINED에서는 null,
+                                   // 사진 제출 때 배정되고 이후 불변
   hidden: boolean;                 // 운영자가 TV에서 내린 카드
   failureReason: string | null;    // FAILED일 때만. 참가자에게 보여주지 않음
   submittedAt: string;             // ISO 8601
@@ -442,8 +478,195 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
 | `NOT_FOUND` | 404 | 없는 항목 |
 | `INTERNAL` | 500 | 그 외 |
 
-> **`types.ts`의 `ApiErrorCode`가 아직 이 표와 다릅니다.** Privy 연동과 함께 맞춰야 합니다.
-> `WALLET_NOT_FOUND`를 추가하고, 쓰이지 않는 `INVALID_EMAIL`·`INVALID_CODE`를 지웁니다.
+---
+
+<!-- ─────────── 프론트는 여기까지 보면 됩니다 ─────────── -->
+
+## 운영자
+
+> 이 아래는 **운영자 화면 담당(=백엔드)** 몫입니다. 참가자·TV 화면에는 필요 없습니다.
+> 다만 `PATCH /api/admin/show`만은 TV도 부릅니다(위 「행사장 TV」 참고).
+
+비밀번호는 서버 환경변수 `OPERATOR_PASSCODE`입니다. **비어 있으면 아무도 통과하지 못합니다** — 설정을 잊었을 때 열리는 쪽이 아니라 잠기는 쪽으로 실패합니다.
+
+쿠키에는 비밀번호가 아니라 `sha256('bakery-operator:' + passcode)`를 담습니다.
+
+### `GET /api/admin/state`
+
+**운영자 화면은 공개 `GET /api/state`가 아니라 이것을 폴링합니다.** 1초 주기.
+
+공개 응답에는 넣을 수 없는 것들이 여기에는 들어갑니다.
+
+```jsonc
+// 200
+{
+  "entries": [
+    {
+      // 공개 Entry의 모든 필드에 더해
+      "failureReason": "IPFS 업로드 실패: 504",   // 왜 실패했는지
+      "walletAddress": "0x10dd...f608",          // 체인에서 대조할 때
+      "autoHidden": true                          // 스위퍼가 내린 것인지
+    }
+  ],
+  "show": { "layout": "LIVE", "qrVisible": true, "shelfPage": 0 },
+  "counts": { "submitted": 12, "minted": 9 }
+}
+```
+
+**왜 엔드포인트를 나누나.** 공개 `GET /api/state`는 인증이 없어 TV URL을 아는 사람이면
+누구나 봅니다. 그렇다고 같은 엔드포인트가 운영자 쿠키 여부에 따라 다른 것을 뱉게 만들면,
+나중에 캐시 헤더 한 줄이나 CDN 설정 하나만 잘못돼도 그대로 샙니다. **분리하는 편이
+안전합니다.**
+
+운영자 화면이 `failureReason`을 보지 못하면 행사 당일 **무엇이 왜 실패했는지 알 수 없어
+대응을 고를 수 없습니다.** 실패 사유에 따라 할 일이 다릅니다 — 재시도로 되는 것, 가스를
+채워야 하는 것, 새 사진을 받아야 하는 것, 그리고 **절대 재시도하면 안 되는 것**
+(`AlreadyIssued`).
+
+`hidden`은 **TV에서만** 감춥니다. 이 응답에서는 **내려간 카드도 그대로 내려보내세요** —
+나중에 그 참가자가 사진을 가져오면 다시 올려야 합니다.
+
+---
+
+### `POST /api/admin/session` — 로그인
+
+```jsonc
+// 요청
+{ "passcode": "..." }
+```
+
+```http
+200 OK
+set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSite=Lax
+```
+
+```jsonc
+{ "ok": true }
+```
+
+비밀번호가 틀리면 `401 UNAUTHENTICATED`, 서버에 값이 없으면 `500 INTERNAL`입니다.
+
+### `GET /api/admin/session` — 상태 확인
+
+```jsonc
+// 200
+{ "ok": true }
+// 쿠키 없거나 만료 → 401 UNAUTHENTICATED
+```
+
+### `DELETE /api/admin/session` — 로그아웃
+
+노트북을 남에게 넘길 때 씁니다. 쿠키를 지웁니다.
+
+```jsonc
+// 200
+{ "ok": true }
+```
+
+---
+
+### `PATCH /api/admin/entries/{id}`
+
+```jsonc
+{ "hidden": true }   // 앞 화면에서 내리거나 다시 올린다
+{ "retry": true }    // FAILED인 항목을 다시 시도한다
+```
+
+응답은 갱신된 `Entry`입니다. `retry`는 `status`가 `FAILED`일 때만 받습니다. 없는 항목이면 `404 NOT_FOUND`입니다.
+
+**`retry`는 처음부터 다시 하지 않습니다.** 남아 있는 것을 보고 실패한 지점부터 재개합니다.
+
+| 남아 있는 것 | 재개 지점 |
+|---|---|
+| `metadata_cid` | 민팅부터 |
+| `certificate_cid`만 | 메타데이터 핀부터 |
+| `certificate_path`만 | 증서 이미지 핀부터 |
+
+> ⚠️ **`AlreadyIssued`로 실패한 건은 재시도하면 안 됩니다.** 트랜잭션이 이미 성공했는데 DB
+> 갱신 전에 함수가 죽은 경우입니다. 재시도를 반복하면 이미 발행된 증서를 영영 못 찾습니다.
+> **운영자에게 판단을 넘기지 말고 서버가 알아서 처리하세요** — `CertificateIssued` 이벤트를
+> `recipient`로 조회해 `tokenId`를 건져 `MINTED`로 마무리합니다.
+> 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
+
+**`hidden`을 다시 올릴 때 `auto_hidden_at`을 지우지 마세요.** 스위퍼가 또 내립니다.
+
+---
+
+### `PATCH /api/admin/entries/{id}` — 닉네임 수정
+
+```jsonc
+{ "nickname": "쿠키왕" }   // 1~12자, 앞뒤 공백 제거
+```
+
+**`PINNED` 이후에는 `409 ALREADY_SUBMITTED`로 거절합니다.** 닉네임이 메타데이터 JSON에 들어가고
+그 JSON은 `PINNED`에서 IPFS에 올라갑니다. 컨트랙트에 메타데이터 수정 함수가 없으므로, 그
+뒤에 DB만 고치면 **화면과 증서가 영영 달라집니다.** 못 고친다고 말하는 편이 낫습니다.
+
+`metadata_cid`가 비어 있는지로 판정하세요. 상태 이름으로 판정하면 `FAILED` 건에서 틀립니다 —
+메타데이터 핀까지 끝내고 민팅에서 실패한 카드는 이미 늦었습니다.
+
+---
+
+### `POST /api/admin/reset`
+
+**테스트 데이터를 전부 지웁니다.** 준비 기간에만 씁니다.
+
+```jsonc
+// 200
+{ "deleted": { "participants": 12, "entries": 12 } }
+```
+
+> ⚠️ **`ALLOW_DB_RESET=1`일 때만 존재합니다.** 없으면 `404 NOT_FOUND`입니다.
+> **운영 배포에는 이 변수를 넣지 마세요.** 행사 당일 실수로 눌리면 그때까지의 참가자 카드가
+> 전부 사라집니다.
+
+지우는 것은 `participants`(cascade로 `entries`), 저장된 이미지, 그리고 `show_state` 초기화입니다.
+**IPFS 핀과 체인 발행은 지울 수 없습니다** — 특히 발행된 주소는 `hasBeenIssued`가 계속 `true`라
+그 사람은 다시 받지 못합니다. 테스트 민팅은 매번 새 주소로 하세요.
+
+---
+
+### `POST /api/admin/entries/{id}/photo`
+
+**운영자 대리 업로드입니다.** 참가자가 사진을 못 올릴 때 운영자가 대신 올려 파이프라인을
+시작합니다. `JOINED`(또는 `FAILED`) 행을 `SUBMITTED`로 올립니다.
+
+`Content-Type: multipart/form-data`, 필드는 `photo` 하나. 참가자 제출과 같습니다.
+
+**`JOINED`와 `FAILED` 모두에서 받습니다.** 사진이 문제였던 실패는 재시도로 해결되지 않고
+새 사진을 받아야 합니다.
+
+> ⚠️ **`FAILED` 건에 새 사진을 올릴 때는 `certificate_cid`와 `metadata_cid`를 비우세요.**
+> 그것들은 **이전 이미지**의 CID입니다. 안 비우면 재개 로직이 핀을 건너뛰고 **옛 사진으로
+> 민팅합니다.**
+
+> **운영자 화면에서도 프레임 합성을 거쳐야 합니다.** 서버는 이미지를 다시 그리지 않으므로,
+> 운영자가 원본 사진을 고르면 그 화면에서 참가자와 같은 합성을 한 뒤 보내야 합니다.
+> `lib/photo.ts`를 재사용하세요.
+
+응답은 `POST /api/entries`와 같은 `Entry`입니다.
+
+| 상황 | 응답 |
+|---|---|
+| 없는 항목 | `404 NOT_FOUND` |
+| 이미 사진이 있음 | `409 ALREADY_SUBMITTED` |
+| 정원(30) 초과 | `409 SHOWCASE_FULL` |
+| 사진 형식·크기 문제 | `400 INVALID_PHOTO` |
+
+---
+
+### `PATCH /api/admin/show`
+
+```jsonc
+{ "layout": "GALLERY" }   // 'LIVE' | 'GALLERY'
+{ "qrVisible": false }
+{ "shelfPage": 1 }
+```
+
+```jsonc
+// 200 — 갱신된 ShowState
+{ "layout": "GALLERY", "qrVisible": false, "shelfPage": 1 }
+```
 
 ---
 
@@ -461,8 +684,9 @@ PRIVY_APP_SECRET=
 OPERATOR_PASSCODE=
 DATABASE_URL=
 PINATA_JWT=
-AVALANCHE_RPC_URL=
-MINTER_PRIVATE_KEY=
+AVALANCHE_RPC_URL=          # 비우면 Fuji 공개 RPC
+CERTIFICATE_ADDRESS=        # 비우면 deployments/43113.json의 주소
+MINTER_PRIVATE_KEY=         # 없으면 읽기 전용. 민팅만 실패한다
 ```
 
 민터 개인키, RPC URL, IPFS 토큰에 **`NEXT_PUBLIC_`을 붙이면 안 됩니다.** 브라우저 번들에 들어갑니다.

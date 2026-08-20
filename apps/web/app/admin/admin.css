@@ -31,7 +31,21 @@
   flex-wrap: wrap;
 }
 .admin-show span { margin-right: 8px; font-size: 15px; font-weight: 700; }
-.admin-filter { margin-left: auto; }
+
+/* 명단을 좁히는 것들은 한자리에 모아 오른쪽 끝에 둔다. */
+.admin-filter { display: flex; margin-left: auto; align-items: center; gap: 6px; flex-wrap: wrap; }
+.admin-search {
+  min-height: 40px;
+  width: 140px;
+  padding: 0 12px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  outline: 0;
+  background: var(--paper);
+  font-size: 15px;
+  font-weight: 700;
+}
+.admin-search:focus { box-shadow: inset 0 0 0 2px var(--ava); }
 
 .admin-button {
   min-height: 40px;
@@ -49,8 +63,9 @@
 .admin-table th,
 .admin-table td { padding: 8px 10px; border-bottom: var(--line-thin) solid color-mix(in srgb, var(--ink) 20%, transparent); text-align: left; vertical-align: middle; }
 .admin-table th { font: 700 13px/1 var(--display); letter-spacing: -.01em; white-space: nowrap; }
-.admin-table td:last-child { text-align: right; white-space: nowrap; }
-.admin-table td:last-child .admin-button + .admin-button { margin-left: 6px; }
+/* 조작 칸에는 재시도·대리 업로드·내리기가 함께 선다. 좁으면 줄을 바꾸고 오류 문장은 아래로 내린다. */
+.admin-ops { display: flex; justify-content: flex-end; align-items: center; gap: 6px; flex-wrap: wrap; }
+.admin-ops .admin-reason { flex-basis: 100%; text-align: right; }
 .admin-table tr[data-hidden='true'] { opacity: .45; }
 .admin-thumb { width: 40px; height: 40px; border: var(--line-thin) solid var(--ink); border-radius: var(--radius-small); object-fit: cover; }
 .admin-shelf { font: 700 15px/1 var(--mono); white-space: nowrap; }
@@ -59,6 +74,8 @@
 
 .admin-status { padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .admin-status[data-status='MINTED'] { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+/* 사람 손이 필요한 상태다. 진행 중인 것들과 눈에 띄게 달라야 한다. */
+.admin-status[data-status='JOINED'] { background: color-mix(in srgb, var(--ember) 24%, transparent); }
 .admin-status[data-status='FAILED'] { background: var(--ava); color: var(--paper); }
 
 .admin-empty { padding: 64px 0; color: color-mix(in srgb, var(--ink) 60%, transparent); font-size: 17px; font-weight: 700; text-align: center; }
@@ -94,6 +111,15 @@
 .admin-gate .admin-alert { margin: 0 0 12px; }
 
 .admin-reason { display: block; margin-top: 6px; max-width: 32ch; color: var(--ember); font-size: 13px; font-weight: 700; line-height: 1.35; word-break: keep-all; }
+
+/* 내려간 카드가 왜 내려갔는지. 스위퍼가 내린 것은 사진이 오면 다시 올려야 한다. */
+.admin-down { display: block; margin-top: 6px; color: color-mix(in srgb, var(--ink) 58%, transparent); font: 700 12px/1 var(--display); }
+
+/* 파일 선택은 label이 받는다. 안의 input은 초점만 받고 자리를 차지하지 않는다. */
+.admin-upload { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.admin-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.admin-upload:focus-within { box-shadow: inset 0 0 0 2px var(--ava); }
+.admin-upload[data-busy] { opacity: .35; cursor: default; }
 
 .admin-thumb-button { display: block; padding: 0; border: 0; background: none; }
 .admin-thumb-button:hover .admin-thumb { border-color: var(--ava); }

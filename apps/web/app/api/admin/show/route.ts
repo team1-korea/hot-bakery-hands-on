@@ -9,5 +9,5 @@ export async function PATCH(request: Request) {
   if (blocked) return blocked;
 
   const body = (await request.json()) as Partial<ShowState>;
-  return NextResponse.json<ShowState>(updateShow(body));
+  return NextResponse.json<ShowState>(await updateShow(body));
 }

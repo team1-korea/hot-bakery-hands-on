@@ -7,95 +7,6 @@ import type { CropRect, PhotoSource } from '@/lib/photo';
 
 import { PhotoCropper } from './PhotoCropper';
 
-export function EmailStep({ email, error, busy, onEmail, onNext }: {
-  email: string;
-  error: string | null;
-  busy: boolean;
-  onEmail: (value: string) => void;
-  onNext: () => void;
-}) {
-  return (
-    <section className="join-step">
-      <h1>오늘 구운 쿠키를<br />증서로 남겨요</h1>
-      <p>이메일로 인증 코드를 보내 드려요. 증서를 다시 찾을 때 쓰는 주소예요.</p>
-
-      <label className="join-field">
-        <span>이메일</span>
-        <input
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          autoCapitalize="off"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(event) => onEmail(event.target.value)}
-        />
-      </label>
-      {error ? <p className="join-error">{error}</p> : null}
-
-      <div className="join-actions">
-        <button
-          className="join-button"
-          data-tone="primary"
-          type="button"
-          disabled={busy || email.trim().length === 0}
-          onClick={onNext}
-        >
-          {busy ? '보내는 중…' : '인증 코드 받기'}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-export function CodeStep({ email, code, error, busy, hint, onCode, onNext, onBack }: {
-  email: string;
-  code: string;
-  error: string | null;
-  busy: boolean;
-  hint: string | null;
-  onCode: (value: string) => void;
-  onNext: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <section className="join-step">
-      <h1>코드를 넣어 주세요</h1>
-      <p>{email}로 보낸 여섯 자리 숫자예요.</p>
-
-      <label className="join-field" data-variant="code">
-        <span>인증 코드</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          placeholder="000000"
-          value={code}
-          onChange={(event) => onCode(event.target.value.replace(/\D/g, ''))}
-        />
-      </label>
-      {hint ? <p className="join-hint">{hint}</p> : null}
-      {error ? <p className="join-error">{error}</p> : null}
-
-      <div className="join-actions">
-        <button
-          className="join-button"
-          data-tone="primary"
-          type="button"
-          disabled={busy || code.length !== 6}
-          onClick={onNext}
-        >
-          {busy ? '확인 중…' : '확인'}
-        </button>
-        <button className="join-button" data-tone="quiet" type="button" onClick={onBack}>
-          이메일 다시 넣기
-        </button>
-      </div>
-    </section>
-  );
-}
-
 export function PhotoStep({ source, crop, error, busy, onPhoto, onCrop, onNext }: {
   source: PhotoSource | null;
   crop: CropRect | null;
@@ -178,11 +89,12 @@ export function PhotoStep({ source, crop, error, busy, onPhoto, onCrop, onNext }
   );
 }
 
-export function NicknameStep({ nickname, onNickname, onNext, onBack }: {
+export function NicknameStep({ nickname, error, busy, onNickname, onNext }: {
   nickname: string;
+  error: string | null;
+  busy: boolean;
   onNickname: (value: string) => void;
   onNext: () => void;
-  onBack: () => void;
 }) {
   return (
     <section className="join-step">
@@ -200,18 +112,17 @@ export function NicknameStep({ nickname, onNickname, onNext, onBack }: {
         />
       </label>
 
+      {error ? <p className="join-error">{error}</p> : null}
+
       <div className="join-actions">
         <button
           className="join-button"
           data-tone="primary"
           type="button"
-          disabled={nickname.trim().length === 0}
+          disabled={busy || nickname.trim().length === 0}
           onClick={onNext}
         >
-          다음
-        </button>
-        <button className="join-button" data-tone="quiet" type="button" onClick={onBack}>
-          사진 다시 고르기
+          {busy ? '등록하는 중…' : '다음'}
         </button>
       </div>
     </section>

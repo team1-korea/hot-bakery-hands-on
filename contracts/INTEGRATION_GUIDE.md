@@ -53,6 +53,7 @@ NEXT_PUBLIC_CERTIFICATE_ADDRESS=0x...
 NEXT_PUBLIC_AVALANCHE_RPC_URL=https://...
 
 # 서버 전용 값
+CERTIFICATE_ADDRESS=0x...
 AVALANCHE_RPC_URL=https://...
 MINTER_PRIVATE_KEY=0x...
 ```
@@ -372,12 +373,28 @@ export async function mintCertificate(
 
   return {
     hash,
-    tokenId: issued.args.tokenId,
+    // uint256은 bigint로 온다. JSON에 그대로 넣으면 직렬화에서 터진다.
+    tokenId: issued.args.tokenId.toString(),
     recipient: issued.args.recipient,
     tokenURI: issued.args.tokenURI,
   }
 }
 ```
+
+> ⚠️ **`tokenId`는 반드시 `.toString()`으로 내보내세요.** 이 예제를 복사해 쓰는 자리가
+> 곧 JSON 응답이라, bigint를 그대로 반환하면 `JSON.stringify`가 던집니다.
+> 아래 체크리스트에도 같은 항목이 있습니다.
+
+> **JSON ABI를 그대로 쓰면 타입이 붙지 않습니다.** `import ... from '*.json'`은 `as const`가
+> 아니라서 `issued.args.tokenId`가 bigint로 좁혀지지 않고, `getLogs`의 indexed 인자 필터도
+> 걸리지 않습니다. 이벤트 하나만 필요하다면 `parseAbiItem`으로 시그니처를 직접 쓰는 편이
+> 간단합니다.
+>
+> ```ts
+> const certificateIssued = parseAbiItem(
+>   'event CertificateIssued(uint256 indexed tokenId, address indexed recipient, string tokenURI)',
+> )
+> ```
 
 배치 민팅은 같은 패턴에서 함수명과 인자만 변경합니다.
 

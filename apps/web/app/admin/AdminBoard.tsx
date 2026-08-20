@@ -2,17 +2,41 @@
 
 import { useEffect, useState } from 'react';
 
-import { USING_MOCK_SERVER, logoutOperator, updateEntry, updateShow } from '@/lib/api/client';
-import { MAX_ENTRIES, SHELF_SLOTS, type Entry, type EntryStatus } from '@/lib/api/types';
-import { useEventState } from '@/lib/useEventState';
+import type { AdminEntry } from '@/lib/api/adminTypes';
+import { ApiError, USING_MOCK_SERVER, logoutOperator, updateEntry, updateShow } from '@/lib/api/client';
+import { MAX_ENTRIES, SHELF_SLOTS, type EntryStatus } from '@/lib/api/types';
+
+import { uploadEntryPhoto } from './adminApi';
+import { buildCertificate } from './certificate';
+import { useAdminState } from './useAdminState';
 
 const STATUS_LABEL: Record<EntryStatus, string> = {
+  // TV는 "사진 기다리는 중"이라고 부드럽게 말하지만, 운영자는 할 일이 남은 사람을 찾는 중이다.
+  JOINED: '아직 안 냄',
   SUBMITTED: '사진 도착',
-  RENDERED: '증서 준비',
   PINNED: '굽기 대기',
   MINTING: '굽는 중',
   MINTED: '진열 완료',
   FAILED: '실패',
+};
+
+/** 명단을 좁히는 방법. */
+type Filter = 'ALL' | 'PENDING' | 'FAILED';
+
+/**
+ * 행사가 끝날 무렵 운영자가 찾는 것은 "실패한 사람"이 아니라 **아직 증서를 못 받은 사람**이다.
+ * 사진을 안 낸 사람도, 오븐에 걸려 있는 사람도 똑같이 불러서 알려 줘야 한다.
+ */
+function matches(entry: AdminEntry, filter: Filter) {
+  if (filter === 'PENDING') return entry.status !== 'MINTED';
+  if (filter === 'FAILED') return entry.status === 'FAILED';
+  return true;
+}
+
+const EMPTY_MESSAGE: Record<Filter, string> = {
+  ALL: '아직 등록한 참가자가 없어요.',
+  PENDING: '모두 증서를 받았어요.',
+  FAILED: '실패한 참가자가 없어요.',
 };
 
 /**
@@ -20,24 +44,32 @@ const STATUS_LABEL: Record<EntryStatus, string> = {
  * 모르는 낱말은 건드리지 않는다.
  */
 function readableReason(reason: string) {
-  return reason.replace(/\b(SUBMITTED|RENDERED|PINNED|MINTING|MINTED|FAILED)\b/g, (status) => (
+  return reason.replace(/\b(JOINED|SUBMITTED|PINNED|MINTING|MINTED|FAILED)\b/g, (status) => (
     STATUS_LABEL[status as EntryStatus]
   ));
 }
 
+/** 칸은 사진을 내야 배정된다. 없는 것을 0번 칸으로 보여 주면 진열장에서 헛것을 찾게 된다. */
+function shelfLabel(shelfIndex: number | null) {
+  return shelfIndex === null ? '칸 없음' : `${String(shelfIndex + 1).padStart(2, '0')}번 칸`;
+}
+
 export function AdminBoard() {
-  const { state, stale } = useEventState();
+  const { state, stale } = useAdminState();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [failedOnly, setFailedOnly] = useState(false);
-  const [zoomed, setZoomed] = useState<Entry | null>(null);
+  const [filter, setFilter] = useState<Filter>('ALL');
+  const [query, setQuery] = useState('');
+  const [zoomed, setZoomed] = useState<AdminEntry | null>(null);
 
   const pageCount = Math.max(1, Math.ceil(state.counts.submitted / SHELF_SLOTS));
   const page = Math.min(state.show.shelfPage, pageCount - 1);
   const failedCount = state.entries.filter((entry) => entry.status === 'FAILED').length;
+  const pendingCount = state.entries.filter((entry) => entry.status !== 'MINTED').length;
   const zoomedEntry = zoomed ? state.entries.find((entry) => entry.id === zoomed.id) ?? null : null;
-  const rows = failedOnly
-    ? state.entries.filter((entry) => entry.status === 'FAILED')
-    : state.entries;
+  const needle = query.trim().toLowerCase();
+  const rows = state.entries.filter((entry) => (
+    matches(entry, filter) && entry.nickname.toLowerCase().includes(needle)
+  ));
 
   // 폴링이 다음 주기에 서버 상태로 덮어쓰므로 낙관적 갱신을 따로 두지 않는다.
   const act = async (id: string, task: () => Promise<unknown>) => {
@@ -107,15 +139,41 @@ export function AdminBoard() {
             다음
           </button>
 
-          <button
-            className="admin-button admin-filter"
-            type="button"
-            aria-pressed={failedOnly}
-            disabled={failedCount === 0}
-            onClick={() => setFailedOnly((value) => !value)}
-          >
-            실패만 보기
-          </button>
+          <div className="admin-filter">
+            {/* 손 든 참가자를 찾는 상황은 급하다. 14명이어도 눈으로 훑는 것보다 빠르다. */}
+            <input
+              className="admin-search"
+              type="search"
+              placeholder="닉네임 검색"
+              aria-label="닉네임 검색"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+            <button
+              className="admin-button"
+              type="button"
+              aria-pressed={filter === 'ALL'}
+              onClick={() => setFilter('ALL')}
+            >
+              전체
+            </button>
+            <button
+              className="admin-button"
+              type="button"
+              aria-pressed={filter === 'PENDING'}
+              onClick={() => setFilter('PENDING')}
+            >
+              아직 못 받음 {pendingCount}
+            </button>
+            <button
+              className="admin-button"
+              type="button"
+              aria-pressed={filter === 'FAILED'}
+              onClick={() => setFilter('FAILED')}
+            >
+              실패 {failedCount}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -131,7 +189,7 @@ export function AdminBoard() {
 
       {rows.length === 0 ? (
         <p className="admin-empty">
-          {failedOnly ? '실패한 참가자가 없어요.' : '아직 제출한 참가자가 없어요.'}
+          {needle ? '그 닉네임은 명단에 없어요.' : EMPTY_MESSAGE[filter]}
         </p>
       ) : (
         <table className="admin-table">
@@ -175,7 +233,7 @@ export function AdminBoard() {
  * 참가자가 올린 사진을 크게 본다. 앞 화면에 걸어 둘 사진인지 여기서 판단하고 그 자리에서 내린다.
  */
 function PhotoViewer({ entry, busy, onClose, onAct }: {
-  entry: Entry;
+  entry: AdminEntry;
   busy: boolean;
   onClose: () => void;
   onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
@@ -199,7 +257,7 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
         <div className="admin-viewer-foot">
           <div>
             <strong>{entry.nickname}</strong>
-            <small>{String((entry.shelfIndex ?? 0) + 1).padStart(2, '0')}번 칸</small>
+            <small>{shelfLabel(entry.shelfIndex)}</small>
           </div>
           <button
             className="admin-button"
@@ -218,18 +276,22 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
 }
 
 function Row({ entry, busy, onAct, onZoom }: {
-  entry: Entry;
+  entry: AdminEntry;
   busy: boolean;
   onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
   onZoom: () => void;
 }) {
-  const shelfPage = Math.floor((entry.shelfIndex ?? 0) / SHELF_SLOTS) + 1;
+  const canUpload = entry.status === 'JOINED' || entry.status === 'FAILED';
 
   return (
     <tr data-hidden={entry.hidden}>
       <td className="admin-shelf">
-        {String((entry.shelfIndex ?? 0) + 1).padStart(2, '0')}
-        <small>{shelfPage}쪽</small>
+        {entry.shelfIndex === null ? '—' : (
+          <>
+            {String(entry.shelfIndex + 1).padStart(2, '0')}
+            <small>{Math.floor(entry.shelfIndex / SHELF_SLOTS) + 1}쪽</small>
+          </>
+        )}
       </td>
       <td>
         {entry.photoUrl ? (
@@ -242,13 +304,18 @@ function Row({ entry, busy, onAct, onZoom }: {
       <td>{entry.nickname}</td>
       <td>
         <span className="admin-status" data-status={entry.status}>{STATUS_LABEL[entry.status]}</span>
+        {/* 스위퍼가 내린 것과 운영자가 내린 것은 다시 올릴지 판단이 다르다. */}
+        {entry.hidden ? (
+          <small className="admin-down">{entry.autoHidden ? '자동 내림' : '운영자가 내림'}</small>
+        ) : null}
         {entry.failureReason ? (
           <small className="admin-reason">{readableReason(entry.failureReason)}</small>
         ) : null}
       </td>
       <td className="admin-token">{entry.tokenId ? `#${entry.tokenId}` : '—'}</td>
-      <td>
+      <td className="admin-ops">
         {entry.status === 'FAILED' ? (
+          // 버튼은 하나다. 무엇부터 다시 할지는 서버가 정한다.
           <button
             className="admin-button"
             type="button"
@@ -258,6 +325,7 @@ function Row({ entry, busy, onAct, onZoom }: {
             다시 시도
           </button>
         ) : null}
+        {canUpload ? <ProxyUpload entry={entry} rowBusy={busy} onAct={onAct} /> : null}
         <button
           className="admin-button"
           type="button"
@@ -269,5 +337,52 @@ function Row({ entry, busy, onAct, onZoom }: {
         </button>
       </td>
     </tr>
+  );
+}
+
+/**
+ * 대리 업로드. 이 화면이 존재하는 이유다.
+ *
+ * 참가자 폰이 사진을 못 올릴 때 운영자가 텔레그램·에어드랍·재촬영 무엇으로든 손에 넣어
+ * 대신 올린다. `JOINED`(아직 안 냄)와 `FAILED`(사진 자체가 문제였을 수 있다) 둘 다에서 쓴다.
+ *
+ * 보내는 것은 원본이 아니라 합성이 끝난 증서다. 서버는 이미지를 다시 그리지 않는다.
+ */
+function ProxyUpload({ entry, rowBusy, onAct }: {
+  entry: AdminEntry;
+  rowBusy: boolean;
+  onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const pick = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // 값을 비워야 같은 파일을 다시 고를 수 있다. 한 번 실패한 뒤 그대로 재시도하는 일이 실제로 있다.
+    event.target.value = '';
+    if (!file) return;
+
+    setError(null);
+    setUploading(true);
+    void onAct(entry.id, async () => {
+      try {
+        await uploadEntryPhoto(entry.id, await buildCertificate(file));
+      } catch (cause) {
+        // 사진 형식·정원 초과처럼 할 일이 갈리는 오류가 온다. 서버 문장을 그대로 보여 준다.
+        setError(cause instanceof ApiError ? cause.message : '사진을 올리지 못했어요.');
+      } finally {
+        setUploading(false);
+      }
+    });
+  };
+
+  return (
+    <>
+      <label className="admin-button admin-upload" data-busy={uploading || rowBusy ? 'true' : undefined}>
+        {uploading ? '올리는 중…' : '사진 대신 올리기'}
+        <input type="file" accept="image/*" disabled={uploading || rowBusy} onChange={pick} />
+      </label>
+      {error ? <small className="admin-reason">{error}</small> : null}
+    </>
   );
 }
