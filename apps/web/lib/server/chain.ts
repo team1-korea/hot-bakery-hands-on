@@ -136,6 +136,18 @@ export async function simulateMint(
  *
  * Wallet Client를 호출 때마다 만드는 것은 모듈 평가 시점에 개인키를 요구하지 않기 위해서다.
  */
+/**
+ * 가스 한도를 직접 준다. **자동 추정에 맡기지 않는다.**
+ *
+ * Fuji 공개 RPC의 추정기가 이따금 `exceeds block gas limit`을 돌려준다. 컨트랙트 문제가
+ * 아니라 RPC 버그이고(contracts/FUJI_SMOKE_TEST.md에 같은 증상이 기록돼 있다), 시뮬레이션은
+ * 통과한 뒤 전송에서만 터지기 때문에 미리 걸러낼 수도 없다.
+ *
+ * 실측 한 건이 130,816 가스다. 남은 가스는 돌려받으므로 넉넉히 잡아 두고, 행사 당일 추정기
+ * 상태에 발급이 좌우되지 않게 한다.
+ */
+const MINT_GAS_LIMIT = BigInt(300_000);
+
 export async function mint(recipient: Address, metadataUri: string): Promise<Hex> {
   const account = requireMinterAccount();
   const { request } = await simulateMint(recipient, metadataUri, account);
@@ -146,7 +158,10 @@ export async function mint(recipient: Address, metadataUri: string): Promise<Hex
     transport: http(process.env.AVALANCHE_RPC_URL),
   });
 
-  return walletClient.writeContract(request as Parameters<typeof walletClient.writeContract>[0]);
+  return walletClient.writeContract({
+    ...request,
+    gas: MINT_GAS_LIMIT,
+  } as Parameters<typeof walletClient.writeContract>[0]);
 }
 
 /**

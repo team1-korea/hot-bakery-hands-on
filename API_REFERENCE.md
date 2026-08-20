@@ -134,6 +134,7 @@ Authorization: Bearer <privy-access-token>
 | `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
 | `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
 | `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
+| `POST` | `/api/admin/reset` | 운영자 | 운영자 | 테스트 데이터 삭제. `ALLOW_DB_RESET=1`일 때만 존재 |
 
 **TV가 `PATCH /api/admin/show`를 부릅니다.** 그래서 TV 브라우저에도 운영자 로그인이 필요합니다.
 
@@ -533,6 +534,40 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 > 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
 
 **`hidden`을 다시 올릴 때 `auto_hidden_at`을 지우지 마세요.** 스위퍼가 또 내립니다.
+
+---
+
+### `PATCH /api/admin/entries/{id}` — 닉네임 수정
+
+```jsonc
+{ "nickname": "쿠키왕" }   // 1~12자, 앞뒤 공백 제거
+```
+
+**`PINNED` 이후에는 `409 ALREADY_SUBMITTED`로 거절합니다.** 닉네임이 메타데이터 JSON에 들어가고
+그 JSON은 `PINNED`에서 IPFS에 올라갑니다. 컨트랙트에 메타데이터 수정 함수가 없으므로, 그
+뒤에 DB만 고치면 **화면과 증서가 영영 달라집니다.** 못 고친다고 말하는 편이 낫습니다.
+
+`metadata_cid`가 비어 있는지로 판정하세요. 상태 이름으로 판정하면 `FAILED` 건에서 틀립니다 —
+메타데이터 핀까지 끝내고 민팅에서 실패한 카드는 이미 늦었습니다.
+
+---
+
+### `POST /api/admin/reset`
+
+**테스트 데이터를 전부 지웁니다.** 준비 기간에만 씁니다.
+
+```jsonc
+// 200
+{ "deleted": { "participants": 12, "entries": 12 } }
+```
+
+> ⚠️ **`ALLOW_DB_RESET=1`일 때만 존재합니다.** 없으면 `404 NOT_FOUND`입니다.
+> **운영 배포에는 이 변수를 넣지 마세요.** 행사 당일 실수로 눌리면 그때까지의 참가자 카드가
+> 전부 사라집니다.
+
+지우는 것은 `participants`(cascade로 `entries`), 저장된 이미지, 그리고 `show_state` 초기화입니다.
+**IPFS 핀과 체인 발행은 지울 수 없습니다** — 특히 발행된 주소는 `hasBeenIssued`가 계속 `true`라
+그 사람은 다시 받지 못합니다. 테스트 민팅은 매번 새 주소로 하세요.
 
 ---
 

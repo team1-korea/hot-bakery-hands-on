@@ -8,7 +8,9 @@ import {
   AlreadyIssuedError,
   findIssuedTokenId,
   hasBeenIssued,
+  mint,
   simulateMint,
+  waitForMint,
 } from './chain';
 
 /**
@@ -106,4 +108,27 @@ test('simulateMint: 빈 metadataURI는 EmptyTokenURI로 리버트한다', async 
       return true;
     },
   );
+});
+
+/*
+ * 실제 트랜잭션을 보내는 테스트다. 민터 키가 있을 때만 돈다.
+ *
+ * **받는 주소는 매번 새로 만든다.** `hasBeenIssued`는 소각한 뒤에도 true로 남으므로,
+ * 실제 참가자나 운영진 주소로 테스트하면 그 사람은 행사 당일 증서를 받지 못한다.
+ *
+ * 이 경로는 오래 미검증이었고, 실제로 돌려 보고서야 자동 가스 추정이 전송 단계에서만
+ * 터지는 것을 발견했다. 시뮬레이션으로는 잡히지 않는다.
+ */
+test('mint → waitForMint: 실제 트랜잭션으로 tokenId를 받는다', { skip: !process.env.MINTER_PRIVATE_KEY }, async () => {
+  const recipient = privateKeyToAccount(generatePrivateKey()).address;
+
+  assert.equal(await hasBeenIssued(recipient), false);
+
+  const txHash = await mint(recipient, `ipfs://bafkreitest${Date.now()}`);
+  const { tokenId } = await waitForMint(txHash);
+
+  assert.equal(typeof tokenId, 'string');
+  assert.doesNotThrow(() => JSON.stringify({ tokenId }));
+  assert.equal(await hasBeenIssued(recipient), true);
+  assert.equal(await findIssuedTokenId(recipient), tokenId);
 });
