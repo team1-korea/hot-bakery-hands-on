@@ -58,25 +58,79 @@ Authorization: Bearer <privy-access-token>
 
 | 메서드 | 경로 | 인증 | 용도 |
 |---|---|---|---|
+| `POST` | `/api/participants` | 참가자 | **등록.** 닉네임을 넘기고 카드를 만든다 |
 | `GET` | `/api/entries` | 참가자 | 내 제출 조회 |
-| `POST` | `/api/entries` | 참가자 | 사진·닉네임 제출 |
+| `POST` | `/api/entries` | 참가자 | 합성 증서 제출 |
 | `GET` | `/api/state` | 없음 | TV·운영자 화면 폴링 |
 | `GET` | `/api/photos/{entryId}` | 없음 | 사진 바이트 |
 | `POST` | `/api/admin/session` | 없음 | 운영자 로그인 |
 | `GET` | `/api/admin/session` | 운영자 | 로그인 상태 확인 |
 | `DELETE` | `/api/admin/session` | 운영자 | 운영자 로그아웃 |
 | `PATCH` | `/api/admin/entries/{id}` | 운영자 | 카드 내리기·재시도 |
+| `POST` | `/api/admin/entries/{id}/photo` | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
 | `PATCH` | `/api/admin/show` | 운영자 | 앞 화면 전환 |
 
 ---
 
 ## 참가자
 
+### `POST /api/participants`
+
+**등록입니다.** 구글 로그인을 마치고 닉네임을 넣은 직후에 부릅니다. **사진보다 먼저입니다.**
+여기서 `entries` 행이 만들어지고 TV 작업대에 카드가 올라갑니다.
+
+```jsonc
+// 요청
+{ "nickname": "쿠키왕" }
+```
+
+서버가 하는 일:
+
+1. Privy 토큰을 검증하고 DID를 얻는다
+2. Privy 서버 API로 **임베디드 지갑 주소를 조회한다** — 클라이언트가 보낸 주소는 받지 않습니다
+3. `participants` 행을 찾거나 만든다
+4. `entries` 행을 `JOINED`로 만든다. **`shelfIndex`는 null입니다**
+
+```jsonc
+// 201
+{
+  "id": "859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
+  "nickname": "쿠키왕",
+  "status": "JOINED",
+  "photoUrl": null,
+  "certificateUrl": null,
+  "tokenId": null,
+  "txHash": null,
+  "shelfIndex": null,
+  "hidden": false,
+  "failureReason": null,
+  "submittedAt": "2026-08-19T05:10:00.000Z"
+}
+```
+
+**오류**
+
+| 상황 | 응답 |
+|---|---|
+| 토큰 없음·잘못됨·만료 | `401 UNAUTHENTICATED` |
+| embedded EVM 지갑을 못 찾음 | `400 WALLET_NOT_FOUND` |
+| 닉네임 길이 문제 | `400 INVALID_NICKNAME` |
+
+이미 등록된 DID면 **기존 행을 그대로 돌려줍니다**(`200`). 새로 만들지 않습니다 — 참가자가 새로고침
+하거나 다시 로그인해도 카드가 두 장 생기면 안 됩니다.
+
+> **`shelfIndex`를 여기서 배정하지 마세요.** 로그인만 하고 사라진 사람이 진열장 칸을 영구히
+> 점유합니다. 배정은 사진 제출 때 합니다.
+
+---
+
 ### `GET /api/entries`
 
-내 제출 하나를 돌려줍니다. 아직 제출하지 않았으면 **`200`에 `null`**입니다 (404가 아닙니다).
+내 항목 하나를 돌려줍니다. 아직 등록하지 않았으면 **`200`에 `null`**입니다 (404가 아닙니다).
+등록만 하고 사진을 안 냈으면 `status`가 `JOINED`이고 `photoUrl`이 null입니다.
 
-제출 후 참가자 폰이 **3초마다** 이 경로를 폴링해 발행 완료를 기다립니다.
+등록 후 참가자 폰이 **3초마다** 이 경로를 폴링합니다. 제출 전에는 자기 카드가 작업대에 있음을,
+제출 후에는 발행 완료를 확인합니다.
 
 ```http
 GET /api/entries
@@ -84,7 +138,7 @@ Authorization: Bearer eyJhbGci...
 ```
 
 ```jsonc
-// 200 — 제출한 경우
+// 200 — 제출까지 마치고 발행된 경우
 {
   "id": "859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
   "nickname": "쿠키왕",
@@ -109,23 +163,30 @@ null
 
 ### `POST /api/entries`
 
-사진과 닉네임을 제출합니다. **한 사람당 한 장**입니다.
+**프레임 합성이 끝난 증서 이미지**를 제출합니다. **한 사람당 한 장**입니다.
+`POST /api/participants`로 등록된 `JOINED` 행을 `SUBMITTED`로 올립니다.
 
 `Content-Type: multipart/form-data`
 
 | 필드 | 형식 | 검증 |
 |---|---|---|
 | `photo` | 파일 | 4MB 이하, `image/jpeg` `image/png` `image/webp` |
-| `nickname` | 문자열 | 1~12자, 앞뒤 공백 제거 |
 
-프론트가 정사각형으로 잘라 긴 변 1080px JPEG로 재인코딩해서 보냅니다. 실제로 오는 것은 `image/jpeg` 200KB 안팎이며 HEIC는 올라오지 않습니다.
+**닉네임은 받지 않습니다.** 등록 때 이미 받았습니다.
+
+**서버는 이 이미지를 다시 그리지 않습니다.** 프론트가 정사각형 자르기(최대 1080px JPEG)와 프레임
+합성을 모두 끝내서 보냅니다. 실제로 오는 것은 `image/jpeg` 200KB 안팎이며 HEIC는 올라오지 않습니다.
+받은 바이트를 그대로 저장하고 그대로 핀하세요 — 재인코딩하면 참가자가 확인 화면에서 본 증서와
+체인에 박히는 증서가 달라집니다.
+
+> 필드 이름이 `photo`지만 내용물은 **합성된 증서**입니다. 원본 사진은 서버로 오지 않습니다.
 
 ```http
 POST /api/entries
 Authorization: Bearer eyJhbGci...
 Content-Type: multipart/form-data
 
-photo=<binary>&nickname=쿠키왕
+photo=<binary>
 ```
 
 ```jsonc
@@ -135,7 +196,7 @@ photo=<binary>&nickname=쿠키왕
   "nickname": "쿠키왕",
   "status": "SUBMITTED",
   "photoUrl": "/api/photos/859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
-  "certificateUrl": null,
+  "certificateUrl": null,   // 쓰지 않는다. 제거 대상
   "tokenId": null,
   "txHash": null,
   "shelfIndex": 0,
@@ -149,12 +210,16 @@ photo=<binary>&nickname=쿠키왕
 
 | 상황 | 응답 |
 |---|---|
-| 같은 Privy DID 또는 같은 지갑 주소로 이미 제출함 | `409 ALREADY_SUBMITTED` |
+| 이미 사진을 낸 참가자 | `409 ALREADY_SUBMITTED` |
+| 등록하지 않은 참가자 | `404 NOT_FOUND` — `POST /api/participants`를 먼저 부르세요 |
 | 정원(30) 초과 | `409 SHOWCASE_FULL` |
 | 사진 형식·크기 문제 | `400 INVALID_PHOTO` |
-| 닉네임 길이 문제 | `400 INVALID_NICKNAME` |
 
-`shelfIndex`는 제출 순서대로 0부터 배정하고 **이후 절대 바꾸지 않습니다.**
+`ALREADY_SUBMITTED`는 **행의 존재가 아니라 사진 유무로** 판정합니다. 등록만 한 참가자는 행이
+있어도 제출할 수 있어야 합니다.
+
+`shelfIndex`는 **여기서** 제출 순서대로 0부터 배정하고 **이후 절대 바꾸지 않습니다.** 등록
+시점이 아닙니다.
 
 ---
 
@@ -260,6 +325,28 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 
 ---
 
+### `POST /api/admin/entries/{id}/photo`
+
+**운영자 대리 업로드입니다.** 참가자가 사진을 못 올릴 때 운영자가 대신 올려 파이프라인을
+시작합니다. `JOINED`(또는 `FAILED`) 행을 `SUBMITTED`로 올립니다.
+
+`Content-Type: multipart/form-data`, 필드는 `photo` 하나. 참가자 제출과 같습니다.
+
+> **운영자 화면에서도 프레임 합성을 거쳐야 합니다.** 서버는 이미지를 다시 그리지 않으므로,
+> 운영자가 원본 사진을 고르면 그 화면에서 참가자와 같은 합성을 한 뒤 보내야 합니다.
+> `lib/photo.ts`를 재사용하세요.
+
+응답은 `POST /api/entries`와 같은 `Entry`입니다.
+
+| 상황 | 응답 |
+|---|---|
+| 없는 항목 | `404 NOT_FOUND` |
+| 이미 사진이 있음 | `409 ALREADY_SUBMITTED` |
+| 정원(30) 초과 | `409 SHOWCASE_FULL` |
+| 사진 형식·크기 문제 | `400 INVALID_PHOTO` |
+
+---
+
 ### `PATCH /api/admin/show`
 
 ```jsonc
@@ -284,8 +371,8 @@ type Entry = {
   id: string;
   nickname: string;
   status: EntryStatus;
-  photoUrl: string | null;         // 참가자가 올린 원본 쿠키 사진
-  certificateUrl: string | null;   // 프레임을 두른 합성 증서. RENDERED 이후 채워진다
+  photoUrl: string | null;         // 프론트가 합성한 증서 이미지. JOINED에서는 null
+  certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
   tokenId: string | null;          // uint256이므로 문자열
   txHash: string | null;
   shelfIndex: number | null;       // 진열장 슬롯(0-based). 배정 후 불변
@@ -298,18 +385,24 @@ type Entry = {
 ### `EntryStatus`
 
 ```
-SUBMITTED → RENDERED → PINNED → MINTING → MINTED
-     └──────────┴─────────┴─────────┴──→ FAILED
+JOINED → SUBMITTED → PINNED → MINTING → MINTED
+   └─────────┴──────────┴─────────┴──→ FAILED
 ```
 
 | 상태 | 뜻 | 화면 |
 |---|---|---|
-| `SUBMITTED` | 사진과 닉네임을 받음 | TV 작업대에 카드가 떨어진다 |
-| `RENDERED` | 증서 이미지 합성 완료. `certificateUrl`이 채워짐 | 작업대에 머문다 |
-| `PINNED` | 메타데이터 IPFS 업로드 완료 | 작업대에 머문다 |
-| `MINTING` | 민팅 트랜잭션 전송, 영수증 대기 | 카드가 오븐으로 들어간다 |
+| `JOINED` | 로그인·닉네임 등록 완료. 사진은 아직 없음 | TV 작업대에 카드가 떨어진다 |
+| `SUBMITTED` | 합성 증서를 받음 | **카드가 오븐으로 들어간다** |
+| `PINNED` | 증서와 메타데이터 IPFS 핀 완료 | 오븐에 머문다 |
+| `MINTING` | 민팅 트랜잭션 전송, 영수증 대기 | 오븐에 머문다 |
 | `MINTED` | 영수증 성공 + `CertificateIssued` 확인 | 카드가 진열장에 놓인다 |
-| `FAILED` | 어느 단계든 실패 | 참가자에게 안내, 운영자에게 재시도 버튼 |
+| `FAILED` | 어느 단계든 실패 | 작업대로 돌아온다. 운영자에게 재시도 버튼 |
+
+세 구역은 **누가 손대야 하는가**로 나뉩니다 — 작업대(`JOINED`·`FAILED`)는 사람 손이 필요한 것,
+오븐(`SUBMITTED`·`PINNED`·`MINTING`)은 기계가 처리 중인 것, 진열장(`MINTED`)은 끝난 것입니다.
+자세한 것은 [PIPELINE.md](./PIPELINE.md)를 보세요.
+
+> `JOINED` 카드에는 `photoUrl`이 없습니다. **오류가 아닙니다.** 프론트가 기본 쿠키 그림을 그립니다.
 
 ### `ShowState`
 
@@ -342,7 +435,7 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
 |---|---:|---|
 | `UNAUTHENTICATED` | 401 | 참가자 토큰 또는 운영자 세션 없음·만료 |
 | `WALLET_NOT_FOUND` | 400 | Privy 사용자에게 embedded EVM 지갑이 없음 |
-| `ALREADY_SUBMITTED` | 409 | 이미 제출함 |
+| `ALREADY_SUBMITTED` | 409 | 이미 사진을 냄 |
 | `INVALID_PHOTO` | 400 | 사진 형식·크기 문제 |
 | `INVALID_NICKNAME` | 400 | 닉네임 길이 문제 |
 | `SHOWCASE_FULL` | 409 | 정원 초과 |
@@ -383,4 +476,7 @@ MINTER_PRIVATE_KEY=
 - **`tokenId`는 `CertificateIssued` 이벤트에서 읽습니다.** 컨트랙트에 주소→토큰 역조회가 없습니다.
 - **민팅은 직렬화하세요.** 민터 지갑이 하나라 동시 전송하면 nonce가 충돌합니다. Postgres `FOR UPDATE SKIP LOCKED`나 advisory lock을 쓰세요.
 - **`mint` 전에 `hasBeenIssued(recipient) == false` 확인.** 주소당 한 장이며 소각 후에도 `true`로 남습니다.
-- **오븐은 4자리입니다.** 동시에 `MINTING`이 4개를 넘어도 화면은 깨지지 않고 나머지가 작업대에서 기다립니다.
+- **오븐은 4자리입니다.** 오븐 상태(`SUBMITTED`·`PINNED`·`MINTING`)가 4개를 넘어도 화면은 깨지지 않고 나머지가 작업대에서 기다립니다.
+- **받은 이미지를 다시 그리지 마세요.** 프론트가 합성한 바이트를 그대로 저장하고 그대로 핀합니다.
+- **`shelfIndex`는 등록이 아니라 사진 제출 때 배정합니다.** 등록 때 배정하면 이탈자가 진열장에 구멍을 남깁니다.
+- **오래 방치된 `JOINED` 행을 `hidden`으로 내리세요.** 안 그러면 작업대가 유령 카드로 찹니다.
