@@ -350,7 +350,8 @@ type Entry = {
   certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
   tokenId: string | null;          // uint256이므로 문자열
   txHash: string | null;
-  shelfIndex: number | null;       // 진열장 슬롯(0-based). 배정 후 불변
+  shelfIndex: number | null;       // 진열장 슬롯(0-based). JOINED에서는 null,
+                                   // 사진 제출 때 배정되고 이후 불변
   hidden: boolean;                 // 운영자가 TV에서 내린 카드
   failureReason: string | null;    // FAILED일 때만. 참가자에게 보여주지 않음
   submittedAt: string;             // ISO 8601
