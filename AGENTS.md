@@ -15,7 +15,7 @@
 | 5 | [apps/web/db/README.md](./apps/web/db/README.md) | 테이블·제약·자주 쓸 쿼리. 스키마 정본은 옆의 `schema.sql` |
 | 6 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) | **운영자 화면 명세.** 행사 당일 시나리오와 만들 것 목록 |
 | 7 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) | 컨트랙트 호출 규약. 민팅 코드의 정본 |
-| 8 | [API.md](./API.md) | 설계 배경과 역할 경계 |
+| 8 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 설계 배경, 역할 경계, 남은 위험 |
 
 > ⚠️ **인증은 예외입니다.** `types.ts`와 `apps/web/app/api/`의 참가자 인증은 아직 **Privy 전환 전**
 > 구현(이메일+코드, `bakery_participant` 쿠키)입니다. 인증 계약은 코드가 아니라
@@ -83,7 +83,7 @@
 | `PRIVY_APP_ID` → 목 인증 | Privy |
 | `PINATA_JWT` → 가짜 CID | 실제 핀 |
 
-목이 흉내내지 못하는 것은 [API.md](./API.md) 3절에 있습니다. 실제 구현으로 옮길 때
+목이 흉내내지 못하는 것은 [ARCHITECTURE.md](./ARCHITECTURE.md) 3절에 있습니다. 실제 구현으로 옮길 때
 `setTimeout`은 `after()`로 바꿔야 합니다 — 서버리스에서는 응답 후 함수가 얼어붙습니다.
 
 ## 커밋하지 않는 것

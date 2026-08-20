@@ -4,7 +4,7 @@ Avalanche Bakery 백엔드가 제공하는 엔드포인트 목록입니다.
 
 - **Base URL**: 프론트와 같은 오리진. 분리하면 `NEXT_PUBLIC_API_BASE_URL`로 지정합니다.
 - **타입 정본**: `apps/web/lib/api/types.ts`. 이 문서와 다르면 타입이 맞습니다.
-- **배경 설명**은 [API.md](./API.md), 컨트랙트 호출은 [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md).
+- **배경 설명**은 [ARCHITECTURE.md](./ARCHITECTURE.md), 컨트랙트 호출은 [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md).
 
 ## 이 문서 읽는 법
 
