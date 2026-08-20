@@ -60,13 +60,70 @@ GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진�
 `photoUrl`이 `null`이면 아직 사진을 안 낸 카드(`JOINED`)입니다. **오류가 아닙니다** —
 기본 쿠키 그림을 그리세요.
 
+### Privy 없이 개발하기
+
+로컬 개발(`NODE_ENV !== 'production'`)에서 Privy 설정 세 개
+(`NEXT_PUBLIC_PRIVY_APP_ID`·`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 **전부 비우면** 백엔드가
+목 인증으로 돕니다. 토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로,
+Privy 계정 없이도 화면 전체를 개발할 수 있습니다.
+
+| 어떻게 | 값 |
+|---|---|
+| 헤더 | `x-dev-participant: alice` |
+| 쿠키 | `bakery_dev_participant=alice` |
+| 둘 다 없음 | 전부 같은 한 사람으로 취급 |
+
+**같은 이름이면 항상 같은 참가자**입니다(이름을 해시해서 DID와 지갑 주소를 만듭니다).
+새로고침해도 카드가 두 장 생기지 않고, 이름만 바꾸면 폰 여러 대를 흉내낼 수 있습니다.
+
+```bash
+# 참가자 두 명을 만들어 TV에 카드 두 장 띄우기
+curl -X POST localhost:3000/api/participants \
+  -H 'content-type: application/json' -H 'x-dev-participant: alice' \
+  -d '{"nickname":"쿠키왕"}'
+
+curl -X POST localhost:3000/api/participants \
+  -H 'content-type: application/json' -H 'x-dev-participant: bob' \
+  -d '{"nickname":"반죽왕"}'
+
+# alice가 사진 제출 → 카드가 오븐으로
+curl -X POST localhost:3000/api/entries \
+  -H 'x-dev-participant: alice' -F 'photo=@cookie.jpg'
+```
+
+브라우저에서 여러 명을 흉내내려면 시크릿 창을 쓰거나 콘솔에서 쿠키를 바꾸세요.
+
+```js
+document.cookie = 'bakery_dev_participant=alice; path=/';
+```
+
+> 실제 Privy 검증은 백엔드에 구현돼 있습니다. 다만 **일부 값만 넣으면 목으로 돌아가지 않고
+> `401`로 잠깁니다.** 실제 모드에서는 App ID와 Secret을 함께 설정하고, 프론트가 받은 access
+> token을 Bearer 헤더로 보내야 합니다. 운영(`NODE_ENV=production`)은 세 값이 모두 없어도 목으로
+> 열리지 않고 `401`로 실패합니다.
+
+### 화면을 채워 보려면
+
+TV 애니메이션을 확인하려면 카드가 여러 상태로 흩어져 있어야 합니다.
+
+| 보고 싶은 것 | 방법 |
+|---|---|
+| 작업대에 대기 카드 | 등록만 하고 사진을 안 냅니다 (`JOINED`) |
+| 오븐 → 진열장 이동 | 사진을 제출하면 목 파이프라인이 약 7.6초에 걸쳐 굽습니다 |
+| 실패 카드 | `.env.local`에 `MOCK_FAILURE_RATE=1` |
+| 진열장 두 쪽 | 15장 넘게 제출합니다 |
+| 처음부터 다시 | `DATABASE_URL`이 없으면 **서버 재시작**으로 비워집니다 |
+
+`DATABASE_URL`이 있으면 Postgres에 남습니다. 그때는 운영자 화면의 초기화 버튼을 쓰거나
+`apps/web/db/reset.sql`을 돌리세요.
+
 ### 폴링 주기
 
 | 화면 | 경로 | 주기 |
 |---|---|---|
 | TV | `GET /api/state` | 1초 |
 | 참가자 폰 | `GET /api/entries` | 3초 |
-| 운영자 화면 | `GET /api/state` | 1초 |
+| 운영자 화면 | `GET /api/admin/state` | 1초 |
 
 캐시하지 마세요. `GET /api/state`는 `force-dynamic`입니다.
 
@@ -86,13 +143,17 @@ GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진�
 
 로그인은 **프론트에서 Privy가 처리**합니다(구글 로그인). 백엔드에는 로그인 엔드포인트가 없습니다.
 
+> 백엔드의 Privy token 검증과 embedded EVM 지갑 조회는 구현돼 있습니다. 프론트는 Privy Google
+> 로그인 뒤 받은 access token을 아래 헤더로 붙여야 합니다. 계정 없이 화면만 개발할 때는 위
+> 「Privy 없이 개발하기」의 로컬 목 인증을 쓰세요.
+
 1. 프론트엔드가 Privy Google 로그인을 실행한다
 2. Privy가 참가자에게 embedded EVM 지갑을 만들고 Google 계정과 연결한다
 3. 프론트엔드가 Privy access token을 참가자 API 요청에 붙인다
 4. 백엔드가 Privy 서버 SDK로 토큰의 **서명·만료·앱 ID**를 검증하고 Privy DID를 얻는다
 5. 백엔드가 검증된 사용자의 linked accounts에서 **embedded EVM 지갑 주소를 확인한다**
    (identity token을 함께 쓰거나 Privy Users API를 조회)
-6. 최초 제출 때 `privyUserId`(DID)와 `walletAddress`를 저장하고, 이후 조회는 검증된 DID로 찾는다
+6. 최초 등록(`POST /api/participants`) 때 DID와 `walletAddress`를 저장하고, 이후 조회는 검증된 DID로 찾는다
 
 ```http
 Authorization: Bearer <privy-access-token>
@@ -125,7 +186,7 @@ Authorization: Bearer <privy-access-token>
 | `POST` | `/api/participants` | 참가자 | 폰 | **등록.** 닉네임을 넘기고 카드를 만든다 |
 | `GET` | `/api/entries` | 참가자 | 폰 | 내 항목 조회 |
 | `POST` | `/api/entries` | 참가자 | 폰 | 합성 증서 제출 |
-| `GET` | `/api/state` | 없음 | **TV**·운영자 | 화면 폴링 |
+| `GET` | `/api/state` | 없음 | **TV** | 공개 화면 폴링 |
 | `GET` | `/api/photos/{entryId}` | 없음 | 전부 | 증서 이미지 바이트 |
 | `PATCH` | `/api/admin/show` | 운영자 | **TV**·운영자 | 앞 화면 전환·쪽 넘기기 |
 | `GET` | `/api/admin/state` | 운영자 | 운영자 | **운영자 명단.** 실패 사유 포함 |
@@ -166,7 +227,6 @@ Authorization: Bearer <privy-access-token>
   "nickname": "쿠키왕",
   "status": "JOINED",
   "photoUrl": null,
-  "certificateUrl": null,
   "tokenId": null,
   "txHash": null,
   "shelfIndex": null,
@@ -212,7 +272,6 @@ Authorization: Bearer eyJhbGci...
   "nickname": "쿠키왕",
   "status": "MINTED",
   "photoUrl": "/api/photos/859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
-  "certificateUrl": null,
   "tokenId": "1001",
   "txHash": "0x4f3c8a...",
   "shelfIndex": 0,
@@ -264,7 +323,6 @@ photo=<binary>
   "nickname": "쿠키왕",
   "status": "SUBMITTED",
   "photoUrl": "/api/photos/859e2b03-f1a0-42a0-9f1e-8f596d8e89b9",
-  "certificateUrl": null,   // 쓰지 않는다. 제거 대상
   "tokenId": null,
   "txHash": null,
   "shelfIndex": 0,
@@ -295,7 +353,8 @@ photo=<binary>
 
 ### `GET /api/state`
 
-행사장 TV와 운영자 화면이 **1초마다** 부릅니다. 캐시하지 마세요.
+행사장 TV가 **1초마다** 부릅니다. 운영자 화면은 실패 사유와 지갑 주소가 포함된
+`GET /api/admin/state`를 따로 폴링합니다. 캐시하지 마세요.
 
 ```http
 GET /api/state
@@ -349,7 +408,6 @@ type Entry = {
   nickname: string;
   status: EntryStatus;
   photoUrl: string | null;         // 프론트가 합성한 증서 이미지. JOINED에서는 null
-  certificateUrl: string | null;   // 쓰지 않는다(항상 null). 제거 대상
   tokenId: string | null;          // uint256이므로 문자열
   txHash: string | null;
   shelfIndex: number | null;       // 진열장 슬롯(0-based). JOINED에서는 null,
@@ -419,9 +477,6 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
 | `SHOWCASE_FULL` | 409 | 정원 초과 |
 | `NOT_FOUND` | 404 | 없는 항목 |
 | `INTERNAL` | 500 | 그 외 |
-
-> **`types.ts`의 `ApiErrorCode`가 아직 이 표와 다릅니다.** Privy 연동과 함께 맞춰야 합니다.
-> `WALLET_NOT_FOUND`를 추가하고, 쓰이지 않는 `INVALID_EMAIL`·`INVALID_CODE`를 지웁니다.
 
 ---
 
