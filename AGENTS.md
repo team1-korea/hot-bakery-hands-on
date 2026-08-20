@@ -12,8 +12,9 @@
 | 2 | [API_REFERENCE.md](./API_REFERENCE.md) | 엔드포인트 목록과 요청·응답 |
 | 3 | [PIPELINE.md](./PIPELINE.md) | 제출부터 민팅까지 백엔드가 하는 일 |
 | 4 | [DECISIONS.md](./DECISIONS.md) | 확정된 결정과 근거 |
-| 5 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) | 컨트랙트 호출 규약. 민팅 코드의 정본 |
-| 6 | [API.md](./API.md) | 설계 배경과 역할 경계 |
+| 5 | [apps/web/db/README.md](./apps/web/db/README.md) | 테이블·제약·자주 쓸 쿼리. 스키마 정본은 옆의 `schema.sql` |
+| 6 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) | 컨트랙트 호출 규약. 민팅 코드의 정본 |
+| 7 | [API.md](./API.md) | 설계 배경과 역할 경계 |
 
 > ⚠️ **인증은 예외입니다.** `types.ts`와 `apps/web/app/api/`의 참가자 인증은 아직 **Privy 전환 전**
 > 구현(이메일+코드, `bakery_participant` 쿠키)입니다. 인증 계약은 코드가 아니라
