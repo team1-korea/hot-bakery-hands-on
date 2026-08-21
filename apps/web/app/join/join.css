@@ -221,3 +221,26 @@
 .join-certificate-foot strong { font-size: 22px; letter-spacing: -.03em; word-break: keep-all; }
 .join-certificate-foot b { color: var(--gold); font: 700 22px/1 var(--mono); }
 .join-closed { margin: 20px 0 0; font-size: 17px; font-weight: 700; line-height: 1.55; color: rgb(23 17 15 / .66); word-break: keep-all; }
+
+.join-explorer {
+  display: inline-flex;
+  margin: 16px 0 0;
+  padding: 10px 18px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.join-explorer:active { transform: translateY(2px); }
+
+.join-notice {
+  max-width: 32ch;
+  margin: 20px 0 0;
+  color: color-mix(in srgb, var(--ink) 56%, transparent);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.55;
+  word-break: keep-all;
+}

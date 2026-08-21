@@ -2,10 +2,17 @@
 
 import { useEffect, useState } from 'react';
 
-import { getMyEntry } from '@/lib/api/client';
+import { getMyEntry, USING_MOCK_SERVER } from '@/lib/api/client';
 import type { Entry } from '@/lib/api/types';
 
 const POLL_MS = 3_000;
+
+const EXPLORER_TX: Record<string, string> = {
+  '43114': 'https://build.avax.network/explorer/c-chain/tx',
+  '43113': 'https://build.avax.network/explorer/fuji-c-chain/tx',
+};
+const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ?? '43113';
+const C_CHAIN_EXPLORER_TX = EXPLORER_TX[CHAIN_ID] ?? EXPLORER_TX['43113'];
 
 /** 이 시간을 넘겨도 발행이 끝나지 않으면 참가자에게 도움을 청하라고 알린다. */
 const SLOW_AFTER_MS = 3 * 60 * 1000;
@@ -68,6 +75,20 @@ export function SubmittedView({ initialEntry }: { initialEntry: Entry }) {
           </div>
         </div>
         <p className="join-shelf">앞 화면에서 <b>#{entry.tokenId}</b>을 찾아보세요</p>
+        {entry.txHash && !USING_MOCK_SERVER ? (
+          <a
+            className="join-explorer"
+            href={`${C_CHAIN_EXPLORER_TX}/${encodeURIComponent(entry.txHash)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            블록체인에서 확인하기
+          </a>
+        ) : null}
+        <p className="join-notice">
+          증서는 블록체인 공개 기록으로 영구히 남습니다.
+          이 서비스는 행사 종료 30일 후에 내려가지만, 증서는 지갑에 그대로 남아요.
+        </p>
       </section>
     );
   }

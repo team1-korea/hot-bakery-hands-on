@@ -182,6 +182,7 @@ export function ReviewStep({ nickname, previewUrl, error, busy, onSubmit, onBack
       </div>
       <p className="join-warn">
         발행하면 되돌릴 수 없어요. 사진과 닉네임은 블록체인에 공개로 영원히 남습니다.
+        실명이나 개인정보가 포함되지 않았는지 확인해 주세요.
       </p>
       {error ? <p className="join-error">{error}</p> : null}
 
