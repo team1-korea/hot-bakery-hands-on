@@ -216,6 +216,21 @@ test('개발 환경도 Privy 설정이 일부만 있으면 목 인증으로 우�
   });
 });
 
+test('프론트 공개 App ID만 있으면 백엔드는 목 인증을 유지한다', async () => {
+  await withPrivyEnv({
+    NODE_ENV: 'development',
+    NEXT_PUBLIC_PRIVY_APP_ID: 'public-app-id',
+  }, async () => {
+    const devRequest = new Request('http://localhost/api', {
+      headers: { 'x-dev-participant': 'alice' },
+    });
+    const caller = await callerFrom(devRequest);
+    assert.ok(caller);
+    assert.ok(caller.did.startsWith('did:privy:dev-'));
+    assert.equal(await didFrom(devRequest), caller.did);
+  });
+});
+
 test('개발 환경에서 Privy 설정이 없으면 식별자별로 안정적인 목 참가자를 만든다', async () => {
   await withPrivyEnv({ NODE_ENV: 'development' }, async () => {
     const firstRequest = new Request('http://localhost/api', {

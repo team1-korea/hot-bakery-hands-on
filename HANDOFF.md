@@ -69,7 +69,7 @@ npm run build
 
 ## 알려진 블로커
 
-- 실제 Privy 앱 자격증명과 참가자 화면 로그인 연동
+- 참가자 화면의 Privy Google 로그인·Bearer token 연동
 - 디자인 프레임 에셋·최종 캔버스 규격
 - Vercel에서 `after()` 실행과 `CRON_SECRET`/Cron 호출 검증
 

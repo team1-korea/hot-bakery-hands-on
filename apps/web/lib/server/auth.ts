@@ -47,12 +47,12 @@ const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
 let configuredGateway: PrivyGateway | null = null;
 
-function appId(): string | null {
-  return process.env.PRIVY_APP_ID?.trim() || process.env.NEXT_PUBLIC_PRIVY_APP_ID?.trim() || null;
+function serverAppId(): string | null {
+  return process.env.PRIVY_APP_ID?.trim() || null;
 }
 
 function gateway(): PrivyGateway | null {
-  const id = appId();
+  const id = serverAppId();
   const secret = process.env.PRIVY_APP_SECRET?.trim();
   if (!id || !secret) return null;
   if (configuredGateway) return configuredGateway;
@@ -73,7 +73,7 @@ function gateway(): PrivyGateway | null {
  * 합쳐지는 것을 막기 위해서다.
  */
 export async function callerFrom(request: Request): Promise<Caller | null> {
-  const configured = Boolean(appId() || process.env.PRIVY_APP_SECRET?.trim());
+  const configured = Boolean(serverAppId() || process.env.PRIVY_APP_SECRET?.trim());
   if (configured) {
     const client = gateway();
     if (!client) return null;
@@ -92,7 +92,7 @@ export async function callerFrom(request: Request): Promise<Caller | null> {
  * 등록에서 이미 DB에 저장했으므로, 이후 요청은 서명 검증으로 얻은 DID만 있으면 충분하다.
  */
 export async function didFrom(request: Request): Promise<string | null> {
-  const configured = Boolean(appId() || process.env.PRIVY_APP_SECRET?.trim());
+  const configured = Boolean(serverAppId() || process.env.PRIVY_APP_SECRET?.trim());
   if (configured) {
     const client = gateway();
     if (!client) return null;

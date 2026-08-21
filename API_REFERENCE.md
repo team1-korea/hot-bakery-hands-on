@@ -62,10 +62,11 @@ GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진�
 
 ### Privy 없이 개발하기
 
-로컬 개발(`NODE_ENV !== 'production'`)에서 Privy 설정 세 개
-(`NEXT_PUBLIC_PRIVY_APP_ID`·`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 **전부 비우면** 백엔드가
-목 인증으로 돕니다. 토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로,
-Privy 계정 없이도 화면 전체를 개발할 수 있습니다.
+로컬 개발(`NODE_ENV !== 'production'`)에서 서버용 Privy 설정 두 개
+(`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 비우면 백엔드가 목 인증으로 돕니다.
+`NEXT_PUBLIC_PRIVY_APP_ID`는 공개 프론트 설정이라 값이 있어도 목 백엔드를 잠그지 않습니다.
+토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로, 실제 Users API 없이도
+화면 전체를 개발할 수 있습니다.
 
 | 어떻게 | 값 |
 |---|---|
@@ -680,7 +681,7 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 
 ```dotenv
 # 브라우저
-NEXT_PUBLIC_PRIVY_APP_ID=
+NEXT_PUBLIC_PRIVY_APP_ID=cmt2b8ry9002h0ckyshg4zz38  # 공개 App ID
 NEXT_PUBLIC_API_BASE_URL=      # 비우면 같은 오리진
 NEXT_PUBLIC_SITE_URL=          # QR이 가리킬 주소. 비우면 요청 호스트
 
