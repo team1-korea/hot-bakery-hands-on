@@ -62,10 +62,11 @@ GET /api/entries (3초 폴링)   MINTED가 되면 tokenId·txHash가 채워진�
 
 ### Privy 없이 개발하기
 
-로컬 개발(`NODE_ENV !== 'production'`)에서 Privy 설정 세 개
-(`NEXT_PUBLIC_PRIVY_APP_ID`·`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 **전부 비우면** 백엔드가
-목 인증으로 돕니다. 토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로,
-Privy 계정 없이도 화면 전체를 개발할 수 있습니다.
+로컬 개발(`NODE_ENV !== 'production'`)에서 서버용 Privy 설정 두 개
+(`PRIVY_APP_ID`·`PRIVY_APP_SECRET`)를 비우면 백엔드가 목 인증으로 돕니다.
+`NEXT_PUBLIC_PRIVY_APP_ID`는 공개 프론트 설정이라 값이 있어도 목 백엔드를 잠그지 않습니다.
+토큰을 검증하지 않고 요청에 붙은 이름 하나로 참가자를 가르므로, 실제 Users API 없이도
+화면 전체를 개발할 수 있습니다.
 
 | 어떻게 | 값 |
 |---|---|
@@ -152,7 +153,7 @@ TV 애니메이션을 확인하려면 카드가 여러 상태로 흩어져 있�
 3. 프론트엔드가 Privy access token을 참가자 API 요청에 붙인다
 4. 백엔드가 Privy 서버 SDK로 토큰의 **서명·만료·앱 ID**를 검증하고 Privy DID를 얻는다
 5. 백엔드가 검증된 사용자의 linked accounts에서 **embedded EVM 지갑 주소를 확인한다**
-   (identity token을 함께 쓰거나 Privy Users API를 조회)
+   (Privy Users API 조회)
 6. 최초 등록(`POST /api/participants`) 때 DID와 `walletAddress`를 저장하고, 이후 조회는 검증된 DID로 찾는다
 
 ```http
@@ -161,12 +162,8 @@ Authorization: Bearer <privy-access-token>
 
 > ⚠️ **지갑 주소를 클라이언트에서 받아 그대로 믿지 마세요.** 임의의 주소로 민팅시킬 수 있습니다.
 > 프론트가 주소를 함께 보내더라도 Privy에서 확인한 linked wallet과 일치하는지 검증해야 합니다.
->
-> **identity token을 서명 검증 없이 디코딩해 주소를 꺼내지 마세요.**
-> access token과 identity token을 함께 쓰면 두 토큰의 DID가 같은지 확인합니다.
 
-구현 기준 문서: [access token](https://docs.privy.io/authentication/user-authentication/access-tokens) ·
-[identity token](https://docs.privy.io/user-management/users/identity-tokens)
+구현 기준 문서: [access token](https://docs.privy.io/authentication/user-authentication/access-tokens)
 
 **오류**
 
@@ -196,6 +193,7 @@ Authorization: Bearer <privy-access-token>
 | `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
 | `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
 | `POST` | `/api/admin/reset` | 운영자 | 운영자 | 테스트 데이터 삭제. `ALLOW_DB_RESET=1`일 때만 존재 |
+| `GET`·`POST` | `/api/internal/sweep` | `CRON_SECRET` | 스케줄러 | 멈춘 파이프라인 복구·방치 카드 정리 |
 
 **TV가 `PATCH /api/admin/show`를 부릅니다.** 그래서 TV 브라우저에도 운영자 로그인이 필요합니다.
 
@@ -282,7 +280,7 @@ Authorization: Bearer eyJhbGci...
 ```
 
 ```jsonc
-// 200 — 아직 제출 안 함
+// 200 — 아직 등록하지 않음
 null
 ```
 
@@ -474,6 +472,7 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
 | `ALREADY_SUBMITTED` | 409 | 이미 사진을 냄 |
 | `INVALID_PHOTO` | 400 | 사진 형식·크기 문제 |
 | `INVALID_NICKNAME` | 400 | 닉네임 길이 문제 |
+| `INVALID_REQUEST` | 400 | 요청 본문·조작 형식 문제 |
 | `SHOWCASE_FULL` | 409 | 정원 초과 |
 | `NOT_FOUND` | 404 | 없는 항목 |
 | `INTERNAL` | 500 | 그 외 |
@@ -505,13 +504,20 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
       // 공개 Entry의 모든 필드에 더해
       "failureReason": "IPFS 업로드 실패: 504",   // 왜 실패했는지
       "walletAddress": "0x10dd...f608",          // 체인에서 대조할 때
-      "autoHidden": true                          // 스위퍼가 내린 것인지
+      "autoHidden": true,                         // 스위퍼가 내린 것인지
+      "nicknameEditable": false                   // metadata CID가 없어 수정 가능한지
     }
   ],
   "show": { "layout": "LIVE", "qrVisible": true, "shelfPage": 0 },
-  "counts": { "submitted": 12, "minted": 9 }
+  "counts": { "submitted": 12, "minted": 9 },
+  "capabilities": {
+    "resetDatabase": false,                       // 서버가 초기화를 허용하는지
+    "mockServer": false                           // 메모리 목 저장소인지
+  }
 }
 ```
+
+화면은 환경변수를 추측하지 말고 `capabilities`만 보고 초기화 버튼과 목 서버 배지를 표시합니다.
 
 **왜 엔드포인트를 나누나.** 공개 `GET /api/state`는 인증이 없어 TV URL을 아는 사람이면
 누구나 봅니다. 그렇다고 같은 엔드포인트가 운영자 쿠키 여부에 따라 다른 것을 뱉게 만들면,
@@ -573,6 +579,8 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 ```
 
 응답은 갱신된 `Entry`입니다. `retry`는 `status`가 `FAILED`일 때만 받습니다. 없는 항목이면 `404 NOT_FOUND`입니다.
+`hidden`은 boolean, `retry`는 `true`여야 하며 지원하는 필드가 없는 본문은 `400 INVALID_REQUEST`입니다.
+잘못된 본문을 `{ hidden: false }`로 간주해 카드를 다시 올리지 않습니다.
 
 **`retry`는 처음부터 다시 하지 않습니다.** 남아 있는 것을 보고 실패한 지점부터 재개합니다.
 
@@ -582,9 +590,8 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 | `certificate_cid`만 | 메타데이터 핀부터 |
 | `certificate_path`만 | 증서 이미지 핀부터 |
 
-> ⚠️ **`AlreadyIssued`로 실패한 건은 재시도하면 안 됩니다.** 트랜잭션이 이미 성공했는데 DB
-> 갱신 전에 함수가 죽은 경우입니다. 재시도를 반복하면 이미 발행된 증서를 영영 못 찾습니다.
-> **운영자에게 판단을 넘기지 말고 서버가 알아서 처리하세요** — `CertificateIssued` 이벤트를
+> ⚠️ **`AlreadyIssued` 판단을 운영자에게 넘기지 않습니다.** 트랜잭션이 이미 성공했는데 DB
+> 갱신 전에 함수가 죽었을 수 있습니다. 재시도 요청을 받으면 서버가 `CertificateIssued` 이벤트를
 > `recipient`로 조회해 `tokenId`를 건져 `MINTED`로 마무리합니다.
 > 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
 
@@ -673,29 +680,55 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 ## 환경변수
 
 ```dotenv
-# 브라우저에 노출되는 값
-NEXT_PUBLIC_PRIVY_APP_ID=
+# 브라우저
+NEXT_PUBLIC_PRIVY_APP_ID=cmt2b8ry9002h0ckyshg4zz38  # 공개 App ID
 NEXT_PUBLIC_API_BASE_URL=      # 비우면 같은 오리진
 NEXT_PUBLIC_SITE_URL=          # QR이 가리킬 주소. 비우면 요청 호스트
 NEXT_PUBLIC_CHAIN_ID=          # 43113=Fuji(기본), 43114=메인넷. 익스플로러 링크
 
-# 서버 전용 — NEXT_PUBLIC_ 접두어를 붙이지 않는다
+# 운영 서버 필수 — NEXT_PUBLIC_ 접두어를 붙이지 않는다
 PRIVY_APP_ID=
 PRIVY_APP_SECRET=
 OPERATOR_PASSCODE=
 DATABASE_URL=
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+SUPABASE_BUCKET=certificates
 PINATA_JWT=
-AVALANCHE_RPC_URL=          # 비우면 Fuji 공개 RPC
-CERTIFICATE_ADDRESS=        # 비우면 deployments/43113.json의 주소
-MINTER_PRIVATE_KEY=         # 없으면 읽기 전용. 민팅만 실패한다
+MINTER_PRIVATE_KEY=
+CRON_SECRET=                  # /api/internal/sweep Bearer 인증
+
+# 선택값(기본값 있음)
+AVALANCHE_RPC_URL=            # 비우면 Fuji 공개 RPC
+CERTIFICATE_ADDRESS=          # 비우면 deployments/43113.json
+MINT_GAS_LIMIT=               # 비우면 300000
+
+# 로컬·준비 환경 전용. 운영 Vercel에는 넣지 않는다
+MOCK_FAILURE_RATE=
+ALLOW_DB_RESET=
 ```
 
-민터 개인키, RPC URL, IPFS 토큰에 **`NEXT_PUBLIC_`을 붙이면 안 됩니다.** 브라우저 번들에 들어갑니다.
+비밀키와 토큰에 **`NEXT_PUBLIC_`을 붙이면 안 됩니다.** 브라우저 번들에 들어갑니다. 운영에서는
+Privy 서버 변수 중 하나라도 빠지면 목 인증으로 열리지 않고 `401`로 잠깁니다. `DATABASE_URL`이
+없는 로컬 개발만 메모리 목 파이프라인을 사용합니다.
+
+### `GET|POST /api/internal/sweep`
+
+Vercel Cron 또는 외부 스케줄러가 1분마다 호출하는 내부 복구 엔드포인트입니다.
+
+```http
+Authorization: Bearer <CRON_SECRET>
+```
+
+`CRON_SECRET`이 없거나 값이 다르면 `401 UNAUTHENTICATED`입니다. 멈춘 파이프라인은 영수증·이벤트를
+먼저 복구한 뒤 실패 처리하고, 오래된 `JOINED` 카드는 TV에서 자동으로 내립니다. 운영 배포에서
+Cron 일정을 따로 설정해야 하며, 라우트가 존재하는 것만으로 주기 실행되지는 않습니다.
 
 ---
 
 ## 구현 시 주의
 
+- **요청 응답 뒤 작업은 `after()`로 실행합니다.** 참가자 제출·운영자 대리 업로드·재시도 라우트가 모두 같은 파이프라인을 예약합니다.
 - **`MINTED`는 영수증 성공 뒤에만.** 전송만으로 올리면 실패한 발행이 진열장에 놓입니다. `simulateContract → writeContract → waitForTransactionReceipt` 순서를 지키세요.
 - **`tokenId`는 문자열로.** `uint256`을 JSON에 넣기 전에 `toString()`. 숫자로 내리면 큰 값에서 정밀도가 깨집니다.
 - **`tokenId`는 `CertificateIssued` 이벤트에서 읽습니다.** 컨트랙트에 주소→토큰 역조회가 없습니다.

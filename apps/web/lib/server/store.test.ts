@@ -8,10 +8,14 @@ import {
   STUCK_MS,
   attachPhoto,
   getAdminState,
+  getPhoto,
   register,
+  resetAdminData,
   resetStore,
   setHidden,
   sweep,
+  updateNickname,
+  updateShow,
   type Photo,
 } from './store';
 
@@ -161,6 +165,98 @@ test('운영자 명단에는 실패 사유·지갑 주소·자동 내림 여부�
 
   // 실제 응답 본문에 실려 나가야 한다.
   assert.match(JSON.stringify(await getAdminState()), /처리 중 멈춤/);
+});
+
+test('운영자 capability는 메모리 서버와 초기화 가능 여부를 정확히 알린다', async () => {
+  const previous = process.env.ALLOW_DB_RESET;
+  try {
+    delete process.env.ALLOW_DB_RESET;
+    assert.deepEqual((await getAdminState()).capabilities, {
+      resetDatabase: false,
+      mockServer: true,
+    });
+
+    process.env.ALLOW_DB_RESET = '1';
+    assert.deepEqual((await getAdminState()).capabilities, {
+      resetDatabase: true,
+      mockServer: true,
+    });
+  } finally {
+    if (previous === undefined) delete process.env.ALLOW_DB_RESET;
+    else process.env.ALLOW_DB_RESET = previous;
+  }
+});
+
+test('메타데이터 CID가 생기기 전만 닉네임을 고칠 수 있다', async () => {
+  const { entry } = await register(participant(1));
+  assert.equal((await getAdminState()).entries[0].nicknameEditable, true);
+
+  const renamed = await updateNickname(entry.id, '새이름');
+  assert.ok(renamed.ok);
+  assert.equal(renamed.entry.nickname, '새이름');
+
+  assert.ok((await attachPhoto(entry.id, PHOTO)).ok);
+  await new Promise((resolve) => setTimeout(resolve, 3_300));
+  assert.equal((await getAdminState()).entries[0].nicknameEditable, false);
+
+  // 메타데이터까지 만든 뒤 FAILED가 되어도 증서 내용은 이미 고정됐다.
+  await sweep(Date.now() + STUCK_MS);
+  assert.equal((await getAdminState()).entries[0].status, 'FAILED');
+  assert.deepEqual(await updateNickname(entry.id, '늦은수정'), {
+    ok: false,
+    code: 'ALREADY_SUBMITTED',
+  });
+});
+
+test('운영자 초기화는 명단·사진·화면 상태를 지우고 삭제 건수를 돌려준다', async () => {
+  const previous = process.env.ALLOW_DB_RESET;
+  process.env.ALLOW_DB_RESET = '1';
+  try {
+    const first = (await register(participant(1))).entry;
+    await register(participant(2));
+    assert.ok((await attachPhoto(first.id, PHOTO)).ok);
+    await updateShow({ layout: 'GALLERY', qrVisible: false, shelfPage: 1 });
+
+    assert.deepEqual(await resetAdminData(), {
+      deleted: { participants: 2, entries: 2 },
+    });
+    assert.equal(await getPhoto(first.id), null);
+    const state = await getAdminState();
+    assert.equal(state.entries.length, 0);
+    assert.deepEqual(state.show, { layout: 'LIVE', qrVisible: true, shelfPage: 0 });
+  } finally {
+    if (previous === undefined) delete process.env.ALLOW_DB_RESET;
+    else process.env.ALLOW_DB_RESET = previous;
+  }
+});
+
+test('운영자 초기화는 Storage 삭제가 실패하면 명단을 먼저 지우지 않는다', async () => {
+  const keys = [
+    'ALLOW_DB_RESET',
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_BUCKET',
+  ] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  const originalFetch = globalThis.fetch;
+  process.env.ALLOW_DB_RESET = '1';
+  process.env.SUPABASE_URL = 'https://example.supabase.co';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role';
+  process.env.SUPABASE_BUCKET = 'certificates';
+  globalThis.fetch = async () => new Response('storage unavailable', { status: 503 });
+
+  try {
+    await register(participant(1));
+    await assert.rejects(() => resetAdminData(), /목록 조회 실패/);
+    assert.equal((await getAdminState()).entries.length, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const key of keys) {
+      const value = previous[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });
 
 test('스위퍼가 오븐에서 멈춘 행을 FAILED로 내린다', async () => {

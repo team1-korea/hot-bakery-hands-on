@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
-import { POST as postEntry } from '@/app/api/entries/route';
+import { PATCH as patchAdminEntry } from '@/app/api/admin/entries/[id]/route';
+import { POST as resetAdmin } from '@/app/api/admin/reset/route';
+import { GET as getEntry, POST as postEntry } from '@/app/api/entries/route';
+import { POST as sweepRoute } from '@/app/api/internal/sweep/route';
 import { POST as postParticipant } from '@/app/api/participants/route';
 import { GET as getPublicState } from '@/app/api/state/route';
 import type { ApiErrorBody, Entry, StateResponse } from '@/lib/api/types';
 
 import { callerFrom } from './auth';
+import { OPERATOR_COOKIE, operatorToken } from './http';
 import { STUCK_MS, getAdminState, resetStore, sweep } from './store';
 
 /**
@@ -42,6 +46,19 @@ function photoBody(): RequestInit {
     type: 'image/jpeg',
   }));
   return { method: 'POST', body: form };
+}
+
+function asOperator(path: string, body?: unknown) {
+  const passcode = process.env.OPERATOR_PASSCODE ?? 'route-test-passcode';
+  process.env.OPERATOR_PASSCODE = passcode;
+  return new Request(`http://localhost${path}`, {
+    method: 'POST',
+    headers: {
+      cookie: `${OPERATOR_COOKIE}=${operatorToken(passcode)}`,
+      ...(body === undefined ? {} : { 'content-type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }
 
 test('POST /api/participants — 처음은 201, 다시 부르면 같은 카드로 200', async () => {
@@ -124,4 +141,138 @@ test('GET /api/state — 실패 사유·지갑 주소·DID가 응답 본문에 �
   assert.ok(state.entries.some((entry) => entry.status === 'FAILED'));
   assert.ok(state.entries.every((entry) => entry.failureReason === null));
   assert.deepEqual(state.counts, { submitted: 1, minted: 0 });
+});
+
+test('참가자 조회·재등록 응답에는 내부 failureReason 값이 새지 않는다', async () => {
+  await postParticipant(asParticipant('phone-a', joinBody('쿠키왕')));
+  await postEntry(asParticipant('phone-a', photoBody()));
+  await sweep(Date.now() + STUCK_MS);
+
+  const admin = await getAdminState();
+  const internalReason = admin.entries[0].failureReason;
+  assert.ok(internalReason);
+
+  const polled = await getEntry(asParticipant('phone-a'));
+  const pollBody = await polled.text();
+  assert.ok(!pollBody.includes(internalReason));
+  assert.equal((JSON.parse(pollBody) as Entry).failureReason, null);
+
+  const registered = await postParticipant(asParticipant('phone-a', joinBody('무시될이름')));
+  const registerBody = await registered.text();
+  assert.ok(!registerBody.includes(internalReason));
+  assert.equal((JSON.parse(registerBody) as Entry).failureReason, null);
+});
+
+test('POST /api/internal/sweep — CRON_SECRET 없이는 막고 Bearer로만 연다', async () => {
+  const previous = process.env.CRON_SECRET;
+  process.env.CRON_SECRET = 'test-cron-secret';
+  try {
+    const blocked = await sweepRoute(new Request('http://localhost/api/internal/sweep', { method: 'POST' }));
+    assert.equal(blocked.status, 401);
+
+    const allowed = await sweepRoute(new Request('http://localhost/api/internal/sweep', {
+      method: 'POST',
+      headers: { authorization: 'Bearer test-cron-secret' },
+    }));
+    assert.equal(allowed.status, 200);
+    assert.deepEqual(await allowed.json(), { failed: 0, hidden: 0, recovered: 0, deferred: 0 });
+  } finally {
+    if (previous === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = previous;
+  }
+});
+
+test('PATCH /api/admin/entries/{id} — 닉네임을 trim하고 잘못된 본문은 hidden을 바꾸지 않는다', async () => {
+  const created = await postParticipant(asParticipant('phone-a', joinBody('처음이름')));
+  const entry = (await created.json()) as Entry;
+  const context = { params: Promise.resolve({ id: entry.id }) };
+
+  const renamed = await patchAdminEntry(
+    asOperator(`/api/admin/entries/${entry.id}`, { nickname: '  새이름  ' }),
+    context,
+  );
+  assert.equal(renamed.status, 200);
+  assert.equal(((await renamed.json()) as Entry).nickname, '새이름');
+
+  const malformed = await patchAdminEntry(
+    asOperator(`/api/admin/entries/${entry.id}`, { hidden: 'false' }),
+    context,
+  );
+  assert.equal(malformed.status, 400);
+  assert.equal((await getAdminState()).entries[0].hidden, false);
+
+  const empty = await patchAdminEntry(
+    asOperator(`/api/admin/entries/${entry.id}`, {}),
+    context,
+  );
+  assert.equal(empty.status, 400);
+  assert.equal((await getAdminState()).entries[0].hidden, false);
+});
+
+test('PATCH /api/admin/entries/{id} — 닉네임은 1~12자만 받고 없는 항목은 404다', async () => {
+  const created = await postParticipant(asParticipant('phone-a', joinBody('처음이름')));
+  const entry = (await created.json()) as Entry;
+
+  const invalid = await patchAdminEntry(
+    asOperator(`/api/admin/entries/${entry.id}`, { nickname: ' '.repeat(3) }),
+    { params: Promise.resolve({ id: entry.id }) },
+  );
+  assert.equal(invalid.status, 400);
+  assert.equal(((await invalid.json()) as ApiErrorBody).error.code, 'INVALID_NICKNAME');
+
+  const missing = await patchAdminEntry(
+    asOperator('/api/admin/entries/missing', { nickname: '새이름' }),
+    { params: Promise.resolve({ id: 'missing' }) },
+  );
+  assert.equal(missing.status, 404);
+});
+
+test('PATCH /api/admin/entries/{id} — 메타데이터가 올라간 뒤에는 409로 거절한다', async () => {
+  const created = await postParticipant(asParticipant('phone-a', joinBody('처음이름')));
+  const entry = (await created.json()) as Entry;
+  await postEntry(asParticipant('phone-a', photoBody()));
+  await new Promise((resolve) => setTimeout(resolve, 3_300));
+
+  const response = await patchAdminEntry(
+    asOperator(`/api/admin/entries/${entry.id}`, { nickname: '늦은수정' }),
+    { params: Promise.resolve({ id: entry.id }) },
+  );
+  assert.equal(response.status, 409);
+  assert.equal(((await response.json()) as ApiErrorBody).error.code, 'ALREADY_SUBMITTED');
+  assert.equal((await getAdminState()).entries[0].nickname, '처음이름');
+});
+
+test('POST /api/admin/reset — 기능을 끄면 404, 켜도 운영자 인증 없이는 401이다', async () => {
+  const previous = process.env.ALLOW_DB_RESET;
+  try {
+    delete process.env.ALLOW_DB_RESET;
+    const disabled = await resetAdmin(new Request('http://localhost/api/admin/reset', { method: 'POST' }));
+    assert.equal(disabled.status, 404);
+
+    process.env.ALLOW_DB_RESET = '1';
+    const blocked = await resetAdmin(new Request('http://localhost/api/admin/reset', { method: 'POST' }));
+    assert.equal(blocked.status, 401);
+  } finally {
+    if (previous === undefined) delete process.env.ALLOW_DB_RESET;
+    else process.env.ALLOW_DB_RESET = previous;
+  }
+});
+
+test('POST /api/admin/reset — 운영자가 명단을 지우고 삭제 건수를 받는다', async () => {
+  const previous = process.env.ALLOW_DB_RESET;
+  process.env.ALLOW_DB_RESET = '1';
+  try {
+    await postParticipant(asParticipant('phone-a', joinBody('가')));
+    await postParticipant(asParticipant('phone-b', joinBody('나')));
+
+    const response = await resetAdmin(asOperator('/api/admin/reset'));
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      deleted: { participants: 2, entries: 2 },
+    });
+    assert.equal((await getAdminState()).entries.length, 0);
+  } finally {
+    if (previous === undefined) delete process.env.ALLOW_DB_RESET;
+    else process.env.ALLOW_DB_RESET = previous;
+  }
 });

@@ -166,7 +166,7 @@ JOINED ──→ SUBMITTED ──→ PINNED ──→ MINTING ──→ MINTED
 | `show_state.id` bool PK | 화면 상태 행이 둘 이상 생기는 것 |
 | `layout` in (LIVE, GALLERY) | 없는 레이아웃 값 |
 
-전부 Postgres 16에서 실제로 막히는 것을 확인했습니다.
+전부 준비용 Supabase Postgres에서 실제로 막히는 것을 확인했습니다.
 
 ---
 
@@ -227,16 +227,16 @@ update entries
    set status = 'FAILED',
        failure_reason = '처리 중 멈춤 (스위퍼)',
        status_changed_at = now()
- where status in ('SUBMITTED', 'PINNED', 'MINTING')
+ where status in ('SUBMITTED', 'PINNED')
    and status_changed_at < now() - interval '5 minutes';
 ```
 
 `after()`는 재시도를 해주지 않습니다. 인보케이션이 죽으면 행이 중간 상태로 남고, 그대로 두면
 영원히 오븐에 있는 카드가 생깁니다.
 
-> ⚠️ **`MINTING`을 내리기 전에 `CertificateIssued` 이벤트를 먼저 확인하세요.** 트랜잭션은
-> 성공했는데 DB 갱신 전에 함수가 죽었을 수 있습니다. 그걸 `FAILED`로 내리면 **이미 발행된
-> 증서를 잃어버립니다.** 복구 절차는 [PIPELINE.md](../../../PIPELINE.md)에 있습니다.
+`MINTING`은 이 SQL로 내리지 않습니다. `/api/internal/sweep`가 영수증과 `CertificateIssued`
+이벤트를 먼저 조회해 성공을 복구하고, 체인에도 없을 때만 실패 처리합니다. 복구 절차는
+[PIPELINE.md](../../../PIPELINE.md)에 있습니다.
 
 ### 스위퍼 ② 방치된 `JOINED` → `hidden`
 
@@ -295,8 +295,10 @@ select e.*, p.wallet_address
 | `id` `nickname` `status` `hidden` | 같은 이름 |
 | `shelfIndex` `tokenId` `txHash` `failureReason` | snake_case 변환 |
 | **`photoUrl`** | `certificate_path`로 **URL을 만들어** 넣습니다 |
-| **`certificateUrl`** | **없습니다. 항상 `null`.** 제거 대상 |
 | **`submittedAt`** | **`created_at`** (등록 시각) |
+
+운영자 응답의 `nicknameEditable`은 컬럼이 아니라 `metadata_cid is null`로 계산합니다.
+`capabilities.resetDatabase`와 `capabilities.mockServer`도 서버 실행 모드에서 계산하며 DB에 저장하지 않습니다.
 
 ### 절대 API로 나가지 않는 것
 
@@ -307,6 +309,20 @@ select e.*, p.wallet_address
 | `certificate_cid` `metadata_cid` | 서버 내부용. 필요하면 체인의 `tokenURI`로 조회 |
 | `status_changed_at` `auto_hidden_at` | 스위퍼 전용 |
 | `failure_reason` | **운영자 전용.** 공개 `GET /api/state`에 절대 넣지 마세요. 운영자 화면은 `GET /api/admin/state`로 받습니다 |
+
+---
+
+## 테스트 데이터 초기화
+
+- [`reset.sql`](./reset.sql)은 DB의 `participants`·`entries`만 비우고 `show_state`를 초기값으로
+  되돌립니다. **Supabase Storage 객체는 지우지 않습니다.** SQL Editor에서 수동으로 쓸 때는
+  버킷도 별도로 비우세요.
+- 운영자 `POST /api/admin/reset`은 `ALLOW_DB_RESET=1`일 때만 열리며 DB 초기화와 Storage 객체
+  삭제를 함께 수행하고 `{ deleted: { participants, entries } }`를 반환합니다.
+- 어느 경로도 IPFS 핀이나 온체인 발행을 되돌리지 못합니다. 테스트 민팅은 매번 새 주소를 씁니다.
+
+운영 Vercel에는 `ALLOW_DB_RESET`을 넣지 않습니다. 그러면 운영자 응답의
+`capabilities.resetDatabase`도 `false`이고 엔드포인트 직접 호출도 `404`입니다.
 
 ---
 

@@ -9,24 +9,24 @@
 
 ## 브랜치와 PR
 
-- 현재 브랜치: `docs/admin-and-schema`
-- PR: [#10](https://github.com/team1-korea/hot-bakery-hands-on/pull/10)
-- 작업 트리에 여러 에이전트의 미커밋 변경이 있습니다. 먼저 `git status`와 diff를 확인하고 덮어쓰지 마세요.
+- 현재 브랜치: `feat/backend-pipeline`
+- 백엔드 후속 PR: [#11](https://github.com/team1-korea/hot-bakery-hands-on/pull/11)
+- 프론트 API 계약 PR [#10](https://github.com/team1-korea/hot-bakery-hands-on/pull/10)은 이미 `main`에 머지됐습니다.
+- 작업 트리는 깨끗하고, PR #11은 최신 `main` 위의 선형 이력이며 충돌이 없습니다.
 
 ## 상태
 
-### 완료·커밋됨
+### 완료·푸시됨
 
 - 상태/API 설계 문서, Supabase 스키마와 DB 설명
 - Postgres 저장소와 Supabase Storage 분기(환경변수 없으면 메모리 목)
-- Fuji 체인 모듈과 실제 민팅 검증, 고정 민팅 가스 한도
-- 기본 운영자 구조: 로그인, 명단, 화면 제어, 숨김, 재시도, 대리 업로드 UI/API
-
-### 진행 중(작업 트리, 검증·커밋 전)
-
-- 백엔드: Privy 검증, Pinata, `after()` 파이프라인, 스위퍼/내부 라우트
-- 운영자: 닉네임 수정, DB 초기화, `capabilities`, 세션 만료 처리
-- 문서: 구현 완료 상태와 API 예제 정합성 정리
+- Privy 토큰 검증과 embedded EVM 지갑 조회(운영 설정 누락 시 fail-closed)
+- Storage → Pinata 이미지·메타데이터 핀 → Fuji 민팅 → 영수증·이벤트 확인 파이프라인
+- advisory lock 직렬화, `after()` 실행, 재시도·AlreadyIssued·스위퍼 복구
+- 운영자 로그인, 명단, 화면 제어, 숨김, 실패 사유, 재시도, 대리 업로드
+- 메타데이터 핀 전 닉네임 수정과 `ALLOW_DB_RESET=1`로 잠근 DB·Storage 초기화
+- API·파이프라인·DB·운영자·인수인계 문서의 코드 동기화
+- 실제 Supabase·Storage·Pinata·Fuji E2E 검증 및 테스트 데이터 정리
 
 ### 남은 작업
 
@@ -34,13 +34,6 @@
 - 디자인 프레임 에셋을 받은 뒤 `lib/photo.ts` 공용 합성 및 운영자 대리 업로드 연결
 - Vercel 배포, Cron 설정, 실제 환경 end-to-end 리허설
 - 행사 전 데이터/Storage 정리와 운영 체크
-
-## 현재 에이전트 소유 범위
-
-- `/root`: 총괄, 변경 통합, 테스트, 커밋·푸시·PR
-- `/root/audit_backend`: 인증·파이프라인·저장소·테스트 감사/보완
-- `/root/audit_admin`: 운영자 프론트·API 감사/보완
-- `/root/audit_docs`: 문서 정합성, 프론트용 API 문서와 이 인수인계
 
 ## 환경변수(값은 문서나 Git에 쓰지 않음)
 
@@ -70,20 +63,23 @@ npm run build
 > `DATABASE_URL`이 있으면 `npm test`가 실제 Supabase 테스트를 실행합니다. 테이블이 비어 있는
 > 테스트/준비 환경에서만 실행하세요. 행사 데이터가 있으면 실행하지 마세요.
 
+최종 검증: 테스트 88개 중 87 통과·실제 민팅 1개 의도적 skip, TypeScript·ESLint·Next build 통과.
+별도로 실제 Storage → Pinata → Fuji → DB `MINTED` E2E까지 통과했고 생성한 DB·Storage·Pinata
+테스트 데이터는 정리했습니다. 폐기 주소의 Fuji 테스트 NFT만 체인 특성상 남습니다.
+
 ## 알려진 블로커
 
-- 실제 Privy 앱 자격증명과 프론트 로그인 연동
+- 참가자 화면의 Privy Google 로그인·Bearer token 연동
 - 디자인 프레임 에셋·최종 캔버스 규격
+- Vercel에서 `after()` 실행과 `CRON_SECRET`/Cron 호출 검증
 
 ## 다음 에이전트 실행 순서
 
-1. `git status`와 각 에이전트 결과를 모아 충돌 없이 통합한다.
-2. `npx tsc --noEmit` 오류를 0으로 만들고 닉네임·초기화·capabilities 계약을 맞춘다.
-3. Privy/Pinata/파이프라인/스위퍼 단위 테스트와 빈 준비 DB의 통합 테스트를 통과시킨다.
-4. 프론트 Privy와 프레임 합성을 연결한다.
-5. 위 네 검증 명령을 통과시키고 API 문서·운영 체크리스트를 최종 갱신한다.
-6. Vercel에 일찍 배포해 `after()`와 Cron을 확인하고 한 명 end-to-end 리허설을 한다.
-7. 변경을 목적별 커밋으로 나눠 PR #10에 푸시한다.
+1. PR #11을 리뷰·머지한다. 프론트 계약은 이미 머지된 PR #10 기준 그대로다.
+2. 참가자 화면에 실제 Privy Bearer token과 공용 프레임 합성을 연결한다.
+3. Vercel 환경변수와 1분 Cron(`/api/internal/sweep`)을 설정해 배포한다.
+4. Vercel `after()`를 포함한 한 명 end-to-end 리허설 뒤 DB·Storage를 비운다.
+5. 행사 직전 Supabase 상태, 민터 권한·잔액, 운영자 로그인과 TV를 확인한다.
 
 ## 상세 정본
 

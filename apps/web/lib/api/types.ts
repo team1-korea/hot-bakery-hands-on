@@ -1,8 +1,8 @@
 /**
  * 프론트엔드와 백엔드가 공유하는 API 계약.
  *
- * 백엔드 구현 전까지 `app/api/`의 목 라우트가 이 계약을 그대로 만족시킨다.
- * 계약을 바꾸려면 이 파일을 먼저 고치고 목 라우트와 화면을 함께 맞춘다.
+ * `app/api/`의 메모리 목과 실제 백엔드가 모두 이 계약을 만족시킨다.
+ * 계약을 바꾸려면 이 파일을 먼저 고치고 두 저장소 구현과 화면을 함께 맞춘다.
  */
 
 /**
@@ -77,6 +77,7 @@ export type ApiErrorCode =
   | 'ALREADY_SUBMITTED'
   | 'INVALID_PHOTO'
   | 'INVALID_NICKNAME'
+  | 'INVALID_REQUEST'
   | 'SHOWCASE_FULL'
   | 'NOT_FOUND'
   | 'INTERNAL';

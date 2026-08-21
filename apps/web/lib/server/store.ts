@@ -23,7 +23,7 @@ function backend(): typeof memory {
 }
 
 export type { Photo } from './storage';
-export type { AttachFailure, AttachResult } from './store.shared';
+export type { AttachFailure, AttachResult, NicknameUpdateResult, ResetResult } from './store.shared';
 export { ABANDONED_JOIN_MS, STUCK_MS } from './store.shared';
 
 export const register: typeof memory.register = (...args) => backend().register(...args);
@@ -41,9 +41,12 @@ export const getAdminState: typeof memory.getAdminState = (...args) =>
 
 export const updateShow: typeof memory.updateShow = (...args) => backend().updateShow(...args);
 export const setHidden: typeof memory.setHidden = (...args) => backend().setHidden(...args);
+export const updateNickname: typeof memory.updateNickname = (...args) => backend().updateNickname(...args);
 export const retryEntry: typeof memory.retryEntry = (...args) => backend().retryEntry(...args);
 
 export const sweep: typeof memory.sweep = (...args) => backend().sweep(...args);
 
 /** 테스트 전용. Postgres 구현은 `ALLOW_DB_RESET=1`이 없으면 던진다. */
 export const resetStore: typeof memory.resetStore = (...args) => backend().resetStore(...args);
+export const resetAdminData: typeof memory.resetAdminData = (...args) =>
+  backend().resetAdminData(...args);

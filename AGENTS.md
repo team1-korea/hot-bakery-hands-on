@@ -13,28 +13,12 @@
 | 3 | [PIPELINE.md](./PIPELINE.md) | 제출부터 민팅까지 백엔드가 하는 일 |
 | 4 | [DECISIONS.md](./DECISIONS.md) | 확정된 결정과 근거 |
 | 5 | [apps/web/db/README.md](./apps/web/db/README.md) | 테이블·제약·자주 쓸 쿼리. 스키마 정본은 옆의 `schema.sql` |
-| 6 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) | **운영자 화면 명세.** 행사 당일 시나리오와 만들 것 목록 |
+| 6 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) | **운영자 화면 명세.** 구현된 복구 기능과 행사 당일 시나리오 |
 | 7 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) | 컨트랙트 호출 규약. 민팅 코드의 정본 |
 | 8 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 설계 배경, 역할 경계, 남은 위험 |
 
-> ⚠️ **인증은 예외입니다.** `types.ts`와 `apps/web/app/api/`의 참가자 인증은 아직 **Privy 전환 전**
-> 구현(이메일+코드, `bakery_participant` 쿠키)입니다. 인증 계약은 코드가 아니라
-> [API_REFERENCE.md](./API_REFERENCE.md)를 따르고, Privy를 붙일 때 타입과 목 라우트를 함께 교체합니다.
-> 그때 `ApiErrorCode`에 `WALLET_NOT_FOUND`를 넣고 `INVALID_EMAIL`·`INVALID_CODE`를 지웁니다.
-
-> ⚠️ **`EntryStatus`도 예외입니다 (2026-08-20~).** 문서가 코드보다 앞서 있습니다. 문서에는
-> `JOINED`가 있고 `RENDERED`가 없는데 `types.ts`는 아직 반대입니다. **이 항목만은
-> [API_REFERENCE.md](./API_REFERENCE.md)와 [DECISIONS.md](./DECISIONS.md)가 맞습니다.**
-> 프론트가 아래 목록을 반영하면 이 단서를 지우세요.
->
-> | 파일 | 할 일 |
-> |---|---|
-> | `lib/api/types.ts` | `EntryStatus`에 `JOINED` 추가, `RENDERED` 삭제, `certificateUrl` 제거 |
-> | `components/display/displaySequence.ts` | `zone()` — `MINTED`→진열장, `JOINED`·`FAILED`→작업대, 나머지→오븐 |
-> | `components/display/CookieCard.tsx` | `STATUS_LABEL`에서 `RENDERED` 빼고 `JOINED` 넣기 |
-> | `app/join/JoinFlow.tsx` | Privy 구글 로그인으로 교체, **닉네임을 사진보다 앞으로**, 등록 요청 추가 |
-> | `lib/photo.ts` | 프레임 합성 추가. **운영자 화면에서도 쓰므로 공용으로 둘 것** |
-> | `app/api/` 목 라우트 | `POST /api/participants`, `POST /api/admin/entries/{id}/photo` |
+참가자 인증, `JOINED` 상태와 세 구역 매핑, `certificateUrl` 제거는 코드에 반영됐습니다. 새 계약을
+추가할 때만 아래 「계약을 바꿀 때」 순서를 따르세요.
 
 ## 이미 확정된 것 — 다시 정하지 마세요
 
@@ -68,23 +52,19 @@
 3. `API_REFERENCE.md`를 갱신한다
 4. 다른 담당자에게 알린다
 
-## 목 서버
+## 목과 실제 백엔드
 
-`apps/web/lib/server/store.ts`가 **백엔드 전체를 흉내내는 173줄**입니다. 참가자·카드·사진·화면
-상태를 `globalThis`에 얹은 메모리 저장소이고, `schedulePipeline()`이 `setTimeout`으로 굽는
-과정을 돌립니다. 덕분에 DB·Privy·Pinata·체인 없이 `npm run dev`만으로 전체 흐름이 돕니다.
+라우트는 하나이고 저장소 구현만 갈립니다. `store.ts`가 `DATABASE_URL` 유무에 따라
+`store.memory.ts`(로컬 목)와 `store.pg.ts`(Supabase Postgres)를 선택합니다. 사진도 같은 방식으로
+메모리 또는 Supabase Storage를 씁니다. 실제 DB 모드에서는 `pipeline.ts`가 Next.js `after()`로
+Pinata 핀과 Fuji 민팅을 실행합니다.
 
-**프론트 담당자는 이것만으로 개발합니다.** 아래처럼 환경변수가 없으면 목, 있으면 실제로 붙는
-구조를 유지하세요. **프론트에 Postgres 설치를 요구하지 않습니다.**
+**프론트 담당자는 외부 환경변수를 모두 비운 채 `npm run dev`만 실행합니다.** Postgres 설치는
+필요 없습니다. 로컬에서 Privy 서버 변수를 모두 비우면 개발용 목 신원이 생기지만, 운영 환경이나
+일부 변수만 설정된 상태에서는 인증이 fail-closed로 잠깁니다. 실제 배포는
+[API_REFERENCE.md](./API_REFERENCE.md) 「환경변수」의 필수값을 한 세트로 넣으세요.
 
-| 없으면 | 있으면 |
-|---|---|
-| `DATABASE_URL` → 메모리 | Postgres |
-| `PRIVY_APP_ID` → 목 인증 | Privy |
-| `PINATA_JWT` → 가짜 CID | 실제 핀 |
-
-목이 흉내내지 못하는 것은 [ARCHITECTURE.md](./ARCHITECTURE.md) 3절에 있습니다. 실제 구현으로 옮길 때
-`setTimeout`은 `after()`로 바꿔야 합니다 — 서버리스에서는 응답 후 함수가 얼어붙습니다.
+목과 실제 구현의 차이는 [ARCHITECTURE.md](./ARCHITECTURE.md) 「실행 모드」에 있습니다.
 
 ## 커밋하지 않는 것
 

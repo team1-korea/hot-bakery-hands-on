@@ -10,6 +10,7 @@
     "test": "node --import tsx --test lib/server/*.test.ts"
   },
   "dependencies": {
+    "@privy-io/node": "^0.29.0",
     "@privy-io/react-auth": "^3.37.4",
     "@stripe/stripe-js": "^9.13.0",
     "framer-motion": "13.1.0",

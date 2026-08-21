@@ -1,6 +1,8 @@
 import type { AdminStateResponse } from '@/lib/api/adminTypes';
 import { ApiError } from '@/lib/api/client';
-import type { ApiErrorBody, Entry } from '@/lib/api/types';
+import type { ApiErrorBody, Entry, ShowState } from '@/lib/api/types';
+
+import { expireOperatorSession } from './operatorSession';
 
 /**
  * 운영자 화면만 쓰는 두 개의 호출.
@@ -17,7 +19,7 @@ const POLL_TIMEOUT_MS = 5_000;
 /** 대리 업로드는 사진 한 장이 올라가는 중일 수 있어 넉넉히 기다린다. */
 const UPLOAD_TIMEOUT_MS = 30_000;
 
-async function call<T>(path: string, init: RequestInit, timeoutMs: number): Promise<T> {
+async function call<T>(path: string, init: RequestInit = {}, timeoutMs = POLL_TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -36,10 +38,12 @@ async function call<T>(path: string, init: RequestInit, timeoutMs: number): Prom
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-    throw new ApiError(
+    const error = new ApiError(
       body?.error.code ?? 'INTERNAL',
       body?.error.message ?? '잠시 후 다시 시도해 주세요.',
     );
+    if (response.status === 401 || error.code === 'UNAUTHENTICATED') expireOperatorSession();
+    throw error;
   }
 
   return (await response.json()) as T;
@@ -65,4 +69,32 @@ export function uploadEntryPhoto(id: string, certificate: Blob) {
     { method: 'POST', body: form },
     UPLOAD_TIMEOUT_MS,
   );
+}
+
+function json(body: unknown): RequestInit {
+  return {
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+}
+
+export function updateAdminEntry(
+  id: string,
+  patch: { hidden?: boolean; retry?: boolean; nickname?: string },
+) {
+  return call<Entry>(
+    `/api/admin/entries/${id}`,
+    { ...json(patch), method: 'PATCH' },
+    15_000,
+  );
+}
+
+export function updateAdminShow(patch: Partial<ShowState>) {
+  return call<ShowState>('/api/admin/show', { ...json(patch), method: 'PATCH' }, 15_000);
+}
+
+export type ResetResult = { deleted: { participants: number; entries: number } };
+
+export function resetAdminData() {
+  return call<ResetResult>('/api/admin/reset', { method: 'POST' }, 30_000);
 }

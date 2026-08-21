@@ -1,6 +1,7 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
+  TransactionReceiptNotFoundError,
   createPublicClient,
   createWalletClient,
   http,
@@ -143,10 +144,22 @@ export async function simulateMint(
  * 아니라 RPC 버그이고(contracts/FUJI_SMOKE_TEST.md에 같은 증상이 기록돼 있다), 시뮬레이션은
  * 통과한 뒤 전송에서만 터지기 때문에 미리 걸러낼 수도 없다.
  *
- * 실측 한 건이 130,816 가스다. 남은 가스는 돌려받으므로 넉넉히 잡아 두고, 행사 당일 추정기
- * 상태에 발급이 좌우되지 않게 한다.
+ * 실측: 한 건에 150,000 가스. 기본값은 그 두 배다.
+ *
+ * **무작정 크게 잡으면 안 된다.** 남는 가스는 돌려받지만, 전송하려면 `한도 x 가스가`만큼
+ * 잔액이 있어야 한다. 실제로 쓸 금액이 아니라 한도로 계산한다. 한도를 1000만으로 두면
+ * 25 gwei에서 0.25 AVAX가 잠기고, 지갑에 0.2 AVAX뿐이면 **잔액 부족으로 전송 자체가
+ * 안 된다.** 값을 올릴 때는 민터 잔액도 같이 올려야 한다.
+ *
+ * 네트워크를 바꿔도 이 값은 그대로 쓸 수 있다. 가스 **사용량**은 같은 바이트코드면 같고,
+ * 바뀌는 것은 가스 **가격**이다. 다만 메인넷은 진짜 돈이고 기본 수수료가 튀므로,
+ * 코드 수정 없이 조절할 수 있게 환경변수로 뺀다.
+ *
+ * `??`가 아니라 `Number(...) || `인 이유: `.env`에 `MINT_GAS_LIMIT=`처럼 빈 값이 있으면
+ * `??`는 그것을 통과시키고 `BigInt('')`가 **0**이 된다. 가스 한도 0으로 전송하면 RPC가
+ * 'Missing or invalid parameters'로 거절하는데, 원인이 전혀 드러나지 않는다.
  */
-const MINT_GAS_LIMIT = BigInt(300_000);
+const MINT_GAS_LIMIT = BigInt(Number(process.env.MINT_GAS_LIMIT) || 300_000);
 
 export async function mint(recipient: Address, metadataUri: string): Promise<Hex> {
   const account = requireMinterAccount();
@@ -186,6 +199,29 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
   return { tokenId: issued.args.tokenId.toString(), txHash };
 }
 
+export type MintReceipt =
+  | { status: 'success'; tokenId: string; txHash: Hex }
+  | { status: 'reverted'; txHash: Hex };
+
+/**
+ * 스위퍼가 오래된 MINTING을 복구할 때 쓰는 즉시 조회다.
+ * `waitForTransactionReceipt`처럼 폴링하지 않아 cron 인보케이션이 하나의 pending
+ * 트랜잭션에 매달리지 않는다. 영수증이 아직 없으면 null이다.
+ */
+export async function readMintReceipt(txHash: Hex): Promise<MintReceipt | null> {
+  try {
+    const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+    if (receipt.status !== 'success') return { status: 'reverted', txHash };
+
+    const [issued] = parseEventLogs({ abi: [certificateIssuedEvent], logs: receipt.logs });
+    if (!issued) throw new Error(`CertificateIssued 이벤트를 찾지 못했습니다: ${txHash}`);
+    return { status: 'success', tokenId: issued.args.tokenId.toString(), txHash };
+  } catch (error) {
+    if (error instanceof TransactionReceiptNotFoundError) return null;
+    throw error;
+  }
+}
+
 /**
  * 주소로 이미 발행된 tokenId를 되찾는다. `AlreadyIssuedError`를 잡았을 때 쓰는 복구 경로다.
  *
@@ -194,6 +230,13 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
  * 돌려주는 것은 **최초 발급 tokenId**이고, 그것이 파이프라인이 잃어버린 그 건이다.
  */
 export async function findIssuedTokenId(recipient: Address): Promise<string | null> {
+  return (await findIssuedMint(recipient))?.tokenId ?? null;
+}
+
+/** DB 갱신을 잃은 발급의 tokenId와 txHash를 이벤트에서 같이 되찾는다. */
+export async function findIssuedMint(
+  recipient: Address,
+): Promise<{ tokenId: string; txHash: Hex } | null> {
   const logs = await publicClient.getLogs({
     address: contractAddress,
     event: certificateIssuedEvent,
@@ -202,6 +245,8 @@ export async function findIssuedTokenId(recipient: Address): Promise<string | nu
     toBlock: 'latest',
   });
 
-  const tokenId = logs[0]?.args.tokenId;
-  return tokenId === undefined ? null : tokenId.toString();
+  const issued = logs[0];
+  const tokenId = issued?.args.tokenId;
+  if (tokenId === undefined || !issued.transactionHash) return null;
+  return { tokenId: tokenId.toString(), txHash: issued.transactionHash };
 }

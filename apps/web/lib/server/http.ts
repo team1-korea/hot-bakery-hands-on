@@ -12,6 +12,7 @@ const STATUS: Record<ApiErrorCode, number> = {
   ALREADY_SUBMITTED: 409,
   INVALID_PHOTO: 400,
   INVALID_NICKNAME: 400,
+  INVALID_REQUEST: 400,
   SHOWCASE_FULL: 409,
   NOT_FOUND: 404,
   INTERNAL: 500,
@@ -37,11 +38,22 @@ export function operatorToken(passcode: string) {
  * `OPERATOR_PASSCODE`가 비어 있으면 아무도 통과하지 못한다. 설정을 잊었을 때
  * 운영 화면이 열리는 쪽이 아니라 잠기는 쪽으로 실패해야 한다.
  */
-export async function blockNonOperator() {
+export async function blockNonOperator(request?: Request) {
   const expected = process.env.OPERATOR_PASSCODE;
-  const given = (await cookies()).get(OPERATOR_COOKIE)?.value;
+  const given = request
+    ? readCookie(request.headers.get('cookie'), OPERATOR_COOKIE)
+    : (await cookies()).get(OPERATOR_COOKIE)?.value;
   if (expected && given === operatorToken(expected)) return null;
   return fail('UNAUTHENTICATED', '운영자 비밀번호를 다시 입력해 주세요.');
+}
+
+function readCookie(header: string | null, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(';')) {
+    const [key, ...value] = part.trim().split('=');
+    if (key === name) return decodeURIComponent(value.join('='));
+  }
+  return undefined;
 }
 
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;

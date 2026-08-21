@@ -131,7 +131,7 @@ export async function POST(request: Request) {
 그대로 저장하고 그대로 핀합니다 — 재인코딩하면 참가자가 확인 화면에서 본 증서와 체인에 박히는
 증서가 달라집니다. `sharp`·`node-canvas`·`satori` 어느 것도 필요 없습니다.
 
-`Entry.photoUrl`에 이 합성본이 들어갑니다. `certificateUrl`은 쓰지 않습니다(항상 null).
+`Entry.photoUrl`에 이 합성본의 URL이 들어갑니다. 별도 원본·증서 URL 필드는 없습니다.
 
 **`shelfIndex`는 등록이 아니라 여기서 배정합니다.** 제출 순서대로 0부터 매기고 **이후 절대
 바꾸지 않습니다.** 등록 시점에 배정하면 로그인만 하고 사라진 사람이 진열장 칸을 영구히 점유해
@@ -271,7 +271,8 @@ select pg_try_advisory_lock(42);   -- 못 잡으면 이번 인보케이션은 �
 
 ### 스위퍼
 
-두 가지를 훑습니다. `pg_cron`으로 1분마다 돌리면 됩니다.
+`GET|POST /api/internal/sweep`가 두 가지를 훑습니다. `Authorization: Bearer <CRON_SECRET>`으로
+잠겨 있으며, Vercel Cron 또는 외부 스케줄러가 1분마다 호출해야 합니다.
 
 **① 중간 상태로 멈춘 행 → `FAILED`.** `after()`는 재시도를 해주지 않습니다. 인보케이션이 죽으면
 행이 `SUBMITTED`나 `PINNED`로 남습니다. **N분 이상 중간 상태인 행을 `FAILED`로 내립니다.** 안
@@ -308,8 +309,8 @@ const logs = await client.getLogs({
 
 파이프라인 한 건이 **10~15초**입니다. 요청 응답 안에서 처리하면 함수 타임아웃에 걸립니다.
 
-- `after()`로 응답 후에 이어서 돌립니다. 라우트에 `export const maxDuration = 60`을 주세요.
-  (플랜별 상한은 확인이 필요합니다.)
+- `after()`로 응답 후에 이어서 돕니다. 제출·운영자 대리 업로드·재시도 라우트에
+  `maxDuration = 60`이 설정돼 있습니다. Vercel 플랜의 실제 상한은 배포 리허설에서 확인합니다.
 - **DB가 진실의 원천입니다.** 각 단계가 끝나는 즉시 행을 갱신하세요. 그래야 죽어도 어디까지 갔는지 압니다.
 - 목 구현의 `setTimeout` 방식은 서버리스에서 **동작하지 않습니다.** 응답 후 함수가 얼어붙습니다.
 
@@ -317,21 +318,24 @@ const logs = await client.getLogs({
 
 ## 체크리스트
 
-- [ ] Privy 토큰을 검증하고 **서버에서** 지갑 주소를 조회한다 (클라이언트 값 신뢰 금지)
-- [ ] 로그인·닉네임 시점에 `JOINED` 행을 만든다. `shelfIndex`는 **비워 둔다**
-- [ ] `shelfIndex`를 **사진 제출 시점에** 배정한다
-- [ ] `POST /api/entries`가 즉시 응답하고 파이프라인은 `after()`로 돈다
-- [ ] 받은 합성본을 **재인코딩하지 않고 그대로** 저장하고 핀한다
-- [ ] **합성본과 메타데이터를** 각각 핀한다
-- [ ] 메타데이터에 `external_url`과 `tokenId`를 넣지 않는다
-- [ ] `mint` 전에 `hasBeenIssued(recipient) == false` 확인
-- [ ] 민팅을 DB 락으로 직렬화한다
-- [ ] 영수증 성공과 `CertificateIssued` 확인 뒤에만 `MINTED`로 올린다
-- [ ] `tokenId`를 문자열로 저장하고 내려준다
-- [ ] `AlreadyIssued` 리버트를 이벤트 조회로 복구한다
-- [ ] `GET /api/state`에 `failureReason`·지갑 주소·DID가 섞이지 않는다 (`JOINED` 카드 포함)
-- [ ] 중간 상태로 멈춘 행을 스위퍼가 `FAILED`로 내린다
-- [ ] 오래 방치된 `JOINED` 행을 스위퍼가 `hidden`으로 내린다
-- [ ] 운영자 대리 사진 업로드 경로가 있다 (합성 포함)
-- [ ] 민터 지갑에 Fuji AVAX를 넉넉히 채운다
-- [ ] Supabase 프로젝트를 행사 전에 깨워 둔다 (7일 미사용 시 일시정지)
+코드 구현 여부와 행사 운영 준비를 구분합니다.
+
+- [x] Privy 토큰을 검증하고 **서버에서** 지갑 주소를 조회한다 (클라이언트 값 신뢰 금지)
+- [x] 로그인·닉네임 시점에 `JOINED` 행을 만든다. `shelfIndex`는 **비워 둔다**
+- [x] `shelfIndex`를 **사진 제출 시점에** 배정한다
+- [x] 제출·대리 업로드·재시도가 즉시 응답하고 파이프라인은 `after()`로 돈다
+- [x] 받은 합성본을 **재인코딩하지 않고 그대로** 저장하고 핀한다
+- [x] **합성본과 메타데이터를** 각각 핀한다
+- [x] 메타데이터에 `external_url`과 `tokenId`를 넣지 않는다
+- [x] `mint` 전에 `hasBeenIssued(recipient) == false`를 확인한다
+- [x] 민팅을 Postgres advisory lock으로 직렬화한다
+- [x] 영수증 성공과 `CertificateIssued` 확인 뒤에만 `MINTED`로 올린다
+- [x] `tokenId`를 문자열로 저장하고 내려준다
+- [x] `AlreadyIssued`와 멈춘 `MINTING`을 이벤트 조회로 복구한다
+- [x] 공개 state에서 `failureReason`·지갑 주소·DID를 제외한다
+- [x] 중간 상태 실패 처리와 오래된 `JOINED` 자동 내림 로직·내부 라우트가 있다
+- [x] 운영자 대리 사진 업로드 API와 화면이 있다
+- [ ] 참가자·운영자 대리 업로드가 최종 프레임 합성 함수를 함께 쓴다 (에셋 대기)
+- [ ] Vercel에서 `after()`를 검증하고 `/api/internal/sweep` 1분 Cron을 설정한다
+- [ ] 실제 Privy Google 로그인부터 민팅까지 한 명 end-to-end 리허설을 한다
+- [ ] 행사 직전 Supabase·민터 잔액·빈 DB/Storage를 확인한다

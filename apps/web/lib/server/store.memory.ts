@@ -3,8 +3,15 @@ import { randomUUID } from 'node:crypto';
 import type { AdminEntry, AdminStateResponse } from '@/lib/api/adminTypes';
 import { MAX_ENTRIES, type Entry, type EntryStatus, type ShowState, type StateResponse } from '@/lib/api/types';
 
-import { clearPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
-import { ABANDONED_JOIN_MS, STUCK_MS, SWEPT_REASON, type AttachResult } from './store.shared';
+import { clearPhotos, clearStoredPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
+import {
+  ABANDONED_JOIN_MS,
+  STUCK_MS,
+  SWEPT_REASON,
+  type AttachResult,
+  type NicknameUpdateResult,
+  type ResetResult,
+} from './store.shared';
 
 /**
  * `DATABASE_URL`이 없을 때 쓰는 인메모리 저장소. 고르는 곳은 `store.ts`다.
@@ -31,6 +38,8 @@ type Row = {
   statusChangedAt: number;
   /** 스위퍼가 자동으로 내린 시각. 운영자가 내린 것과 구분한다. */
   autoHiddenAt: number | null;
+  /** 목에서도 닉네임 수정 가능 여부를 실제 DB와 같은 기준으로 판단한다. */
+  metadataCid: string | null;
 };
 
 type Store = {
@@ -95,6 +104,7 @@ export async function register(input: {
     walletAddress: input.walletAddress.toLowerCase(),
     statusChangedAt: now,
     autoHiddenAt: null,
+    metadataCid: null,
   };
 
   store.rows.push(row);
@@ -132,6 +142,7 @@ export async function attachPhoto(
   row.entry.failureReason = null;
   row.entry.tokenId = null;
   row.entry.txHash = null;
+  row.metadataCid = null;
   moveTo(row, 'SUBMITTED');
 
   schedulePipeline(row.entry.id);
@@ -222,10 +233,15 @@ export async function getAdminState(): Promise<AdminStateResponse> {
         ...row.entry,
         walletAddress: row.walletAddress,
         autoHidden: row.autoHiddenAt !== null,
+        nicknameEditable: row.metadataCid === null,
       }),
     ),
     show: store.show,
     counts: counts(),
+    capabilities: {
+      resetDatabase: process.env.ALLOW_DB_RESET === '1',
+      mockServer: true,
+    },
   };
 }
 
@@ -266,6 +282,17 @@ export async function setHidden(entryId: string, hidden: boolean): Promise<Entry
   if (!row) return null;
   row.entry.hidden = hidden;
   return row.entry;
+}
+
+export async function updateNickname(
+  entryId: string,
+  nickname: string,
+): Promise<NicknameUpdateResult> {
+  const row = store.rows.find((candidate) => candidate.entry.id === entryId);
+  if (!row) return { ok: false, code: 'NOT_FOUND' };
+  if (row.metadataCid !== null) return { ok: false, code: 'ALREADY_SUBMITTED' };
+  row.entry.nickname = nickname;
+  return { ok: true, entry: row.entry };
 }
 
 export async function retryEntry(entryId: string): Promise<Entry | null> {
@@ -359,6 +386,7 @@ function schedulePipeline(entryId: string) {
       }
 
       moveTo(row, step.status);
+      if (step.status === 'PINNED') row.metadataCid = `bafy-mock-metadata-${entryId}`;
       if (step.status === 'MINTED') {
         row.entry.tokenId = String(1000 + (row.entry.shelfIndex ?? 0) + 1);
         row.entry.txHash = `0x${entryId.replace(/-/g, '').padEnd(64, '0').slice(0, 64)}`;
@@ -372,4 +400,18 @@ export async function resetStore(): Promise<void> {
   store.rows.length = 0;
   clearPhotos();
   store.show = { layout: 'LIVE', qrVisible: true, shelfPage: 0 };
+}
+
+/** 운영자 화면의 개발용 초기화. DB 행뿐 아니라 저장된 증서 이미지도 함께 지운다. */
+export async function resetAdminData(): Promise<ResetResult> {
+  if (process.env.ALLOW_DB_RESET !== '1') {
+    throw new Error('resetAdminData()는 ALLOW_DB_RESET=1일 때만 부를 수 있다.');
+  }
+  const entries = store.rows.length;
+  const participants = new Set(store.rows.map((row) => row.privyDid)).size;
+  // 원격 Storage를 명시해 둔 개발 환경에서는 삭제 실패 시 명단을 보존한다.
+  await clearStoredPhotos();
+  store.rows.length = 0;
+  store.show = { layout: 'LIVE', qrVisible: true, shelfPage: 0 };
+  return { deleted: { participants, entries } };
 }

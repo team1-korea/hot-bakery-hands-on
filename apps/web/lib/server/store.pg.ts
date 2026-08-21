@@ -1,11 +1,21 @@
 import type { DatabaseError } from 'pg';
+import type { Address, Hex } from 'viem';
 
 import type { AdminEntry, AdminStateResponse } from '@/lib/api/adminTypes';
 import { MAX_ENTRIES, type Entry, type EntryStatus, type ShowState, type StateResponse } from '@/lib/api/types';
 
 import { query, transaction } from './db';
-import { clearPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
-import { ABANDONED_JOIN_MS, STUCK_MS, SWEPT_REASON, type AttachResult } from './store.shared';
+import { clearPhotos, clearStoredPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
+import {
+  ABANDONED_JOIN_MS,
+  STUCK_MS,
+  SWEPT_REASON,
+  type AttachResult,
+  type MintLockActions,
+  type NicknameUpdateResult,
+  type PipelineEntry,
+  type ResetResult,
+} from './store.shared';
 
 /**
  * `DATABASE_URL`이 있을 때 쓰는 Postgres 저장소. 고르는 곳은 `store.ts`이고,
@@ -149,6 +159,8 @@ export async function attachPhoto(
             set status = 'SUBMITTED',
                 certificate_path = $2,
                 shelf_index = coalesce(shelf_index, next_shelf_index()),
+                certificate_cid = null,
+                metadata_cid = null,
                 failure_reason = null,
                 token_id = null,
                 tx_hash = null,
@@ -253,10 +265,10 @@ export async function getState(): Promise<StateResponse> {
  */
 export async function getAdminState(): Promise<AdminStateResponse> {
   const [rows, show] = await Promise.all([
-    query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string }>(
+    query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
               e.token_id, e.tx_hash, e.hidden, e.failure_reason, e.created_at,
-              e.auto_hidden_at, p.wallet_address
+              e.auto_hidden_at, e.metadata_cid, p.wallet_address
          from entries e
          join participants p on p.id = e.participant_id
         order by e.created_at`,
@@ -270,10 +282,15 @@ export async function getAdminState(): Promise<AdminStateResponse> {
         ...toEntry(row),
         walletAddress: row.wallet_address,
         autoHidden: row.auto_hidden_at !== null,
+        nicknameEditable: row.metadata_cid === null,
       }),
     ),
     show,
     counts: counts(rows.rows),
+    capabilities: {
+      resetDatabase: process.env.ALLOW_DB_RESET === '1',
+      mockServer: false,
+    },
   };
 }
 
@@ -332,11 +349,39 @@ export async function setHidden(entryId: string, hidden: boolean): Promise<Entry
   return result.rows[0] ? toEntry(result.rows[0]) : null;
 }
 
+export async function updateNickname(
+  entryId: string,
+  nickname: string,
+): Promise<NicknameUpdateResult> {
+  if (!UUID.test(entryId)) return { ok: false, code: 'NOT_FOUND' };
+
+  const updated = await query<EntryRow>(
+    `update entries
+        set nickname = $2
+      where id = $1 and metadata_cid is null
+    returning ${ENTRY_COLUMNS}`,
+    [entryId, nickname],
+  );
+  if (updated.rows[0]) return { ok: true, entry: toEntry(updated.rows[0]) };
+
+  const found = await query<{ metadata_cid: string | null }>(
+    'select metadata_cid from entries where id = $1',
+    [entryId],
+  );
+  return found.rows[0]
+    ? { ok: false, code: 'ALREADY_SUBMITTED' }
+    : { ok: false, code: 'NOT_FOUND' };
+}
+
 export async function retryEntry(entryId: string): Promise<Entry | null> {
   if (!UUID.test(entryId)) return null;
   const result = await query<EntryRow>(
     `update entries
-        set status = 'SUBMITTED',
+        set status = case
+              when tx_hash is not null then 'MINTING'::entry_status
+              when metadata_cid is not null then 'PINNED'::entry_status
+              else 'SUBMITTED'::entry_status
+            end,
             failure_reason = null,
             status_changed_at = now()
       where id = $1 and status = 'FAILED'
@@ -344,6 +389,216 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
     [entryId],
   );
   return result.rows[0] ? toEntry(result.rows[0]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// 프로덕션 발행 파이프라인
+// ---------------------------------------------------------------------------
+
+type PipelineRow = {
+  id: string;
+  nickname: string;
+  status: EntryStatus;
+  wallet_address: string;
+  certificate_path: string;
+  certificate_cid: string | null;
+  metadata_cid: string | null;
+  tx_hash: string | null;
+  token_id: string | null;
+  created_at: Date;
+  status_changed_at: Date;
+};
+
+const PIPELINE_COLUMNS = `
+  e.id, e.nickname, e.status, p.wallet_address, e.certificate_path,
+  e.certificate_cid, e.metadata_cid, e.tx_hash, e.token_id,
+  e.created_at, e.status_changed_at
+`;
+
+function toPipelineEntry(row: PipelineRow): PipelineEntry {
+  return {
+    id: row.id,
+    nickname: row.nickname,
+    status: row.status,
+    walletAddress: row.wallet_address as Address,
+    certificatePath: row.certificate_path,
+    certificateCid: row.certificate_cid,
+    metadataCid: row.metadata_cid,
+    txHash: row.tx_hash as Hex | null,
+    tokenId: row.token_id,
+    submittedAt: row.created_at,
+    statusChangedAt: row.status_changed_at,
+  };
+}
+
+export async function getPipelineEntry(entryId: string): Promise<PipelineEntry | null> {
+  if (!UUID.test(entryId)) return null;
+  const result = await query<PipelineRow>(
+    `select ${PIPELINE_COLUMNS}
+       from entries e
+       join participants p on p.id = e.participant_id
+      where e.id = $1 and e.certificate_path is not null`,
+    [entryId],
+  );
+  return result.rows[0] ? toPipelineEntry(result.rows[0]) : null;
+}
+
+export async function saveCertificateCid(
+  entryId: string,
+  cid: string,
+  expectedPath?: string,
+): Promise<boolean> {
+  const result = await query(
+    `update entries
+        set certificate_cid = $2,
+            status_changed_at = now()
+      where id = $1
+        and status <> 'MINTED'
+        and certificate_cid is null
+        and ($3::text is null or certificate_path = $3)`,
+    [entryId, cid, expectedPath ?? null],
+  );
+  return (result.rowCount ?? 0) === 1;
+}
+
+export async function saveMetadataCid(entryId: string, cid: string): Promise<void> {
+  await query(
+    `update entries
+        set metadata_cid = coalesce(metadata_cid, $2),
+            status = 'PINNED',
+            failure_reason = null,
+            status_changed_at = now()
+      where id = $1 and status <> 'MINTED'`,
+    [entryId, cid],
+  );
+}
+
+/**
+ * 메타데이터에 들어갈 닉네임을 읽는 순간부터 CID를 저장할 때까지 행을 잠근다.
+ *
+ * 이 잠금이 없으면 Pinata 요청 중 운영자가 닉네임을 바꿀 수 있다. 그러면 DB/TV는
+ * 새 닉네임인데 영구 메타데이터와 NFT에는 이전 닉네임이 남는다. 닉네임 수정 쿼리는
+ * 같은 행 잠금이 풀린 뒤 `metadata_cid is null`을 다시 평가하므로 409로 끝난다.
+ */
+export async function pinMetadata(
+  entryId: string,
+  expectedPath: string,
+  pin: (entry: PipelineEntry) => Promise<string>,
+): Promise<PipelineEntry | null> {
+  if (!UUID.test(entryId)) return null;
+  return transaction(async (client) => {
+    const found = await client.query<PipelineRow>(
+      `select ${PIPELINE_COLUMNS}
+         from entries e
+         join participants p on p.id = e.participant_id
+        where e.id = $1 and e.certificate_path = $2
+        for update of e`,
+      [entryId, expectedPath],
+    );
+    const row = found.rows[0];
+    if (!row) return null;
+    if (row.metadata_cid !== null || row.status === 'MINTED') return toPipelineEntry(row);
+    if (!row.certificate_cid) throw new Error('증서 이미지 CID가 없습니다.');
+
+    const cid = await pin(toPipelineEntry(row));
+    const updated = await client.query(
+      `update entries e
+          set metadata_cid = $2,
+              status = 'PINNED',
+              failure_reason = null,
+              status_changed_at = now()
+        where e.id = $1 and e.certificate_path = $3 and e.metadata_cid is null
+      `,
+      [entryId, cid, expectedPath],
+    );
+    if (updated.rowCount !== 1) return null;
+    return toPipelineEntry({
+      ...row,
+      metadata_cid: cid,
+      status: 'PINNED',
+      status_changed_at: new Date(),
+    });
+  });
+}
+
+export async function saveMinted(entryId: string, tokenId: string, txHash: Hex): Promise<void> {
+  await query(
+    `update entries
+        set status = 'MINTED', token_id = $2, tx_hash = $3,
+            failure_reason = null, status_changed_at = now()
+      where id = $1 and status <> 'MINTED'`,
+    [entryId, tokenId, txHash],
+  );
+}
+
+export async function markPipelineFailed(entryId: string, reason: string): Promise<void> {
+  await query(
+    `update entries
+        set status = 'FAILED', failure_reason = $2, status_changed_at = now()
+      where id = $1 and status <> 'MINTED' and certificate_path is not null`,
+    [entryId, reason.slice(0, 1_000)],
+  );
+}
+
+/**
+ * 민터 지갑의 nonce를 DB advisory transaction lock으로 직렬화한다.
+ *
+ * 락을 잡은 연결과 상태 조회·txHash 저장이 같은 트랜잭션을 쓴다.
+ * 다른 인보케이션이 대기 중이어도 첫 인보케이션이 다른 DB 연결을 추가로
+ * 요구하지 않아 풀(max=3)이 교착되지 않는다.
+ */
+export async function withMintLock<T>(
+  entryId: string,
+  run: (entry: PipelineEntry, actions: MintLockActions) => Promise<T>,
+): Promise<T | null> {
+  if (!UUID.test(entryId)) return null;
+  return transaction(async (client) => {
+    await client.query(`select pg_advisory_xact_lock(hashtext('hot-bakery-mint'))`);
+    const found = await client.query<PipelineRow>(
+      `select ${PIPELINE_COLUMNS}
+         from entries e
+         join participants p on p.id = e.participant_id
+        where e.id = $1 and e.certificate_path is not null
+        for update of e`,
+      [entryId],
+    );
+    const row = found.rows[0];
+    if (!row) return null;
+
+    const actions: MintLockActions = {
+      async setMinting(txHash) {
+        await client.query(
+          `update entries
+              set status = 'MINTING', tx_hash = $2,
+                  failure_reason = null, status_changed_at = now()
+            where id = $1`,
+          [entryId, txHash],
+        );
+      },
+      async setMinted(tokenId, txHash) {
+        await client.query(
+          `update entries
+              set status = 'MINTED', token_id = $2, tx_hash = $3,
+                  failure_reason = null, status_changed_at = now()
+            where id = $1`,
+          [entryId, tokenId, txHash],
+        );
+      },
+    };
+    return run(toPipelineEntry(row), actions);
+  });
+}
+
+export async function findStaleMinting(now: number = Date.now()): Promise<PipelineEntry[]> {
+  const result = await query<PipelineRow>(
+    `select ${PIPELINE_COLUMNS}
+       from entries e
+       join participants p on p.id = e.participant_id
+      where e.status = 'MINTING' and e.status_changed_at < $1
+      order by e.status_changed_at`,
+    [new Date(now - STUCK_MS)],
+  );
+  return result.rows.map(toPipelineEntry);
 }
 
 // ---------------------------------------------------------------------------
@@ -360,18 +615,16 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
  * 어긋나도 같은 트랜잭션 안에서 일관되게 하려는 것이다.
  */
 export async function sweep(now: number = Date.now()): Promise<{ failed: number; hidden: number }> {
-  // ① 오븐에서 멈춘 행 → FAILED. after()는 재시도를 해주지 않아서, 인보케이션이 죽으면
+  // ① 오븐에서 멈춘 행 → FAILED. MINTING은 체인 조회가 필요한 탓에 pipeline.sweepPipeline()
+  //    이 먼저 복구하거나 실패 처리한다. 여기서 무조건 내리면 이미 발행된 증서를 잃는다.
   //    행이 중간 상태로 남고 그대로 두면 영원히 오븐에 있는 카드가 생긴다.
   //
-  //    TODO(체인): MINTING을 내리기 전에 CertificateIssued를 먼저 조회해야 한다.
-  //    트랜잭션은 성공했는데 DB 갱신 전에 죽은 건을 FAILED로 내리면 이미 발행된 증서를
-  //    잃어버린다. (PIPELINE.md「이미 발행된 건의 복구」)
   const failed = await query(
     `update entries
         set status = 'FAILED',
             failure_reason = $2,
             status_changed_at = now()
-      where status in ('SUBMITTED', 'PINNED', 'MINTING')
+      where status in ('SUBMITTED', 'PINNED')
         and status_changed_at < $1`,
     [new Date(now - STUCK_MS), SWEPT_REASON],
   );
@@ -402,11 +655,42 @@ export async function resetStore(): Promise<void> {
   if (process.env.ALLOW_DB_RESET !== '1') {
     throw new Error('resetStore()는 실제 DB를 비운다. ALLOW_DB_RESET=1인 테스트에서만 부를 수 있다.');
   }
-  await query('truncate entries, participants');
+  // 한 번에 보낸다. 검사마다 부르는 자리라 왕복 한 번이 그대로 시간이 된다.
   await query(
-    `update show_state
+    `truncate entries, participants;
+     update show_state
         set layout = 'LIVE', qr_visible = true, shelf_page = 0, updated_at = now()
-      where id = true`,
+      where id = true;`,
   );
   clearPhotos();
+}
+
+/** 운영자 화면의 개발용 초기화. 저장된 증서 이미지까지 함께 지운다. */
+export async function resetAdminData(): Promise<ResetResult> {
+  if (process.env.ALLOW_DB_RESET !== '1') {
+    throw new Error('resetAdminData()는 실제 DB를 비운다. ALLOW_DB_RESET=1일 때만 부를 수 있다.');
+  }
+
+  // Storage 삭제가 실패했는데 DB부터 비우면 어느 행에도 연결되지 않은 객체만 남고
+  // 운영자는 무엇이 실패했는지 다시 확인할 수 없다. 외부 저장소를 먼저 지워 실패 시
+  // DB를 보존하고, 성공한 뒤 짧은 DB 트랜잭션으로 마무리한다.
+  await clearStoredPhotos();
+
+  const deleted = await transaction(async (client) => {
+    const counts = await client.query<{ participants: string; entries: string }>(
+      `select (select count(*) from participants) as participants,
+              (select count(*) from entries) as entries`,
+    );
+    await client.query(
+      `truncate entries, participants;
+       update show_state
+          set layout = 'LIVE', qr_visible = true, shelf_page = 0, updated_at = now()
+        where id = true;`,
+    );
+    return {
+      participants: Number(counts.rows[0].participants),
+      entries: Number(counts.rows[0].entries),
+    };
+  });
+  return { deleted };
 }
