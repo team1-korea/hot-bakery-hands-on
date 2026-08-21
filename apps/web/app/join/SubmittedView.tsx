@@ -4,15 +4,9 @@ import { useEffect, useState } from 'react';
 
 import { getMyEntry, USING_MOCK_SERVER } from '@/lib/api/client';
 import type { Entry } from '@/lib/api/types';
+import { C_CHAIN_EXPLORER_TX } from '@/lib/explorer';
 
 const POLL_MS = 3_000;
-
-const EXPLORER_TX: Record<string, string> = {
-  '43114': 'https://build.avax.network/explorer/c-chain/tx',
-  '43113': 'https://build.avax.network/explorer/fuji-c-chain/tx',
-};
-const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ?? '43113';
-const C_CHAIN_EXPLORER_TX = EXPLORER_TX[CHAIN_ID] ?? EXPLORER_TX['43113'];
 
 /** 이 시간을 넘겨도 발행이 끝나지 않으면 참가자에게 도움을 청하라고 알린다. */
 const SLOW_AFTER_MS = 3 * 60 * 1000;
