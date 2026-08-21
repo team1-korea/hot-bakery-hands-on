@@ -615,6 +615,17 @@ export async function findStaleMinting(now: number = Date.now()): Promise<Pipeli
   return result.rows.map(toPipelineEntry);
 }
 
+/** cron과 운영자 수동 스위프 중 하나만 실행한다. 이미 실행 중이면 null이다. */
+export async function withSweepLock<T>(run: () => Promise<T>): Promise<T | null> {
+  return transaction(async (client) => {
+    const result = await client.query<{ acquired: boolean }>(
+      `select pg_try_advisory_xact_lock(hashtext('hot-bakery-sweep')) as acquired`,
+    );
+    if (!result.rows[0]?.acquired) return null;
+    return run();
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 스위퍼
 // ---------------------------------------------------------------------------

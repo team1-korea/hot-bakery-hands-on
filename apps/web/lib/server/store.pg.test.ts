@@ -26,6 +26,7 @@ import {
   saveCertificateCid,
   saveMetadataCid,
   withMintLock,
+  withSweepLock,
 } from './store.pg';
 
 /**
@@ -428,6 +429,23 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
 
     await Promise.all([work(first.id), work(second.id)]);
     assert.equal(maximum, 1);
+  });
+
+  test('cron과 운영자 수동 스위프가 겹치면 하나만 실행한다', async () => {
+    let signalStarted!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    let releaseFirst!: () => void;
+    const release = new Promise<void>((resolve) => { releaseFirst = resolve; });
+
+    const first = withSweepLock(async () => {
+      signalStarted();
+      await release;
+      return 'first';
+    });
+    await started;
+    assert.equal(await withSweepLock(async () => 'second'), null);
+    releaseFirst();
+    assert.equal(await first, 'first');
   });
 
   test('스위퍼가 오븐에서 멈춘 행을 FAILED로 내린다', async () => {

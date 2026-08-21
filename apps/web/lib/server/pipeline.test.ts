@@ -83,6 +83,7 @@ class FakeRepository implements PipelineRepository {
   }
   async findStaleMinting() { return [...this.stale]; }
   async sweep() { return this.ordinarySweep; }
+  async withSweepLock<T>(run: () => Promise<T>) { return run(); }
 }
 
 let repository: FakeRepository;

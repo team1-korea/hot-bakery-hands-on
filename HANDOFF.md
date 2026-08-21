@@ -12,7 +12,8 @@
 - 현재 브랜치: `feat/backend-pipeline`
 - 백엔드 후속 PR: [#11](https://github.com/team1-korea/hot-bakery-hands-on/pull/11)
 - 프론트 API 계약 PR [#10](https://github.com/team1-korea/hot-bakery-hands-on/pull/10)은 이미 `main`에 머지됐습니다.
-- 작업 트리는 깨끗하고, PR #11은 최신 `main` 위의 선형 이력이며 충돌이 없습니다.
+- PR #11 후속 작업으로 운영자 수동 복구 API·버튼과 문서가 작업 트리에 있습니다. 덮어쓰지 말고
+  검증 후 같은 PR에 푸시하세요.
 
 ## 상태
 
@@ -24,6 +25,7 @@
 - Storage → Pinata 이미지·메타데이터 핀 → Fuji 민팅 → 영수증·이벤트 확인 파이프라인
 - advisory lock 직렬화, `after()` 실행, 재시도·AlreadyIssued·스위퍼 복구
 - 운영자 로그인, 명단, 화면 제어, 숨김, 실패 사유, 재시도, 대리 업로드
+- 운영자 **멈춘 작업 점검/복구** 버튼과 Cron 공용 advisory-lock 스위퍼
 - 메타데이터 핀 전 닉네임 수정과 `ALLOW_DB_RESET=1`로 잠근 DB·Storage 초기화
 - API·파이프라인·DB·운영자·인수인계 문서의 코드 동기화
 - 실제 Supabase·Storage·Pinata·Fuji E2E 검증 및 테스트 데이터 정리
@@ -79,6 +81,9 @@ npm run build
 2. Supabase에서 1분 Cron(`/api/internal/sweep`)을 연결한다.
 3. Vercel `after()`를 포함한 한 명 end-to-end 리허설 뒤 DB·Storage를 비운다.
 4. 행사 직전 Supabase 상태, 민터 권한·잔액, 운영자 로그인과 TV를 확인한다.
+
+배포 설정을 마친 뒤 행사 중 복구 조작은 `/admin` 버튼으로 끝냅니다. Vercel·Privy·Supabase·Pinata
+최초 설정과 민터 AVAX 충전만 외부 대시보드/지갑 작업입니다.
 
 ## 상세 정본
 

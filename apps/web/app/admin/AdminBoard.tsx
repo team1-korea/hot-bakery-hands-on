@@ -8,6 +8,7 @@ import { MAX_ENTRIES, SHELF_SLOTS, type EntryStatus } from '@/lib/api/types';
 
 import {
   resetAdminData,
+  runAdminSweep,
   updateAdminEntry,
   updateAdminShow,
   uploadEntryPhoto,
@@ -112,6 +113,14 @@ export function AdminBoard() {
     setResetOpen(false);
     setNotice(`테스트 데이터를 초기화했어요. 참가자 ${result.deleted.participants}명, 카드 ${result.deleted.entries}개를 지웠습니다.`);
   };
+  const sweep = async () => {
+    const result = await act('sweep', runAdminSweep);
+    if (!result) return;
+    const inspected = result.recovered + result.failed + result.deferred;
+    setNotice(
+      `멈춘 작업 ${inspected}건을 점검했어요. 복구 ${result.recovered}건, 실패 처리 ${result.failed}건, 다음 점검 ${result.deferred}건, 미제출 자동 내림 ${result.hidden}건입니다.`,
+    );
+  };
   const closeReset = useCallback(() => setResetOpen(false), []);
 
   return (
@@ -140,6 +149,15 @@ export function AdminBoard() {
         </header>
 
         <div className="admin-show">
+          <span>작업</span>
+          <button
+            className="admin-button"
+            type="button"
+            disabled={busyId !== null}
+            onClick={() => void sweep()}
+          >
+            {busyId === 'sweep' ? '점검 중…' : '멈춘 작업 점검/복구'}
+          </button>
           <span>앞 화면</span>
           <button
             className="admin-button"

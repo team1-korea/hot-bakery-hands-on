@@ -3,6 +3,7 @@ import { beforeEach, test } from 'node:test';
 
 import { PATCH as patchAdminEntry } from '@/app/api/admin/entries/[id]/route';
 import { POST as resetAdmin } from '@/app/api/admin/reset/route';
+import { POST as sweepAdmin } from '@/app/api/admin/sweep/route';
 import { GET as getEntry, POST as postEntry } from '@/app/api/entries/route';
 import { POST as sweepRoute } from '@/app/api/internal/sweep/route';
 import { POST as postParticipant } from '@/app/api/participants/route';
@@ -179,6 +180,29 @@ test('POST /api/internal/sweep — CRON_SECRET 없이는 막고 Bearer로만 연
   } finally {
     if (previous === undefined) delete process.env.CRON_SECRET;
     else process.env.CRON_SECRET = previous;
+  }
+});
+
+test('POST /api/admin/sweep — 운영자만 멈춘 작업을 수동 점검할 수 있다', async () => {
+  const blocked = await sweepAdmin(new Request('http://localhost/api/admin/sweep', { method: 'POST' }));
+  assert.equal(blocked.status, 401);
+
+  await postParticipant(asParticipant('phone-a', joinBody('쿠키왕')));
+  await postEntry(asParticipant('phone-a', photoBody()));
+  const originalNow = Date.now;
+  Date.now = () => originalNow() + STUCK_MS;
+  try {
+    const response = await sweepAdmin(asOperator('/api/admin/sweep'));
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await response.json(), {
+      failed: 1,
+      hidden: 0,
+      recovered: 0,
+      deferred: 0,
+    });
+  } finally {
+    Date.now = originalNow;
   }
 });
 
