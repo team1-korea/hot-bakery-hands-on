@@ -36,15 +36,28 @@ export class ApiError extends Error {
   }
 }
 
+let authTokenGetter: (() => Promise<string | null>) | null = null;
+
+export function setAuthTokenGetter(getter: (() => Promise<string | null>) | null) {
+  authTokenGetter = getter;
+}
+
 async function call<T>(path: string, init?: RequestInit, timeoutMs = TIMEOUT_MS): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const headers = new Headers(init?.headers);
+  if (authTokenGetter) {
+    const token = await authTokenGetter();
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
 
   let response: Response;
   try {
     response = await fetch(`${BASE}${path}`, {
       credentials: 'include',
       ...init,
+      headers,
       signal: controller.signal,
     });
   } catch {

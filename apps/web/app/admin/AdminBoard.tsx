@@ -366,7 +366,7 @@ function ProxyUpload({ entry, rowBusy, onAct }: {
     setUploading(true);
     void onAct(entry.id, async () => {
       try {
-        await uploadEntryPhoto(entry.id, await buildCertificate(file));
+        await uploadEntryPhoto(entry.id, await buildCertificate(file, entry.nickname));
       } catch (cause) {
         // 사진 형식·정원 초과처럼 할 일이 갈리는 오류가 온다. 서버 문장을 그대로 보여 준다.
         setError(cause instanceof ApiError ? cause.message : '사진을 올리지 못했어요.');

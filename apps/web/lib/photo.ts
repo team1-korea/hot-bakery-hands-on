@@ -16,6 +16,9 @@ const OUTPUT_QUALITY = 0.82;
 
 /** 사진을 축소해 여백이 생겼을 때 그 자리를 채우는 색. 진열장·증서의 바탕과 같다. */
 const PAPER = '#f7f1e8';
+const AVA = '#e84142';
+const INK = '#17110f';
+const GOLD = '#d9a441';
 
 /** 조정 화면이 붙들고 있는 원본. `blob`은 잘라 낼 때 다시 디코드하는 데 쓴다. */
 export type PhotoSource = { url: string; blob: Blob; width: number; height: number };
@@ -108,5 +111,58 @@ export async function cropPhoto(source: PhotoSource, rect: CropRect): Promise<Bl
   const out = Math.min(OUTPUT_MAX_EDGE, Math.round(rect.size));
   const canvas = draw(bitmap, rect, out);
   bitmap.close();
+  return toBlob(canvas, OUTPUT_QUALITY);
+}
+
+const CERT_SIZE = 1080;
+const PHOTO_INSET = 80;
+const PHOTO_SIZE = CERT_SIZE - PHOTO_INSET * 2;
+const BORDER_WIDTH = 4;
+const TITLE_Y = 46;
+const NAME_Y = CERT_SIZE - 44;
+
+/**
+ * 잘라 낸 정사각형 사진에 프레임을 둘러 증서 이미지를 만든다.
+ *
+ * 디자인 에셋이 오면 이 함수 안만 바꾸면 된다. 지금은 프로그래밍적 프레임을 쓴다.
+ * 운영자 대리업로드(`app/admin/certificate.ts`)도 이 함수를 거친다.
+ */
+export async function composeCertificate(croppedBlob: Blob, nickname: string): Promise<Blob> {
+  const bitmap = await createImageBitmap(croppedBlob);
+  const canvas = document.createElement('canvas');
+  canvas.width = CERT_SIZE;
+  canvas.height = CERT_SIZE;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new ApiError('INTERNAL', '증서를 만들지 못했어요. 다시 시도해 주세요.');
+
+  ctx.fillStyle = PAPER;
+  ctx.fillRect(0, 0, CERT_SIZE, CERT_SIZE);
+
+  ctx.drawImage(bitmap, PHOTO_INSET, PHOTO_INSET, PHOTO_SIZE, PHOTO_SIZE);
+  bitmap.close();
+
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = BORDER_WIDTH;
+  ctx.strokeRect(
+    PHOTO_INSET - BORDER_WIDTH,
+    PHOTO_INSET - BORDER_WIDTH,
+    PHOTO_SIZE + BORDER_WIDTH * 2,
+    PHOTO_SIZE + BORDER_WIDTH * 2,
+  );
+
+  ctx.strokeStyle = AVA;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(16, 16, CERT_SIZE - 32, CERT_SIZE - 32);
+
+  ctx.fillStyle = INK;
+  ctx.font = 'bold 28px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('AVALANCHE BAKERY', CERT_SIZE / 2, TITLE_Y);
+
+  ctx.font = 'bold 24px sans-serif';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(nickname, CERT_SIZE / 2, NAME_Y);
+
   return toBlob(canvas, OUTPUT_QUALITY);
 }

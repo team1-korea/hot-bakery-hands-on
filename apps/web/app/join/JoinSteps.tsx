@@ -7,6 +7,33 @@ import type { CropRect, PhotoSource } from '@/lib/photo';
 
 import { PhotoCropper } from './PhotoCropper';
 
+export function LoginStep({ busy, error, onLogin }: {
+  busy: boolean;
+  error: string | null;
+  onLogin: () => void;
+}) {
+  return (
+    <section className="join-step">
+      <h1>구글 계정으로<br />참가하세요</h1>
+      <p>로그인하면 참가 증서를 받을 지갑이 자동으로 만들어져요.</p>
+
+      {error ? <p className="join-error">{error}</p> : null}
+
+      <div className="join-actions">
+        <button
+          className="join-button"
+          data-tone="primary"
+          type="button"
+          disabled={busy}
+          onClick={onLogin}
+        >
+          {busy ? '로그인하는 중…' : 'Google로 시작하기'}
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function PhotoStep({ source, crop, error, busy, onPhoto, onCrop, onNext }: {
   source: PhotoSource | null;
   crop: CropRect | null;
