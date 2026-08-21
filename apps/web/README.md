@@ -1,15 +1,15 @@
 # Avalanche Bakery — 서비스 프론트엔드
 
-쿠키 클래스 현장에서 실제로 쓰는 화면입니다. 참가자는 휴대폰으로 사진과 이름을 보내고, 굽고 진열되는
+쿠키 클래스 현장에서 실제로 쓰는 화면입니다. 참가자는 휴대폰으로 닉네임과 증서 이미지를 보내고, 굽고 진열되는
 과정은 행사장 TV가 보여줍니다.
 
 ## 화면
 
 | 경로 | 쓰는 사람 | 하는 일 |
 |---|---|---|
-| `/join` | 참가자 휴대폰 | 로그인 → 사진 → 이름 → 제출. 제출 뒤에는 앞 화면을 보라고만 말한다 |
+| `/join` | 참가자 휴대폰 | Google 로그인 → 닉네임 등록 → 사진·프레임 합성 → 제출 |
 | `/display` | 행사장 TV | 접수·오븐·진열장. 참가 QR을 함께 띄운다 |
-| `/admin` | 운영 노트북 | 참가자 상태 확인, 카드 내리기, 실패 재시도, 앞 화면 전환 |
+| `/admin` | 운영 노트북 | 명단·실패 확인, 닉네임 수정, 대리 업로드, 재시도, TV 제어 |
 
 `/`는 `/join`으로 보냅니다. QR은 사이트 루트를 가리킵니다.
 
@@ -39,12 +39,30 @@ npm run dev
 
 ## 서버
 
-`app/api/`는 백엔드가 붙기 전까지 쓰는 인메모리 목 구현입니다. 프로세스를 재시작하면 제출 내역이
-사라집니다. 실제 세션 전에 백엔드로 교체해야 합니다. 계약은 [../../API_REFERENCE.md](../../API_REFERENCE.md)에 있습니다.
+화면과 API는 같은 Next.js 앱입니다. `DATABASE_URL`이 없으면 재시작 시 사라지는 메모리 목,
+있으면 Supabase Postgres·Storage와 Pinata·Fuji 파이프라인을 씁니다. 프론트 담당자는 외부 서비스나
+Postgres를 설치하지 않고 환경변수를 비운 채 개발합니다. 참가자 API 계약은
+[../../API_REFERENCE.md](../../API_REFERENCE.md)에서 `프론트는 여기까지` 구간만 보면 됩니다.
 
 ## 확인
 
 ```bash
+npx tsc --noEmit
+npm test
 npm run build
 npm run lint
 ```
+
+`DATABASE_URL`이 있으면 테스트가 실제 준비 DB를 사용할 수 있으므로 행사 데이터가 있는 환경에서는
+`npm test`를 실행하지 마세요.
+
+## 배포·행사 전 확인
+
+- Vercel Root Directory는 `apps/web`; 운영 필수 환경변수는 [API_REFERENCE.md](../../API_REFERENCE.md)에 맞춘다.
+- Privy에서 Google 로그인, embedded EVM wallet, 배포 오리진을 설정한다.
+- Supabase 스키마·RLS·공개 `certificates` 버킷을 확인하고 프로젝트를 깨워 둔다.
+- Vercel Cron이 `Authorization: Bearer <CRON_SECRET>`으로 `/api/internal/sweep`를 1분마다 부르게 한다.
+- 참가자와 운영자 대리 업로드가 같은 최종 프레임 합성을 쓰는지 확인한다.
+- `ALLOW_DB_RESET`은 운영에서 빼고 `OPERATOR_PASSCODE`는 길게 설정한다.
+- 리허설 데이터를 DB·Storage에서 지운 뒤 실제 Google 로그인 한 명을 끝까지 발행해 본다.
+- TV 브라우저는 `/admin`에 먼저 로그인한 뒤 `/display`를 연다.

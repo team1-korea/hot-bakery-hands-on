@@ -18,8 +18,8 @@
 스팸함에 들어가면 진행이 멈춥니다.
 
 **영향.** `POST /api/auth/request-code`, `POST /api/auth/verify`, `GET /api/auth/session` 세 개가
-사라집니다. 프론트의 `EmailStep`·`CodeStep`도 제거 대상입니다. 에러코드 `INVALID_EMAIL`,
-`INVALID_CODE`는 쓰이지 않습니다.
+사라집니다. 프론트의 `EmailStep`·`CodeStep`과 `INVALID_EMAIL`·`INVALID_CODE` 오류 코드는
+제거됐습니다.
 
 ### 2026-08-19 · 참가자 지갑은 Privy 임베디드 EOA — 백엔드
 
@@ -127,8 +127,7 @@ Railway를 검토했으나 채택하지 않았습니다.
 
 Privy 사용자에게 embedded EVM 지갑이 없을 때 `400 WALLET_NOT_FOUND`를 돌려줍니다.
 
-**남은 일.** `types.ts`의 `ApiErrorCode`에 아직 없습니다. Privy 연동과 함께
-`INVALID_EMAIL`·`INVALID_CODE` 제거와 같이 처리합니다.
+**반영 완료.** `types.ts`에 `WALLET_NOT_FOUND`가 있고 폐기된 이메일 인증 오류 코드는 없습니다.
 
 ### 2026-08-20 · 증서 합성을 프론트로 옮김 — 프론트
 
@@ -152,9 +151,7 @@ Privy 사용자에게 embedded EVM 지갑이 없을 때 `400 WALLET_NOT_FOUND`�
 - `POST /api/entries`가 받는 이미지는 **합성본 하나**입니다. 파일이 둘이 아닙니다.
 - 서버는 받은 바이트를 **재인코딩하지 않고 그대로** 핀합니다. 다시 그리면 참가자가 확인 화면에서
   본 증서와 체인에 박히는 증서가 달라집니다.
-- `Entry.photoUrl`에 합성본이 들어가고 `certificateUrl`은 **항상 null**입니다.
-  `CookieCard.tsx`의 `minted ? certificateUrl ?? photoUrl : photoUrl`이 폴백으로 처리하므로
-  화면은 그대로 동작합니다. `certificateUrl`은 제거 대상입니다.
+- `Entry.photoUrl`에 합성본이 들어갑니다. 중복이던 `certificateUrl`은 타입과 화면에서 제거했습니다.
 - **`EntryStatus`의 `RENDERED`가 사라집니다.** 서버에 합성 단계가 없습니다. 상태 목록에 남겨두면
   "서버가 렌더한다"는 오해를 계속 만듭니다.
 - 합성 함수는 **참가자 화면 전용으로 만들지 마세요.** 운영자 대리 업로드에서 같은 합성이

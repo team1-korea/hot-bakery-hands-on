@@ -13,10 +13,17 @@ export type AdminEntry = Entry & {
   walletAddress: string;
   /** 스위퍼가 자동으로 내린 카드인지. 운영자가 직접 내린 것과 구분한다. */
   autoHidden: boolean;
+  /** 메타데이터가 아직 IPFS에 올라가지 않아 닉네임을 안전하게 고칠 수 있는지. */
+  nicknameEditable: boolean;
 };
 
 export type AdminStateResponse = {
   entries: AdminEntry[];
   show: ShowState;
   counts: { submitted: number; minted: number };
+  /** 배포 환경에 따라 달라지는 운영자 화면 기능. 클라이언트가 환경변수를 추측하지 않는다. */
+  capabilities: {
+    resetDatabase: boolean;
+    mockServer: boolean;
+  };
 };

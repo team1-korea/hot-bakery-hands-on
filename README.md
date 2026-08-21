@@ -21,12 +21,15 @@ Next.js 서비스는 루트가 아니라 `apps/web/`에 두어 컨트랙트 패�
 **[AGENTS.md](./AGENTS.md)부터 읽으세요.** 문서 우선순위, 담당 경계, 이미 확정돼 다시 정하지
 않는 것들이 있습니다.
 
+작업을 이어받는 에이전트는 현재 상태만 요약한 [HANDOFF.md](./HANDOFF.md)를 먼저 보고 아래 정본으로
+내려가세요.
+
 | 하려는 일 | 문서 |
 |---|---|
 | 참가자·TV 화면을 붙인다 | [API_REFERENCE.md](./API_REFERENCE.md) — 「프론트가 부르는 것」부터 「오류 형식」까지. 운영자 API 앞에서 멈추면 됩니다 |
 | 백엔드를 구현한다 | [PIPELINE.md](./PIPELINE.md) 제출부터 민팅까지 · [API_REFERENCE.md](./API_REFERENCE.md) 전부 |
 | 테이블을 만지거나 쿼리를 쓴다 | [apps/web/db/README.md](./apps/web/db/README.md) — 스키마 정본은 옆의 `schema.sql` |
-| 운영자 화면을 만든다 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) — 행사 당일 시나리오와 만들 것 목록 |
+| 운영자 화면을 운영·수정한다 | [apps/web/app/admin/README.md](./apps/web/app/admin/README.md) — 구현된 복구 기능과 행사 당일 시나리오 |
 | 컨트랙트를 호출한다 | [contracts/INTEGRATION_GUIDE.md](./contracts/INTEGRATION_GUIDE.md) |
 | 왜 이렇게 정했는지 알고 싶다 | [DECISIONS.md](./DECISIONS.md) |
 | 역할 경계와 남은 위험을 본다 | [ARCHITECTURE.md](./ARCHITECTURE.md) |

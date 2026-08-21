@@ -181,18 +181,18 @@ $$ language plpgsql;
 -- 로직을 cron에 넣지 마세요. 함수로 두면 로컬에서 그냥 호출해 테스트할 수 있고,
 -- 스케줄러를 Vercel Cron으로 갈아타도 그대로 씁니다.
 
--- ① 중간 상태로 멈춘 행 → FAILED
+-- ① 체인 전송 전 중간 상태로 멈춘 행 → FAILED
 --    after()는 재시도를 해주지 않습니다. 인보케이션이 죽으면 행이 중간 상태로 남고,
 --    그대로 두면 영원히 오븐에 있는 카드가 생깁니다.
 --
 --   update entries set status = 'FAILED', failure_reason = '처리 중 멈춤 (스위퍼)',
 --          status_changed_at = now()
---   where status in ('SUBMITTED', 'PINNED', 'MINTING')
+--   where status in ('SUBMITTED', 'PINNED')
 --     and status_changed_at < now() - interval '5 minutes';
 --
---   ⚠️ MINTING을 내리기 전에 CertificateIssued 이벤트를 먼저 확인하세요.
---      트랜잭션은 성공했는데 DB 갱신 전에 죽었을 수 있습니다. 그걸 FAILED로
---      내리면 이미 발행된 증서를 잃어버립니다. PIPELINE.md의 복구 절차를 보세요.
+--   ⚠️ MINTING은 이 SQL로 내리지 않습니다. `/api/internal/sweep`가 영수증과
+--      CertificateIssued 이벤트를 먼저 확인해 MINTED로 복구하고, 온체인 성공이
+--      없을 때만 FAILED로 전환합니다. PIPELINE.md의 복구 절차를 보세요.
 
 -- ② 오래 방치된 JOINED → hidden
 --    로그인만 하고 사라진 사람의 카드가 행사 내내 작업대에 남습니다.

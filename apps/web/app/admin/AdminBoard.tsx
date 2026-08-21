@@ -1,12 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AdminEntry } from '@/lib/api/adminTypes';
-import { ApiError, USING_MOCK_SERVER, logoutOperator, updateEntry, updateShow } from '@/lib/api/client';
+import { ApiError, logoutOperator } from '@/lib/api/client';
 import { MAX_ENTRIES, SHELF_SLOTS, type EntryStatus } from '@/lib/api/types';
 
-import { uploadEntryPhoto } from './adminApi';
+import {
+  resetAdminData,
+  updateAdminEntry,
+  updateAdminShow,
+  uploadEntryPhoto,
+} from './adminApi';
 import { buildCertificate } from './certificate';
 import { useAdminState } from './useAdminState';
 
@@ -54,12 +59,21 @@ function shelfLabel(shelfIndex: number | null) {
   return shelfIndex === null ? '칸 없음' : `${String(shelfIndex + 1).padStart(2, '0')}번 칸`;
 }
 
+type Act = <T>(id: string, task: () => Promise<T>) => Promise<T | null>;
+
+function errorMessage(cause: unknown, fallback = '조작을 완료하지 못했어요.') {
+  return cause instanceof ApiError ? cause.message : fallback;
+}
+
 export function AdminBoard() {
   const { state, stale } = useAdminState();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('ALL');
   const [query, setQuery] = useState('');
   const [zoomed, setZoomed] = useState<AdminEntry | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
 
   const pageCount = Math.max(1, Math.ceil(state.counts.submitted / SHELF_SLOTS));
   const page = Math.min(state.show.shelfPage, pageCount - 1);
@@ -72,19 +86,33 @@ export function AdminBoard() {
   ));
 
   // 폴링이 다음 주기에 서버 상태로 덮어쓰므로 낙관적 갱신을 따로 두지 않는다.
-  const act = async (id: string, task: () => Promise<unknown>) => {
+  const act: Act = async (id, task) => {
     setBusyId(id);
+    setActionError(null);
+    setNotice(null);
     try {
-      await task();
+      return await task();
+    } catch (cause) {
+      setActionError(errorMessage(cause));
+      return null;
     } finally {
       setBusyId(null);
     }
   };
 
   const logout = async () => {
-    await logoutOperator();
-    window.location.reload();
+    const result = await act('logout', logoutOperator);
+    if (result) window.location.reload();
   };
+
+  const reset = async () => {
+    const result = await act('reset', resetAdminData);
+    if (!result) return;
+    setZoomed(null);
+    setResetOpen(false);
+    setNotice(`테스트 데이터를 초기화했어요. 참가자 ${result.deleted.participants}명, 카드 ${result.deleted.entries}개를 지웠습니다.`);
+  };
+  const closeReset = useCallback(() => setResetOpen(false), []);
 
   return (
     <main className="admin">
@@ -96,8 +124,18 @@ export function AdminBoard() {
             <span>제출 <b>{state.counts.submitted}</b> / {MAX_ENTRIES}</span>
             <span>진열 <b>{state.counts.minted}</b></span>
             <span data-tone={failedCount > 0 ? 'alert' : undefined}>실패 <b>{failedCount}</b></span>
-            {USING_MOCK_SERVER ? <span className="admin-mock">목 서버</span> : null}
-          <button className="admin-button" type="button" onClick={logout}>나가기</button>
+            {state.capabilities.mockServer ? <span className="admin-mock">목 서버</span> : null}
+            {state.capabilities.resetDatabase ? (
+              <button
+                className="admin-button admin-danger"
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => setResetOpen(true)}
+              >
+                테스트 데이터 초기화
+              </button>
+            ) : null}
+            <button className="admin-button" type="button" disabled={busyId === 'logout'} onClick={() => void logout()}>나가기</button>
           </div>
         </header>
 
@@ -106,16 +144,18 @@ export function AdminBoard() {
           <button
             className="admin-button"
             type="button"
+            disabled={busyId === 'show'}
             aria-pressed={state.show.qrVisible}
-            onClick={() => updateShow({ qrVisible: !state.show.qrVisible })}
+            onClick={() => void act('show', () => updateAdminShow({ qrVisible: !state.show.qrVisible }))}
           >
             QR 표시
           </button>
           <button
             className="admin-button"
             type="button"
+            disabled={busyId === 'show'}
             aria-pressed={state.show.layout === 'GALLERY'}
-            onClick={() => updateShow({ layout: state.show.layout === 'GALLERY' ? 'LIVE' : 'GALLERY' })}
+            onClick={() => void act('show', () => updateAdminShow({ layout: state.show.layout === 'GALLERY' ? 'LIVE' : 'GALLERY' }))}
           >
             진열장만 크게
           </button>
@@ -124,8 +164,8 @@ export function AdminBoard() {
           <button
             className="admin-button"
             type="button"
-            disabled={page === 0}
-            onClick={() => updateShow({ shelfPage: page - 1 })}
+            disabled={page === 0 || busyId === 'show'}
+            onClick={() => void act('show', () => updateAdminShow({ shelfPage: page - 1 }))}
           >
             이전
           </button>
@@ -133,8 +173,8 @@ export function AdminBoard() {
           <button
             className="admin-button"
             type="button"
-            disabled={page >= pageCount - 1}
-            onClick={() => updateShow({ shelfPage: page + 1 })}
+            disabled={page >= pageCount - 1 || busyId === 'show'}
+            onClick={() => void act('show', () => updateAdminShow({ shelfPage: page + 1 }))}
           >
             다음
           </button>
@@ -175,6 +215,11 @@ export function AdminBoard() {
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="admin-feedback" aria-live="polite" aria-atomic="true">
+        {actionError ? <p className="admin-alert" role="alert">{actionError}</p> : null}
+        {notice ? <p className="admin-notice">{notice}</p> : null}
       </div>
 
       {stale ? (
@@ -225,6 +270,14 @@ export function AdminBoard() {
           onAct={act}
         />
       ) : null}
+
+      {resetOpen ? (
+        <ResetDialog
+          busy={busyId === 'reset'}
+          onCancel={closeReset}
+          onConfirm={() => void reset()}
+        />
+      ) : null}
     </main>
   );
 }
@@ -236,7 +289,7 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
   entry: AdminEntry;
   busy: boolean;
   onClose: () => void;
-  onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
+  onAct: Act;
 }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -264,7 +317,7 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
             type="button"
             disabled={busy}
             autoFocus
-            onClick={() => onAct(entry.id, () => updateEntry(entry.id, { hidden: !entry.hidden }))}
+            onClick={() => void onAct(entry.id, () => updateAdminEntry(entry.id, { hidden: !entry.hidden }))}
           >
             {entry.hidden ? '앞 화면에 올리기' : '앞 화면에서 내리기'}
           </button>
@@ -278,7 +331,7 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
 function Row({ entry, busy, onAct, onZoom }: {
   entry: AdminEntry;
   busy: boolean;
-  onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
+  onAct: Act;
   onZoom: () => void;
 }) {
   const canUpload = entry.status === 'JOINED' || entry.status === 'FAILED';
@@ -301,7 +354,9 @@ function Row({ entry, busy, onAct, onZoom }: {
           </button>
         ) : null}
       </td>
-      <td>{entry.nickname}</td>
+      <td>
+        <NicknameEditor entry={entry} busy={busy} onAct={onAct} />
+      </td>
       <td>
         <span className="admin-status" data-status={entry.status}>{STATUS_LABEL[entry.status]}</span>
         {/* 스위퍼가 내린 것과 운영자가 내린 것은 다시 올릴지 판단이 다르다. */}
@@ -320,7 +375,7 @@ function Row({ entry, busy, onAct, onZoom }: {
             className="admin-button"
             type="button"
             disabled={busy}
-            onClick={() => onAct(entry.id, () => updateEntry(entry.id, { retry: true }))}
+            onClick={() => void onAct(entry.id, () => updateAdminEntry(entry.id, { retry: true }))}
           >
             다시 시도
           </button>
@@ -331,12 +386,77 @@ function Row({ entry, busy, onAct, onZoom }: {
           type="button"
           disabled={busy}
           aria-pressed={entry.hidden}
-          onClick={() => onAct(entry.id, () => updateEntry(entry.id, { hidden: !entry.hidden }))}
+          onClick={() => void onAct(entry.id, () => updateAdminEntry(entry.id, { hidden: !entry.hidden }))}
         >
           {entry.hidden ? '올리기' : '내리기'}
         </button>
       </td>
     </tr>
+  );
+}
+
+function NicknameEditor({ entry, busy, onAct }: {
+  entry: AdminEntry;
+  busy: boolean;
+  onAct: Act;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(entry.nickname);
+  const trimmed = draft.trim();
+
+  const save = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!trimmed || trimmed.length > 12 || trimmed === entry.nickname) return;
+    const result = await onAct(entry.id, () => updateAdminEntry(entry.id, { nickname: trimmed }));
+    if (result) setEditing(false);
+  };
+
+  if (!editing || !entry.nicknameEditable) {
+    return (
+      <div className="admin-nickname">
+        <span>{entry.nickname}</span>
+        {entry.nicknameEditable ? (
+          <button
+            className="admin-icon-button"
+            type="button"
+            disabled={busy}
+            aria-label={`${entry.nickname} 닉네임 수정`}
+            onClick={() => {
+              setDraft(entry.nickname);
+              setEditing(true);
+            }}
+          >
+            수정
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <form className="admin-nickname-edit" onSubmit={(event) => void save(event)}>
+      <label className="admin-visually-hidden" htmlFor={`nickname-${entry.id}`}>닉네임</label>
+      <input
+        id={`nickname-${entry.id}`}
+        value={draft}
+        maxLength={12}
+        autoFocus
+        disabled={busy}
+        aria-describedby={`nickname-help-${entry.id}`}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <small id={`nickname-help-${entry.id}`}>{draft.length}/12자</small>
+      <button
+        className="admin-button"
+        type="submit"
+        disabled={busy || !trimmed || trimmed === entry.nickname}
+      >
+        저장
+      </button>
+      <button className="admin-button" type="button" disabled={busy} onClick={() => setEditing(false)}>
+        취소
+      </button>
+    </form>
   );
 }
 
@@ -351,7 +471,7 @@ function Row({ entry, busy, onAct, onZoom }: {
 function ProxyUpload({ entry, rowBusy, onAct }: {
   entry: AdminEntry;
   rowBusy: boolean;
-  onAct: (id: string, task: () => Promise<unknown>) => Promise<void>;
+  onAct: Act;
 }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -384,5 +504,86 @@ function ProxyUpload({ entry, rowBusy, onAct }: {
       </label>
       {error ? <small className="admin-reason">{error}</small> : null}
     </>
+  );
+}
+
+const RESET_CONFIRMATION = '테스트 데이터 삭제';
+
+function ResetDialog({ busy, onCancel, onConfirm }: {
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const [confirmation, setConfirmation] = useState('');
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab' || !panel) return;
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>(
+        'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (busy) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      onCancel();
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [busy, onCancel]);
+
+  const confirmed = confirmation === RESET_CONFIRMATION;
+
+  return (
+    <div className="admin-viewer" role="dialog" aria-modal="true" aria-labelledby="reset-title" aria-describedby="reset-description">
+      <button className="admin-viewer-backdrop" type="button" aria-label="초기화 취소" disabled={busy} onClick={onCancel} />
+      <div className="admin-viewer-panel admin-reset-panel" ref={panelRef}>
+        <h2 id="reset-title">테스트 데이터를 초기화할까요?</h2>
+        <div id="reset-description" className="admin-reset-copy">
+          <p>참가자, 카드, 저장된 이미지를 지우고 TV 화면 설정을 처음으로 돌립니다.</p>
+          <p><b>IPFS에 핀된 파일과 이미 발행된 증서는 지워지지 않습니다.</b> 발행에 쓴 지갑 주소도 다시 사용할 수 없습니다.</p>
+        </div>
+        <label className="admin-reset-confirm">
+          <span>계속하려면 <b>{RESET_CONFIRMATION}</b>를 입력하세요.</span>
+          <input
+            value={confirmation}
+            autoFocus
+            disabled={busy}
+            autoComplete="off"
+            onChange={(event) => setConfirmation(event.target.value)}
+          />
+        </label>
+        <div className="admin-reset-actions">
+          <button className="admin-button" type="button" disabled={busy} onClick={onCancel}>취소</button>
+          <button className="admin-button admin-danger" type="button" disabled={busy || !confirmed} onClick={onConfirm}>
+            {busy ? '초기화 중…' : '모두 지우기'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 import { ApiError, checkOperator, loginOperator } from '@/lib/api/client';
 
+import { OPERATOR_SESSION_EXPIRED_EVENT } from './operatorSession';
+
 /** 운영 조작은 비밀번호 뒤에 둔다. TV로 투사되는 화면과 분리된 이유다. */
 export function OperatorGate({ children }: { children: React.ReactNode }) {
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -17,11 +19,22 @@ export function OperatorGate({ children }: { children: React.ReactNode }) {
       .catch(() => setAllowed(false));
   }, []);
 
+  useEffect(() => {
+    const expired = () => {
+      setAllowed(false);
+      setPasscode('');
+      setError('운영자 세션이 만료됐어요. 비밀번호를 다시 입력해 주세요.');
+    };
+    window.addEventListener(OPERATOR_SESSION_EXPIRED_EVENT, expired);
+    return () => window.removeEventListener(OPERATOR_SESSION_EXPIRED_EVENT, expired);
+  }, []);
+
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       await loginOperator(passcode);
+      setPasscode('');
       setAllowed(true);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : '잠시 후 다시 시도해 주세요.');

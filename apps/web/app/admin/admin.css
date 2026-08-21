@@ -58,6 +58,8 @@
 }
 .admin-button[aria-pressed='true'] { background: var(--ink); color: var(--paper); }
 .admin-button:disabled { opacity: .35; }
+.admin-danger { border-color: var(--ava); color: var(--ava); }
+.admin-danger:not(:disabled):hover { background: var(--ava); color: var(--paper); }
 
 .admin-table { width: 100%; border-collapse: collapse; font-size: 15px; }
 .admin-table th,
@@ -71,6 +73,43 @@
 .admin-shelf { font: 700 15px/1 var(--mono); white-space: nowrap; }
 .admin-shelf small { display: block; margin-top: 4px; color: color-mix(in srgb, var(--ink) 52%, transparent); font: 700 12px/1 var(--display); }
 .admin-token { font: 700 15px/1 var(--mono); color: var(--gold); }
+
+.admin-nickname { display: flex; align-items: center; gap: 8px; }
+.admin-icon-button {
+  padding: 3px 6px;
+  border: 0;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: color-mix(in srgb, var(--ink) 64%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.admin-icon-button:focus-visible { outline: 2px solid var(--ava); outline-offset: 2px; }
+.admin-nickname-edit { display: grid; min-width: 210px; grid-template-columns: minmax(100px, 1fr) auto auto; gap: 5px; align-items: center; }
+.admin-nickname-edit input {
+  min-width: 0;
+  height: 36px;
+  padding: 0 8px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  font: 700 15px/1 var(--display);
+}
+.admin-nickname-edit input:focus { outline: 2px solid var(--ava); outline-offset: -2px; }
+.admin-nickname-edit small { grid-column: 1; color: color-mix(in srgb, var(--ink) 58%, transparent); font-size: 11px; }
+.admin-nickname-edit .admin-button { grid-row: 1 / span 2; min-height: 36px; padding: 0 8px; }
+
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 
 .admin-status { padding: 5px 10px; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .admin-status[data-status='MINTED'] { background: color-mix(in srgb, var(--gold) 30%, transparent); }
@@ -86,6 +125,15 @@
   padding: 14px 16px;
   border-left: var(--line-thick) solid var(--ava);
   background: color-mix(in srgb, var(--ava) 10%, transparent);
+  font-size: 15px;
+  font-weight: 700;
+}
+.admin-feedback:empty { display: none; }
+.admin-notice {
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border-left: var(--line-thick) solid var(--gold);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
   font-size: 15px;
   font-weight: 700;
 }
@@ -141,6 +189,26 @@
 .admin-viewer-foot > div { margin-right: auto; }
 .admin-viewer-foot strong { font-size: 20px; letter-spacing: -.03em; }
 .admin-viewer-foot small { display: block; margin-top: 4px; color: color-mix(in srgb, var(--ink) 58%, transparent); font: 700 13px/1 var(--mono); }
+
+.admin-reset-panel { width: min(520px, 100%); padding: 24px; }
+.admin-reset-panel h2 { margin: 0; font-size: 26px; letter-spacing: -.03em; }
+.admin-reset-copy { margin-top: 16px; font-size: 15px; line-height: 1.55; }
+.admin-reset-copy p { margin: 8px 0; }
+.admin-reset-copy b { color: var(--ava); }
+.admin-reset-confirm { display: block; margin-top: 20px; }
+.admin-reset-confirm span { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 700; }
+.admin-reset-confirm input {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--paper);
+  font-size: 17px;
+  font-weight: 700;
+}
+.admin-reset-confirm input:focus { outline: 2px solid var(--ava); outline-offset: -2px; }
+.admin-reset-actions { display: flex; margin-top: 20px; justify-content: flex-end; gap: 8px; }
 
 /* 백엔드가 붙기 전이라는 사실은 운영자만 알면 된다. 앞 화면에는 두지 않는다. */
 .admin-mock { padding: 5px 10px; border: var(--line-thin) solid var(--ava); border-radius: 999px; color: var(--ava); font: 700 12px/1 var(--mono); }

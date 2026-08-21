@@ -132,3 +132,18 @@ test('mint → waitForMint: 실제 트랜잭션으로 tokenId를 받는다', { s
   assert.equal(await hasBeenIssued(recipient), true);
   assert.equal(await findIssuedTokenId(recipient), tokenId);
 });
+
+/*
+ * `.env`에 `MINT_GAS_LIMIT=`처럼 빈 값이 들어가면 `BigInt('')`가 0이 된다. 가스 한도 0으로
+ * 전송하면 RPC가 'Missing or invalid parameters'로 거절하는데 원인이 드러나지 않는다.
+ * 실제로 이 버그로 파이프라인이 민팅 직전에 죽었다.
+ */
+test('가스 한도: 환경변수가 비어 있어도 0으로 떨어지지 않는다', () => {
+  const resolve = (value: string | undefined) => BigInt(Number(value) || 300_000);
+
+  assert.equal(resolve(''), BigInt(300_000));
+  assert.equal(resolve(undefined), BigInt(300_000));
+  assert.equal(resolve('   '), BigInt(300_000));
+  assert.equal(resolve('abc'), BigInt(300_000));
+  assert.equal(resolve('500000'), BigInt(500_000));
+});

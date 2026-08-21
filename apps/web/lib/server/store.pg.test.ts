@@ -16,9 +16,17 @@ import {
   retryEntry,
   setHidden,
   sweep,
+  updateNickname,
   updateShow,
   type Photo,
 } from './store';
+import {
+  getPipelineEntry,
+  pinMetadata,
+  saveCertificateCid,
+  saveMetadataCid,
+  withMintLock,
+} from './store.pg';
 
 /**
  * **실제 Supabase에 붙어서 도는 검사다.** `DATABASE_URL`이 없으면 통째로 건너뛴다 —
@@ -69,6 +77,46 @@ async function joined(n: number): Promise<Entry> {
   return (await register(participant(n))).entry;
 }
 
+/**
+ * 배경이 되는 행을 **한 문장으로** 넣는다.
+ *
+ * 한 줄씩 `register()`로 넣으면 도쿄까지 왕복이 행마다 한 번씩이라, 30명을 채우는 데만
+ * 20초가 넘는다. 검사하려는 것은 배경이 아니라 경계이므로 배경은 SQL로 만든다.
+ *
+ * `did:privy:seed-*`라 실제 검사가 쓰는 `pgtest-*`와 섞이지 않고, `certificate_path`는
+ * 진짜 이미지를 가리키지 않는다 — 아무도 그 URL을 열지 않는다.
+ */
+async function seedSubmitted(count: number): Promise<void> {
+  await query(
+    `with p as (
+       insert into participants (privy_did, wallet_address)
+       select 'did:privy:seed-' || i, '0xseed' || lpad(i::text, 34, '0')
+         from generate_series(0, $1 - 1) i
+       returning id, (regexp_replace(privy_did, '\\D', '', 'g'))::int as i
+     )
+     insert into entries (participant_id, nickname, status, shelf_index, certificate_path)
+     select p.id, 'seed' || p.i, 'SUBMITTED', p.i, 'entries/seed/' || p.i || '.jpg' from p`,
+    [count],
+  );
+}
+
+/** 사진을 아직 안 낸 카드를 한 문장으로 넣고 id를 돌려준다. */
+async function seedJoined(count: number): Promise<string[]> {
+  const result = await query<{ id: string }>(
+    `with p as (
+       insert into participants (privy_did, wallet_address)
+       select 'did:privy:queue-' || i, '0xqueue' || lpad(i::text, 33, '0')
+         from generate_series(0, $1 - 1) i
+       returning id, (regexp_replace(privy_did, '\\D', '', 'g'))::int as i
+     )
+     insert into entries (participant_id, nickname)
+     select p.id, 'queue' || p.i from p
+     returning id`,
+    [count],
+  );
+  return result.rows.map((row) => row.id);
+}
+
 describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABASE_URL이 없다' }, () => {
   /**
    * **이 검사는 테이블을 비운다.** 행사 중에 누가 `npm test`를 돌리면 그 자리에서
@@ -76,6 +124,24 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
    * 조용히 건너뛰면 다음 사람이 같은 실수를 반복한다.
    */
   before(async () => {
+    /**
+     * DB가 하나뿐이라 이 파일을 두 사람이 동시에 돌리면 서로의 행을 지우고 서로의
+     * 진열장 칸을 먹는다. 그러면 아무 문제 없는 코드가 실패한다. 락을 못 잡으면
+     * 기다리지 않고 바로 크게 실패한다 — 원인을 모른 채 재현되는 것이 제일 나쁘다.
+     * 세션 락이라 `closeDatabase()`로 연결이 닫히면 저절로 풀린다.
+     */
+    const lock = await query<{ locked: boolean }>('select pg_try_advisory_lock(920829) as locked');
+    assert.equal(
+      lock.rows[0].locked,
+      true,
+      '다른 DB 테스트 실행이 이미 돌고 있다. 그 실행이 끝난 뒤에 다시 돌려라.',
+    );
+
+    /**
+     * **이 검사는 테이블을 비운다.** 행사 중에 누가 `npm test`를 돌리면 그 자리에서
+     * 참가자 기록이 사라진다. 비어 있지 않은 DB는 아예 건드리지 않고 크게 실패한다 —
+     * 조용히 건너뛰면 다음 사람이 같은 실수를 반복한다.
+     */
     const existing = await query<{ rows: string }>(
       'select (select count(*) from entries) + (select count(*) from participants) as rows',
     );
@@ -88,10 +154,20 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
 
   beforeEach(() => resetStore());
 
+  /**
+   * **실패해도 반드시 치운다.** 남은 행 하나가 행사 당일 진열장 칸 하나를 먹는다.
+   * 이미지 정리가 터져도 테이블은 비워야 하므로 finally로 감싼다.
+   */
   after(async () => {
-    await removeTestObjects();
-    await resetStore();
-    await closeDatabase();
+    try {
+      await removeTestObjects();
+    } finally {
+      try {
+        await resetStore();
+      } finally {
+        await closeDatabase();
+      }
+    }
   });
 
   test('같은 DID로 두 번 등록해도 카드는 한 장이다', async () => {
@@ -108,6 +184,59 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal(admin.entries.length, 1);
     // 지갑 주소는 소문자로 정규화돼 들어간다(대소문자만 다른 주소로 증서 두 장 방지).
     assert.equal(admin.entries[0].walletAddress, participant(1).walletAddress.toLowerCase());
+    assert.deepEqual(admin.capabilities, { resetDatabase: true, mockServer: false });
+  });
+
+  test('닉네임은 metadata_cid가 비어 있을 때만 수정한다', async () => {
+    const entry = await joined(1);
+    const renamed = await updateNickname(entry.id, '새이름');
+    assert.ok(renamed.ok);
+    assert.equal(renamed.entry.nickname, '새이름');
+    assert.equal((await getAdminState()).entries[0].nicknameEditable, true);
+
+    assert.ok((await submit(entry.id)).ok);
+    await saveCertificateCid(entry.id, 'bafy-certificate');
+    await saveMetadataCid(entry.id, 'bafy-metadata');
+
+    assert.equal((await getAdminState()).entries[0].nicknameEditable, false);
+    assert.deepEqual(await updateNickname(entry.id, '늦은수정'), {
+      ok: false,
+      code: 'ALREADY_SUBMITTED',
+    });
+    assert.deepEqual(await updateNickname('not-a-uuid', '없는사람'), {
+      ok: false,
+      code: 'NOT_FOUND',
+    });
+  });
+
+  test('메타데이터 핀 중 닉네임 수정은 행 잠금 뒤 409로 끝난다', async () => {
+    const entry = await joined(1);
+    assert.ok((await submit(entry.id)).ok);
+    await saveCertificateCid(entry.id, 'bafy-certificate');
+    const internal = await getPipelineEntry(entry.id);
+    assert.ok(internal);
+
+    let signalStarted!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    let releasePin!: () => void;
+    const release = new Promise<void>((resolve) => { releasePin = resolve; });
+
+    const pinning = pinMetadata(entry.id, internal.certificatePath, async (locked) => {
+      assert.equal(locked.nickname, '참가자1');
+      signalStarted();
+      await release;
+      return 'bafy-locked-metadata';
+    });
+    await started;
+
+    const renaming = updateNickname(entry.id, '경쟁수정');
+    // UPDATE가 실제로 행 잠금을 기다리는 동안 핀을 완료한다.
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    releasePin();
+
+    assert.equal((await pinning)?.metadataCid, 'bafy-locked-metadata');
+    assert.deepEqual(await renaming, { ok: false, code: 'ALREADY_SUBMITTED' });
+    assert.equal((await getAdminState()).entries[0].nickname, '참가자1');
   });
 
   test('shelfIndex는 등록에서 null이고 사진 제출 때 배정된다', async () => {
@@ -130,8 +259,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
   });
 
   test('shelfIndex는 여러 명이 내도 구멍 없이 촘촘하다', async () => {
-    const ids: string[] = [];
-    for (let n = 0; n < 8; n += 1) ids.push((await joined(n)).id);
+    const ids = await seedJoined(8);
 
     // 등록 순서와 제출 순서가 다르다. 배정 기준은 제출 순서다.
     const assigned: number[] = [];
@@ -145,8 +273,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
   });
 
   test('동시에 제출해도 칸이 촘촘하고 중복이 없다', async () => {
-    const ids: string[] = [];
-    for (let n = 0; n < 10; n += 1) ids.push((await joined(n)).id);
+    const ids = await seedJoined(10);
 
     // 서버리스는 인보케이션이 동시에 뜬다. next_shelf_index()의 advisory lock이
     // 여기서 실제로 일하는지 확인한다 — 구멍이나 중복은 진열장 격자에 그대로 보인다.
@@ -161,21 +288,49 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
   });
 
   test(`${MAX_ENTRIES + 1}번째 사진 제출은 SHOWCASE_FULL로 막힌다`, async () => {
-    const ids: string[] = [];
-    for (let n = 0; n < MAX_ENTRIES + 1; n += 1) ids.push((await joined(n)).id);
+    // 29칸은 배경이다. 검사하려는 것은 마지막 칸과 그 다음 한 명이다.
+    await seedSubmitted(MAX_ENTRIES - 1);
+    const [last, overflow] = await seedJoined(2);
 
-    for (let n = 0; n < MAX_ENTRIES; n += 1) {
-      assert.ok((await submit(ids[n])).ok, `${n}번째 제출이 막혔다`);
-    }
+    const lastSlot = await submit(last);
+    assert.ok(lastSlot.ok, '마지막 한 칸이 막혔다');
+    assert.equal(lastSlot.entry.shelfIndex, MAX_ENTRIES - 1);
 
     // shelf_index < 30 체크 제약이 정원 제한을 겸한다. 세고 나서 넣지 않는다.
-    assert.deepEqual(await submit(ids[MAX_ENTRIES]), { ok: false, code: 'SHOWCASE_FULL' });
+    assert.deepEqual(await submit(overflow), { ok: false, code: 'SHOWCASE_FULL' });
 
     // 튕긴 행은 트랜잭션째 되돌아간다 — 사진도 칸도 없는 JOINED 그대로다.
-    const overflowed = (await getAdminState()).entries.find((entry) => entry.id === ids[MAX_ENTRIES]);
+    const overflowed = (await getAdminState()).entries.find((entry) => entry.id === overflow);
     assert.equal(overflowed?.status, 'JOINED');
     assert.equal(overflowed?.shelfIndex, null);
     assert.equal((await getState()).counts.submitted, MAX_ENTRIES);
+  });
+
+  /**
+   * 정원 경계가 경합에서도 버티는지 본다. 여기가 무너지면 행사 당일 둘 중 하나가 된다 —
+   * 31번째가 통과해 진열장 격자가 깨지거나, 자리가 있는 참가자가 잘못 튕긴다.
+   *
+   * 미리 세어 보고 넣는 구현이었다면 여기서 여러 명이 같은 "빈 칸 하나"를 보고 통과한다.
+   * 실제로 막는 것은 `shelf_index` unique와 `< 30` 체크 제약이다.
+   */
+  test('마지막 한 칸을 여럿이 동시에 노려도 한 명만 들어간다', async () => {
+    await seedSubmitted(MAX_ENTRIES - 1);
+    const contenders = await seedJoined(5);
+
+    const results = await Promise.all(contenders.map((id) => submit(id)));
+    const winners = results.filter((result) => result.ok);
+    const rejected = results.filter((result) => !result.ok && result.code === 'SHOWCASE_FULL');
+
+    assert.equal(winners.length, 1, `한 명만 들어가야 하는데 ${winners.length}명이 들어갔다`);
+    assert.equal(rejected.length, 4, '나머지는 전부 SHOWCASE_FULL이어야 한다');
+    assert.equal(winners[0].ok && winners[0].entry.shelfIndex, MAX_ENTRIES - 1);
+
+    // 칸이 31개가 되거나 같은 칸을 둘이 잡는 일이 없어야 한다.
+    const slots = await query<{ taken: string; highest: number }>(
+      'select count(*) as taken, max(shelf_index) as highest from entries where shelf_index is not null',
+    );
+    assert.equal(slots.rows[0].taken, String(MAX_ENTRIES));
+    assert.equal(slots.rows[0].highest, MAX_ENTRIES - 1);
   });
 
   test('사진을 두 번 붙이면 ALREADY_SUBMITTED고, 없는 id는 NOT_FOUND다', async () => {
@@ -197,6 +352,10 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.ok(first.ok);
     const slot = first.entry.shelfIndex;
 
+    // 이전 이미지로 IPFS까지 갔던 실패를 흉내낸다.
+    await saveCertificateCid(entry.id, 'bafy-old-certificate');
+    await saveMetadataCid(entry.id, 'bafy-old-metadata');
+
     await age(entry.id, 6);
     assert.equal((await sweep()).failed, 1);
 
@@ -209,6 +368,10 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal(retake.entry.failureReason, null);
     // 재촬영이 새 칸을 잡으면 진열장에 구멍이 남는다.
     assert.equal(retake.entry.shelfIndex, slot);
+
+    const internal = await getPipelineEntry(entry.id);
+    assert.equal(internal?.certificateCid, null, '새 사진에 예전 증서 CID를 재사용했다');
+    assert.equal(internal?.metadataCid, null, '새 사진에 예전 메타데이터 CID를 재사용했다');
 
     // 새 사진은 새 URL이어야 한다. 같은 URL이면 TV와 CDN이 옛 이미지를 계속 보여준다.
     assert.notEqual(retake.entry.photoUrl, first.entry.photoUrl);
@@ -227,6 +390,44 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal(retried?.failureReason, null);
     // FAILED가 아닌 행은 재시도 대상이 아니다.
     assert.equal(await retryEntry(entry.id), null);
+  });
+
+  test('재시도는 남아 있는 CID·txHash 다음 단계로 복귀한다', async () => {
+    const pinned = await joined(1);
+    assert.ok((await submit(pinned.id)).ok);
+    await saveCertificateCid(pinned.id, 'bafy-certificate');
+    await saveMetadataCid(pinned.id, 'bafy-metadata');
+    await query("update entries set status = 'FAILED', failure_reason = 'test' where id = $1", [pinned.id]);
+    assert.equal((await retryEntry(pinned.id))?.status, 'PINNED');
+
+    await query(
+      "update entries set status = 'FAILED', tx_hash = $2, failure_reason = 'test' where id = $1",
+      [pinned.id, `0x${'1'.repeat(64)}`],
+    );
+    assert.equal((await retryEntry(pinned.id))?.status, 'MINTING');
+  });
+
+  test('민팅 advisory lock은 다른 항목의 콜백도 한 번에 하나만 실행한다', async () => {
+    const first = await joined(1);
+    const second = await joined(2);
+    assert.ok((await submit(first.id)).ok);
+    assert.ok((await submit(second.id)).ok);
+    await saveCertificateCid(first.id, 'bafy-certificate-1');
+    await saveMetadataCid(first.id, 'bafy-metadata-1');
+    await saveCertificateCid(second.id, 'bafy-certificate-2');
+    await saveMetadataCid(second.id, 'bafy-metadata-2');
+
+    let active = 0;
+    let maximum = 0;
+    const work = (id: string) => withMintLock(id, async () => {
+      active += 1;
+      maximum = Math.max(maximum, active);
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      active -= 1;
+    });
+
+    await Promise.all([work(first.id), work(second.id)]);
+    assert.equal(maximum, 1);
   });
 
   test('스위퍼가 오븐에서 멈춘 행을 FAILED로 내린다', async () => {
