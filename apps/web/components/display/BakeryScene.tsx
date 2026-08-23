@@ -3,20 +3,15 @@
 import { LayoutGroup, motion, useReducedMotion } from 'framer-motion';
 import { useMemo } from 'react';
 
-import { SHELF_SLOTS, type EntryStatus, type StateResponse } from '@/lib/api/types';
+import { SHELF_SLOTS, type StateResponse } from '@/lib/api/types';
 
+import { entryZone } from './entryZone';
 import { Oven } from './Oven';
 import { Showcase } from './Showcase';
 import { TopBar } from './TopBar';
 import { Workbench } from './Workbench';
 import { useDisplaySequence } from './displaySequence';
 import { DISPLAY_EASE } from './motion';
-
-/** 작업대는 사람 손이 필요한 것만 놓인다 — 아직 사진을 안 낸 사람과 실패한 사람. */
-const WORKBENCH_STATUSES = new Set<EntryStatus>(['JOINED', 'FAILED']);
-
-/** 오븐은 기계가 처리 중인 것이 놓인다. 제출 순간부터 영수증 확인까지다. */
-const OVEN_STATUSES = new Set<EntryStatus>(['SUBMITTED', 'PINNED', 'MINTING']);
 
 export function BakeryScene({
   state,
@@ -44,16 +39,16 @@ export function BakeryScene({
    * 그동안은 오븐 상태여도 작업대에 그려야 카드가 사라지지 않는다.
    */
   const workbenchEntries = visibleEntries.filter((entry) => (
-    WORKBENCH_STATUSES.has(entry.status) || sequence.phases.get(entry.id) === 'to-oven'
-    || (OVEN_STATUSES.has(entry.status) && !sequence.ovenSlots.has(entry.id))
+    entryZone(entry.status) === 'workbench' || sequence.phases.get(entry.id) === 'to-oven'
+    || (entryZone(entry.status) === 'oven' && !sequence.ovenSlots.has(entry.id))
   ));
   const ovenEntries = visibleEntries.filter((entry) => (
     sequence.phases.get(entry.id) === 'to-oven'
-    || (OVEN_STATUSES.has(entry.status) && sequence.ovenSlots.has(entry.id))
+    || (entryZone(entry.status) === 'oven' && sequence.ovenSlots.has(entry.id))
     || sequence.phases.get(entry.id) === 'to-shelf'
   ));
   const shelfEntries = visibleEntries.filter((entry) => (
-    entry.status === 'MINTED' || sequence.phases.get(entry.id) === 'to-shelf'
+    entryZone(entry.status) === 'shelf' || sequence.phases.get(entry.id) === 'to-shelf'
   ));
   const pageCount = Math.max(
     1,

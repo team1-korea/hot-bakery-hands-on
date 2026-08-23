@@ -1,23 +1,15 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Entry, EntryStatus } from '@/lib/api/types';
+import type { Entry } from '@/lib/api/types';
+import { entryZone } from './entryZone';
 import { CARD_DROP_MS, CARD_MOVE_MS, CARD_SETTLE_MS, SHOWCASE_COMPLETE_MS } from './motion';
 import { useOvenSlots } from './ovenSlots';
 export type CardMotionPhase = 'enter' | 'to-oven' | 'to-shelf';
 type BoundaryMove = { entry: Entry; phase: Exclude<CardMotionPhase, 'enter'> };
 const MIN_OVEN_MS = 2_000; const MAX_ACTIVE_MOVES = 1;
-/**
- * 카드가 놓일 구역. "누가 손대야 하는가"로 나뉜다.
- * 작업대에 남는 것은 전부 운영자가 볼 것이다 — 사진을 아직 안 낸 사람과 실패한 사람.
- */
-function zone(status: EntryStatus) {
-  if (status === 'MINTED') return 'shelf';
-  if (status === 'JOINED' || status === 'FAILED') return 'workbench';
-  return 'oven';   // SUBMITTED · PINNED · MINTING
-}
 function boundaryMove(previous: Entry, next: Entry): BoundaryMove | null {
-  const from = zone(previous.status);
-  const to = zone(next.status);
+  const from = entryZone(previous.status);
+  const to = entryZone(next.status);
   if (from === to) return null;
   if (to === 'oven') return { entry: next, phase: 'to-oven' };
   if (to === 'shelf') return { entry: next, phase: 'to-shelf' };
@@ -130,10 +122,10 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     if (!initialized.current) {
       resetOvenSlots(source);
       const observedAt = Date.now();
-      source.filter((entry) => zone(entry.status) === 'oven' && !entry.hidden && hasOvenSlot(entry.id))
+      source.filter((entry) => entryZone(entry.status) === 'oven' && !entry.hidden && hasOvenSlot(entry.id))
         .forEach((entry) => ovenEnteredAt.current.set(entry.id, observedAt));
       const waiting = source
-        .filter((entry) => zone(entry.status) === 'oven' && !entry.hidden && !hasOvenSlot(entry.id))
+        .filter((entry) => entryZone(entry.status) === 'oven' && !entry.hidden && !hasOvenSlot(entry.id))
         .map((entry): BoundaryMove => ({ entry, phase: 'to-oven' }));
       sourceMap.current = new Map(source.map((entry) => [entry.id, entry]));
       initialized.current = true;
@@ -158,7 +150,7 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     activeMoves.current.forEach((move, id) => {
       const latest = latestEntries.get(id);
       const target = move.phase === 'to-oven' ? 'oven' : 'shelf';
-      if (!latest || latest.hidden || zone(latest.status) !== target) {
+      if (!latest || latest.hidden || entryZone(latest.status) !== target) {
         activeMoves.current.delete(id);
         releaseOvenSlot(id);
         ovenEnteredAt.current.delete(id);
@@ -175,16 +167,16 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     queue.current = queue.current.flatMap((move) => {
       const latest = latestEntries.get(move.entry.id);
       if (!latest || latest.hidden) return [];
-      if (move.phase === 'to-oven' && (zone(latest.status) !== 'oven' || hasOvenSlot(latest.id))) return [];
-      if (move.phase === 'to-shelf' && zone(latest.status) !== 'shelf') return [];
+      if (move.phase === 'to-oven' && (entryZone(latest.status) !== 'oven' || hasOvenSlot(latest.id))) return [];
+      if (move.phase === 'to-shelf' && entryZone(latest.status) !== 'shelf') return [];
       return [{ ...move, entry: latest }];
     });
     if (queue.current.length === 0 && activeMoves.current.size === 0) setBoundaryBusy(false);
     source.forEach((entry) => {
       const oldEntry = previous.get(entry.id);
       const returnedToWorkbench = oldEntry
-        && zone(oldEntry.status) === 'oven'
-        && zone(entry.status) === 'workbench';
+        && entryZone(oldEntry.status) === 'oven'
+        && entryZone(entry.status) === 'workbench';
       if (hasOvenSlot(entry.id) && (entry.hidden || returnedToWorkbench)) {
         releaseOvenSlot(entry.id);
         ovenEnteredAt.current.delete(entry.id);
@@ -192,8 +184,8 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     });
     const moves = source.flatMap((entry) => {
       const oldEntry = previous.get(entry.id);
-      if (!entry.hidden && zone(entry.status) === 'oven' && !hasOvenSlot(entry.id)) {
-        if (!oldEntry || oldEntry.hidden || zone(oldEntry.status) !== 'oven') {
+      if (!entry.hidden && entryZone(entry.status) === 'oven' && !hasOvenSlot(entry.id)) {
+        if (!oldEntry || oldEntry.hidden || entryZone(oldEntry.status) !== 'oven') {
           return [{ entry, phase: 'to-oven' } satisfies BoundaryMove];
         }
       }

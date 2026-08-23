@@ -4,12 +4,13 @@ import { useCallback, useRef, useState } from 'react';
 
 import type { Entry } from '@/lib/api/types';
 
+import { entryZone } from './entryZone';
+
 const OVEN_SLOT_COUNT = 4;
-const OVEN_STATUSES = new Set(['SUBMITTED', 'PINNED', 'MINTING']);
 
 export function slotsFor(entries: Entry[]) {
   return new Map(entries
-    .filter((entry) => !entry.hidden && OVEN_STATUSES.has(entry.status))
+    .filter((entry) => !entry.hidden && entryZone(entry.status) === 'oven')
     .slice(0, OVEN_SLOT_COUNT)
     .map((entry, index) => [entry.id, index] as const));
 }
