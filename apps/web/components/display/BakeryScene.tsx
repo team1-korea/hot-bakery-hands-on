@@ -21,16 +21,20 @@ const OVEN_STATUSES = new Set<EntryStatus>(['SUBMITTED', 'PINNED', 'MINTING']);
 export function BakeryScene({
   state,
   stale,
+  ready,
   qrSvg,
+  isMockServer,
   onShelfPage,
 }: {
   state: StateResponse;
   stale: boolean;
+  ready: boolean;
   qrSvg: string;
+  isMockServer: boolean;
   onShelfPage: (page: number) => void;
 }) {
   const reduceMotion = useReducedMotion();
-  const sequence = useDisplaySequence(state.entries, Boolean(reduceMotion));
+  const sequence = useDisplaySequence(state.entries, Boolean(reduceMotion), ready);
   const visibleEntries = useMemo(
     () => sequence.entries.filter((entry) => !entry.hidden),
     [sequence.entries],
@@ -94,6 +98,7 @@ export function BakeryScene({
             phases={sequence.phases}
             arrivalIds={sequence.arrivalIds}
             landedCount={sequence.counts.minted}
+            isMockServer={isMockServer}
             page={page}
             pageCount={pageCount}
             onPage={onShelfPage}

@@ -22,7 +22,7 @@ const STEP_OF: Record<Exclude<Stage, 'loading'>, number> = PRIVY_ENABLED
   ? { login: 1, nickname: 2, photo: 3, review: 4 }
   : { login: 0, nickname: 1, photo: 2, review: 3 };
 
-export function JoinFlow() {
+export function JoinFlow({ isMockServer }: { isMockServer: boolean }) {
   const [stage, setStage] = useState<Stage>('loading');
   const [entry, setEntry] = useState<Entry | null>(null);
   const [nickname, setNickname] = useState('');
@@ -33,23 +33,47 @@ export function JoinFlow() {
   const [busy, setBusy] = useState(false);
   const [full, setFull] = useState(false);
 
-  const { login, authenticated } = usePrivyLogin();
+  const { login, ready, authenticated } = usePrivyLogin();
   const firstStage: Stage = PRIVY_ENABLED ? 'login' : 'nickname';
 
-  useEffect(() => {
-    getMyEntry()
-      .then((existing) => {
-        if (existing?.photoUrl) setEntry(existing);
-        else if (existing) { setNickname(existing.nickname); setStage('photo'); }
-        else setStage(PRIVY_ENABLED && !authenticated ? 'login' : firstStage === 'login' ? 'login' : 'nickname');
-      })
-      .catch(() => setStage(firstStage));
+  const restoreEntry = useCallback((existing: Entry) => {
+    setNickname(existing.nickname);
+    if (existing.photoUrl) setEntry(existing);
+    else setStage('photo');
+  }, []);
 
+  useEffect(() => {
     getState()
       .then((state) => setFull(state.counts.submitted >= MAX_ENTRIES))
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (PRIVY_ENABLED && !authenticated) {
+      const timer = window.setTimeout(() => setStage('login'), 0);
+      return () => window.clearTimeout(timer);
+    }
+
+    let active = true;
+    getMyEntry()
+      .then((existing) => {
+        if (!active) return;
+        if (existing) restoreEntry(existing);
+        else setStage('nickname');
+      })
+      .catch((cause) => {
+        if (!active) return;
+        if (cause instanceof ApiError && cause.code === 'UNAUTHENTICATED' && PRIVY_ENABLED) {
+          setStage('login');
+          return;
+        }
+        setError(cause instanceof ApiError ? cause.message : '잠시 후 다시 시도해 주세요.');
+        setStage(firstStage);
+      });
+
+    return () => { active = false; };
+  }, [authenticated, firstStage, ready, restoreEntry]);
 
   useEffect(() => () => {
     if (photo) URL.revokeObjectURL(photo.previewUrl);
@@ -65,6 +89,10 @@ export function JoinFlow() {
     try {
       await task();
     } catch (cause) {
+      if (cause instanceof ApiError && cause.code === 'UNAUTHENTICATED' && PRIVY_ENABLED) {
+        setEntry(null);
+        setStage('login');
+      }
       setError(cause instanceof ApiError ? cause.message : '잠시 후 다시 시도해 주세요.');
     } finally {
       setBusy(false);
@@ -73,12 +101,13 @@ export function JoinFlow() {
 
   const handleLogin = () => run(async () => {
     await login();
-    setStage('nickname');
+    const existing = await getMyEntry();
+    if (existing) restoreEntry(existing);
+    else setStage('nickname');
   });
 
   const confirmNickname = () => run(async () => {
-    await registerParticipant(nickname.trim());
-    setStage('photo');
+    restoreEntry(await registerParticipant(nickname.trim()));
   });
 
   const choosePhoto = (event: ChangeEvent<HTMLInputElement>) => {
@@ -109,13 +138,21 @@ export function JoinFlow() {
 
   if (entry) {
     return (
-      <JoinShell step={STEPS.length + 1} steps={STEPS}>
-        <SubmittedView initialEntry={entry} />
+      <JoinShell step={0} steps={STEPS}>
+        <SubmittedView
+          initialEntry={entry}
+          isMockServer={isMockServer}
+          onUnauthenticated={() => {
+            setEntry(null);
+            setError('다시 로그인해 주세요.');
+            setStage('login');
+          }}
+        />
       </JoinShell>
     );
   }
 
-  if (full && stage !== 'loading') {
+  if (full && stage !== 'loading' && stage !== 'login') {
     return (
       <JoinShell step={0} steps={STEPS}>
         <section className="join-wait">

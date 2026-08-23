@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 
 import { BrandMark } from '@/components/BrandMark';
 
@@ -16,7 +16,11 @@ export function JoinShell({ step, steps, children }: {
           <strong>AVALANCHE BAKERY</strong>
         </div>
         {step > 0 ? (
-          <ol className="join-progress" aria-label={`${steps.length}단계 중 ${step}단계`}>
+          <ol
+            className="join-progress"
+            aria-label={`${steps.length}단계 중 ${step}단계`}
+            style={{ '--join-step-count': steps.length } as CSSProperties}
+          >
             {steps.map((label, index) => (
               <li
                 key={label}

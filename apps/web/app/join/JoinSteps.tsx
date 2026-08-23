@@ -59,7 +59,7 @@ export function PhotoStep({ source, crop, error, busy, onPhoto, onCrop, onNext }
       <p>{source ? '끌어서 옮기고 손가락 두 개로 크기를 맞춰요.' : '이 사진이 그대로 증서에 담겨요.'}</p>
 
       {source ? (
-        <PhotoCropper source={source} crop={crop} onCrop={onCrop} />
+        <PhotoCropper key={source.url} source={source} crop={crop} onCrop={onCrop} />
       ) : (
         <div className="photo-frame is-empty">
           <p>{busy ? '사진을 준비하고 있어요…' : '아직 사진이 없어요'}</p>
@@ -182,7 +182,8 @@ export function ReviewStep({ nickname, previewUrl, error, busy, onSubmit, onBack
       </div>
       <p className="join-warn">
         발행하면 되돌릴 수 없어요. 사진과 닉네임은 블록체인에 공개로 영원히 남습니다.
-        실명이나 개인정보가 포함되지 않았는지 확인해 주세요.
+        실명이나 개인정보가 포함되지 않았는지 확인해 주세요. 운영용 서비스와 저장소는
+        행사 종료 30일 후 내려가지만 공개 증서 기록은 삭제되지 않습니다.
       </p>
       {error ? <p className="join-error">{error}</p> : null}
 

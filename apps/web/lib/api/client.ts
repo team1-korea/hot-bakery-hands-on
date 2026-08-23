@@ -8,12 +8,6 @@ import type { ApiErrorBody, ApiErrorCode, Entry, ShowState, StateResponse } from
  */
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
 
-/**
- * 백엔드 주소가 없으면 같은 앱의 목 라우트를 쓰고 있다는 뜻이다.
- * 이때 `tokenId`와 `txHash`는 실제 발행 결과가 아니므로 화면이 진짜인 척하지 않아야 한다.
- */
-export const USING_MOCK_SERVER = BASE.length === 0;
-
 /*
  * 행사장 와이파이는 깨끗하게 끊기기보다 응답 없이 매달린다.
  *
@@ -46,14 +40,14 @@ async function call<T>(path: string, init?: RequestInit, timeoutMs = TIMEOUT_MS)
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const headers = new Headers(init?.headers);
-  if (authTokenGetter) {
-    const token = await authTokenGetter();
-    if (token) headers.set('Authorization', `Bearer ${token}`);
-  }
-
   let response: Response;
   try {
+    const headers = new Headers(init?.headers);
+    if (authTokenGetter) {
+      const token = await authTokenGetter();
+      if (token) headers.set('Authorization', `Bearer ${token}`);
+    }
+
     response = await fetch(`${BASE}${path}`, {
       credentials: 'include',
       ...init,
@@ -103,10 +97,28 @@ export function registerParticipant(nickname: string) {
  *
  * 닉네임은 등록 때 이미 받았으므로 보내지 않는다. 등록하지 않았으면 404다.
  */
-export function submitEntry(input: { photo: Blob }) {
+async function postEntry(input: { photo: Blob }) {
   const form = new FormData();
   form.set('photo', input.photo, 'certificate.jpg');
   return call<Entry>('/api/entries', { method: 'POST', body: form }, SUBMIT_TIMEOUT_MS);
+}
+
+/**
+ * 서버가 제출을 저장한 뒤 응답만 유실되면 재전송은 `ALREADY_SUBMITTED`가 된다.
+ * 그 경우와 네트워크 결과가 불확실한 경우에는 내 항목을 다시 읽어 성공을 복구한다.
+ */
+export async function submitEntry(input: { photo: Blob }) {
+  try {
+    return await postEntry(input);
+  } catch (error) {
+    const uncertain = error instanceof ApiError
+      && (error.code === 'ALREADY_SUBMITTED' || error.code === 'INTERNAL');
+    if (!uncertain) throw error;
+
+    const existing = await getMyEntry().catch(() => null);
+    if (existing?.photoUrl) return existing;
+    throw error;
+  }
 }
 
 export function getMyEntry() {

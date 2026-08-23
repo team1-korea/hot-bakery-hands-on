@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { getMyEntry, USING_MOCK_SERVER } from '@/lib/api/client';
+import { ApiError, getMyEntry } from '@/lib/api/client';
 import type { Entry } from '@/lib/api/types';
 import { C_CHAIN_EXPLORER_TX } from '@/lib/explorer';
 
@@ -11,39 +11,55 @@ const POLL_MS = 3_000;
 /** 이 시간을 넘겨도 발행이 끝나지 않으면 참가자에게 도움을 청하라고 알린다. */
 const SLOW_AFTER_MS = 3 * 60 * 1000;
 
-function isSettled(entry: Entry) {
-  return entry.status === 'MINTED' || entry.status === 'FAILED';
+function isSettled(status: Entry['status']) {
+  return status === 'MINTED' || status === 'FAILED';
 }
 
 /**
  * A안: 제출을 마치면 휴대폰은 과정을 설명하지 않는다.
  * 앞 화면을 보라고만 말하고, 발행이 끝났을 때 결과 한 장만 보여준다.
  */
-export function SubmittedView({ initialEntry }: { initialEntry: Entry }) {
+export function SubmittedView({ initialEntry, isMockServer, onUnauthenticated }: {
+  initialEntry: Entry;
+  isMockServer: boolean;
+  onUnauthenticated: () => void;
+}) {
   const [entry, setEntry] = useState(initialEntry);
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
-    if (isSettled(entry)) return;
+    if (isSettled(entry.status)) return;
 
-    const timer = window.setInterval(async () => {
+    let active = true;
+    let timer: number | null = null;
+    const pull = async () => {
       try {
         const next = await getMyEntry();
-        if (next) setEntry(next);
-      } catch {
+        if (active && next) setEntry(next);
+      } catch (error) {
+        if (error instanceof ApiError && error.code === 'UNAUTHENTICATED') {
+          active = false;
+          onUnauthenticated();
+          return;
+        }
         // 행사장 네트워크가 잠깐 끊겨도 다음 주기에 다시 시도한다.
+      } finally {
+        if (active) timer = window.setTimeout(pull, POLL_MS);
       }
-    }, POLL_MS);
+    };
+    timer = window.setTimeout(pull, POLL_MS);
 
-    return () => window.clearInterval(timer);
-  }, [entry]);
+    return () => {
+      active = false;
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [entry.status, onUnauthenticated]);
 
   useEffect(() => {
-    if (isSettled(entry)) return;
-    const elapsed = Date.now() - new Date(entry.submittedAt).getTime();
-    const timer = window.setTimeout(() => setSlow(true), Math.max(0, SLOW_AFTER_MS - elapsed));
+    if (isSettled(initialEntry.status)) return;
+    const timer = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [entry]);
+  }, [initialEntry.status]);
 
   if (entry.status === 'FAILED') {
     return (
@@ -69,7 +85,7 @@ export function SubmittedView({ initialEntry }: { initialEntry: Entry }) {
           </div>
         </div>
         <p className="join-shelf">앞 화면에서 <b>#{entry.tokenId}</b>을 찾아보세요</p>
-        {entry.txHash && !USING_MOCK_SERVER ? (
+        {entry.txHash && !isMockServer ? (
           <a
             className="join-explorer"
             href={`${C_CHAIN_EXPLORER_TX}/${encodeURIComponent(entry.txHash)}`}

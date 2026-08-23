@@ -33,10 +33,12 @@ export const EMPTY_STATE: StateResponse = {
 export function useEventState() {
   const [state, setState] = useState(EMPTY_STATE);
   const [stale, setStale] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let alive = true;
     let lastOkAt = Date.now();
+    let pollTimer: number | null = null;
 
     const pull = async () => {
       try {
@@ -44,24 +46,26 @@ export function useEventState() {
         if (!alive) return;
         lastOkAt = Date.now();
         setState(next);
+        setReady(true);
+        setStale(false);
       } catch {
         // 다음 주기에 다시 시도한다. 화면은 마지막으로 받은 상태를 유지한다.
+      } finally {
+        if (alive) pollTimer = window.setTimeout(pull, POLL_MS);
       }
     };
 
-    // 응답이 오지 않고 매달려 있어도 이 판단은 제때 돌아야 하므로 pull 바깥에 둔다.
-    const tick = () => {
-      void pull();
-      if (alive) setStale(Date.now() - lastOkAt > STALE_AFTER_MS);
-    };
-
     void pull();
-    const timer = window.setInterval(tick, POLL_MS);
+    // 응답이 오지 않고 매달려 있어도 이 판단은 제때 돌아야 하므로 pull 바깥에 둔다.
+    const staleTimer = window.setInterval(() => {
+      if (alive) setStale(Date.now() - lastOkAt > STALE_AFTER_MS);
+    }, POLL_MS);
     return () => {
       alive = false;
-      window.clearInterval(timer);
+      if (pollTimer !== null) window.clearTimeout(pollTimer);
+      window.clearInterval(staleTimer);
     };
   }, []);
 
-  return { state, stale };
+  return { state, stale, ready };
 }

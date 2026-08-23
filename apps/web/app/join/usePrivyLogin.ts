@@ -9,20 +9,20 @@ import { PRIVY_ENABLED } from './PrivyClientProvider';
 
 type PrivyLoginResult = {
   login: () => Promise<void>;
+  ready: boolean;
   authenticated: boolean;
 };
 
 function useRealPrivyLogin(): PrivyLoginResult {
-  const { authenticated } = usePrivy();
+  const { ready, authenticated } = usePrivy();
   const resolveRef = useRef<(() => void) | null>(null);
   const rejectRef = useRef<((reason: Error) => void) | null>(null);
 
   useEffect(() => {
-    if (authenticated) {
-      setAuthTokenGetter(() => getAccessToken());
-    }
+    if (!ready) return;
+    setAuthTokenGetter(() => getAccessToken());
     return () => setAuthTokenGetter(null);
-  }, [authenticated]);
+  }, [ready]);
 
   const { login: triggerLogin } = usePrivyLoginHook({
     onComplete: () => resolveRef.current?.(),
@@ -38,12 +38,13 @@ function useRealPrivyLogin(): PrivyLoginResult {
     });
   }, [authenticated, triggerLogin]);
 
-  return { login, authenticated };
+  return { login, ready, authenticated };
 }
 
 function useMockLogin(): PrivyLoginResult {
   return {
     login: () => Promise.resolve(),
+    ready: true,
     authenticated: true,
   };
 }

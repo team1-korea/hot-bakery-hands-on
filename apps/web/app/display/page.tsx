@@ -33,5 +33,6 @@ export default async function DisplayPage() {
     color: { dark: '#17110f', light: '#f7f1e8' },
   });
 
-  return <DisplayStage qrSvg={svg} />;
+  const isMockServer = !process.env.DATABASE_URL && !process.env.NEXT_PUBLIC_API_BASE_URL;
+  return <DisplayStage qrSvg={svg} isMockServer={isMockServer} />;
 }
