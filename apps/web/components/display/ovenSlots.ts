@@ -5,10 +5,11 @@ import { useCallback, useRef, useState } from 'react';
 import type { Entry } from '@/lib/api/types';
 
 const OVEN_SLOT_COUNT = 4;
+const OVEN_STATUSES = new Set(['SUBMITTED', 'PINNED', 'MINTING']);
 
-function slotsFor(entries: Entry[]) {
+export function slotsFor(entries: Entry[]) {
   return new Map(entries
-    .filter((entry) => entry.status === 'MINTING')
+    .filter((entry) => !entry.hidden && OVEN_STATUSES.has(entry.status))
     .slice(0, OVEN_SLOT_COUNT)
     .map((entry, index) => [entry.id, index] as const));
 }

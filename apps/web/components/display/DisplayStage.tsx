@@ -22,8 +22,8 @@ function useStageScale() {
   return scale;
 }
 
-export function DisplayStage({ qrSvg }: { qrSvg: string }) {
-  const { state, stale } = useEventState();
+export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockServer: boolean }) {
+  const { state, stale, ready } = useEventState();
   const scale = useStageScale();
 
   return (
@@ -33,7 +33,9 @@ export function DisplayStage({ qrSvg }: { qrSvg: string }) {
           <BakeryScene
             state={state}
             stale={stale}
+            ready={ready}
             qrSvg={qrSvg}
+            isMockServer={isMockServer}
             onShelfPage={(page) => void updateShow({ shelfPage: page })}
           />
         </div>

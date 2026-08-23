@@ -19,7 +19,7 @@
   display: grid;
   margin: 14px 0 0;
   padding: 0;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--join-step-count), 1fr);
   gap: 6px;
   list-style: none;
 }
