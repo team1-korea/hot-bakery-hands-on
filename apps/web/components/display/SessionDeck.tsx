@@ -84,7 +84,7 @@ export function SessionDeck({
       <div className="session-stage">
         <AnimatePresence initial={false} mode="wait">
           <motion.article
-            className={`session-slide session-slide--${current.id}`}
+            className="session-slide"
             key={current.id}
             role="group"
             aria-roledescription="슬라이드"

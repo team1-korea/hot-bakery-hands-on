@@ -1,7 +1,7 @@
 'use client';
 
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from 'framer-motion';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
 import { updateShow } from '@/lib/api/client';
 import { useEventState } from '@/lib/useEventState';
@@ -23,10 +23,28 @@ function useStageScale() {
   return scale;
 }
 
+function DisplayView({ children }: { children: ReactNode }) {
+  const reduceMotion = useReducedMotion();
+  const enterClip = reduceMotion ? undefined : { clipPath: 'inset(0 0 0 100%)' };
+  const visibleClip = { clipPath: 'inset(0 0 0 0)' };
+  const exitClip = reduceMotion ? undefined : { clipPath: 'inset(0 100% 0 0)' };
+
+  return (
+    <motion.div
+      className="display-view"
+      initial={enterClip}
+      animate={visibleClip}
+      exit={exitClip}
+      transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockServer: boolean }) {
   const { state, stale, ready } = useEventState();
   const scale = useStageScale();
-  const reduceMotion = useReducedMotion();
   const [sessionSlide, setSessionSlide] = useState<number | null>(null);
   const startSession = useCallback(() => setSessionSlide(0), []);
   const exitSession = useCallback(() => setSessionSlide(null), []);
@@ -79,24 +97,13 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [exitSession, sessionSlide, startSession, state.show.layout]);
 
-  const enter = reduceMotion ? undefined : { clipPath: 'inset(0 0 0 100%)' };
-  const show = { clipPath: 'inset(0 0 0 0)' };
-  const leave = reduceMotion ? undefined : { clipPath: 'inset(0 100% 0 0)' };
-
   return (
     <main className="display-viewport">
       <MotionConfig reducedMotion="user">
         <div className="display-canvas" style={{ transform: `translate(-50%, -50%) scale(${scale})` }}>
           <AnimatePresence initial={false} mode="wait">
             {sessionSlide === null ? (
-              <motion.div
-                className="display-view"
-                key="bakery"
-                initial={enter}
-                animate={show}
-                exit={leave}
-                transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
-              >
+              <DisplayView key="bakery">
                 <BakeryScene
                   state={state}
                   stale={stale}
@@ -106,16 +113,9 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
                   onShelfPage={(page) => void updateShow({ shelfPage: page })}
                   onStartSession={startSession}
                 />
-              </motion.div>
+              </DisplayView>
             ) : (
-              <motion.div
-                className="display-view"
-                key="session"
-                initial={enter}
-                animate={show}
-                exit={leave}
-                transition={{ duration: reduceMotion ? 0 : 0.55, ease: [0.22, 1, 0.36, 1] }}
-              >
+              <DisplayView key="session">
                 <SessionDeck
                   slide={sessionSlide}
                   mintedCount={state.counts.minted}
@@ -123,7 +123,7 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
                   onSlide={setSessionSlide}
                   onExit={exitSession}
                 />
-              </motion.div>
+              </DisplayView>
             )}
           </AnimatePresence>
         </div>
