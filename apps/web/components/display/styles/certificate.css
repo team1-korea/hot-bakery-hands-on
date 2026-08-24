@@ -87,15 +87,13 @@
   content: '';
 }
 
-.certificate-card .status-ticket { display: none; }
-.certificate-card .status-ticket.is-record-link { display: block; }
-.certificate-card .card-caption { padding: 8px; }
-.certificate-card .card-caption > strong { font-size: var(--text-2); }
+.certificate-card .card-caption { padding: 6px 8px; }
+.certificate-card .card-caption > strong { font-size: 22px; }
 
 .card-nickname {
-  margin-top: 8px;
+  margin-top: 3px;
   overflow: hidden;
-  font: 700 var(--text-1)/1 var(--display);
+  font: 700 19px/1 var(--display);
   letter-spacing: -0.04em;
   text-overflow: ellipsis;
   white-space: nowrap;

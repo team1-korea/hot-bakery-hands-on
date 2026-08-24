@@ -2,23 +2,32 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { Showcase } from '@/components/display/Showcase';
+import type { Entry } from '@/lib/api/types';
 
 const transition = {
   layout: { duration: 0, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
 };
 
-function renderShowcase({ page = 0, pageCount = 1, onStartSession }: {
+function renderShowcase({
+  page = 0,
+  pageCount = 1,
+  entries = [],
+  isMockServer = true,
+  onStartSession,
+}: {
   page?: number;
   pageCount?: number;
+  entries?: Entry[];
+  isMockServer?: boolean;
   onStartSession?: () => void;
 }) {
   return render(
     <Showcase
-      entries={[]}
+      entries={entries}
       phases={new Map()}
       arrivalIds={new Set()}
       landedCount={0}
-      isMockServer
+      isMockServer={isMockServer}
       page={page}
       pageCount={pageCount}
       onPage={() => {}}
@@ -42,5 +51,30 @@ describe('진열장에서 교육 세션으로 이동', () => {
     renderShowcase({ page: 0, pageCount: 2, onStartSession: () => {} });
 
     expect(screen.queryByRole('button', { name: 'NFT 교육 세션으로 이동' })).not.toBeInTheDocument();
+  });
+});
+
+describe('진열된 NFT 링크', () => {
+  test('별도 발행 기록 표지를 두지 않고 카드 전체를 트랜잭션 링크로 쓴다', () => {
+    const entry: Entry = {
+      id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+      nickname: '아발란체 짱',
+      status: 'MINTED',
+      photoUrl: '/cookie.png',
+      tokenId: '8',
+      txHash: '0x1234',
+      shelfIndex: 0,
+      hidden: false,
+      failureReason: null,
+      submittedAt: '2026-08-25T00:00:00.000Z',
+    };
+
+    renderShowcase({ entries: [entry], isMockServer: false });
+
+    expect(screen.getByRole('link', { name: '아발란체 짱의 블록체인 기록 보기' })).toHaveAttribute(
+      'href',
+      expect.stringContaining('/0x1234'),
+    );
+    expect(screen.queryByText('발행 기록')).not.toBeInTheDocument();
   });
 });
