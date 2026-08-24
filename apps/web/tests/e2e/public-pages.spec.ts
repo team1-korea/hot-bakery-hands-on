@@ -113,3 +113,30 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   await expect(page.locator('.showcase').getByText(nickname)).toBeVisible({ timeout: 15_000 });
   expect(errors).toEqual([]);
 });
+
+test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다', async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+  const minted = entry('쿠키선생', 'MINTED');
+  await page.route('**/api/state', (route) => route.fulfill({
+    json: {
+      ...state([minted]),
+      show: { layout: 'GALLERY', qrVisible: false, shelfPage: 0 },
+    },
+  }));
+
+  await page.goto('/display');
+
+  await expect(page.getByRole('button', { name: /교육 세션 시작/ })).toBeVisible();
+  await page.keyboard.press('s');
+  await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('heading', { name: 'NFT 한 장은 세 겹으로 이루어집니다' })).toBeVisible();
+
+  await page.keyboard.press('End');
+  await expect(page.getByRole('heading', { name: 'C-Chain에는 소유와 발행 기록이 남습니다' })).toBeVisible();
+  await page.getByRole('button', { name: '진열장으로 돌아가기' }).click();
+
+  await expect(page.getByRole('heading', { name: '오늘의 진열장' })).toBeVisible();
+  expect(errors).toEqual([]);
+});

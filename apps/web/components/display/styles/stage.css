@@ -16,10 +16,10 @@
   background: var(--paper);
 }
 
-.display-canvas > div { width: 100%; height: 100%; }
-
+.display-canvas > div,
+.display-view,
 .bakery-scene,
-.slides-shell { width: 100%; height: 100%; }
+.session-deck { width: 100%; height: 100%; }
 
 .top-bar {
   position: relative;
@@ -105,20 +105,6 @@
 }
 
 .zone-count small { margin-left: 8px; font: 700 var(--text-1)/1 var(--mono); }
-.slides-shell { background: var(--paper); }
-.slides-top-bar { border-bottom-color: var(--ink); }
-
-.slide-canvas {
-  position: relative;
-  width: calc(100% - 160px);
-  height: calc(100% - 176px);
-  margin: 40px 80px;
-  border: var(--line-thick) solid var(--ink);
-  background: var(--paper);
-}
-
-.slide-canvas > .micro-label { position: absolute; top: 24px; right: 24px; color: var(--ember); }
-
 /* 연결이 끊긴 동안에만 나타난다. 정상일 때는 상단 바에 아무것도 늘지 않는다. */
 .top-bar-offline {
   display: flex;
@@ -147,4 +133,33 @@
 
 @media (prefers-reduced-motion: reduce) {
   .top-bar-offline i { animation: none; }
+}
+
+.top-bar-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 16px;
+}
+
+.session-start {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px 12px 20px;
+  gap: 14px;
+  border: var(--line-thin) solid var(--ink);
+  border-radius: var(--radius-small);
+  background: var(--ink);
+  color: var(--paper);
+  font: 900 var(--text-1)/1 var(--display);
+}
+
+.session-start:hover { background: var(--ember); }
+
+.session-start kbd {
+  min-width: 36px;
+  padding: 6px 8px;
+  border: var(--line-thin) solid currentColor;
+  border-radius: 4px;
+  font: 700 18px/1 var(--mono);
 }

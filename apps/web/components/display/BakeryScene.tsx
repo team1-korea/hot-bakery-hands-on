@@ -20,6 +20,7 @@ export function BakeryScene({
   qrSvg,
   isMockServer,
   onShelfPage,
+  onStartSession,
 }: {
   state: StateResponse;
   stale: boolean;
@@ -27,6 +28,7 @@ export function BakeryScene({
   qrSvg: string;
   isMockServer: boolean;
   onShelfPage: (page: number) => void;
+  onStartSession: () => void;
 }) {
   const reduceMotion = useReducedMotion();
   const sequence = useDisplaySequence(state.entries, Boolean(reduceMotion), ready);
@@ -64,7 +66,14 @@ export function BakeryScene({
 
   return (
     <section className="bakery-scene">
-      <TopBar stale={stale} />
+      <TopBar stale={stale}>
+        {state.show.layout === 'GALLERY' ? (
+          <button className="session-start" type="button" onClick={onStartSession}>
+            교육 세션 시작
+            <kbd>S</kbd>
+          </button>
+        ) : null}
+      </TopBar>
       <LayoutGroup id="bakery-entry-flow">
         <motion.div
           className="bakery-floor"
