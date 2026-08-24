@@ -1,6 +1,6 @@
 const EXPLORER_TX: Record<string, string> = {
-  '43114': 'https://build.avax.network/explorer/c-chain/tx',
-  '43113': 'https://build.avax.network/explorer/fuji-c-chain/tx',
+  '43114': 'https://explorer.avax.network/c-chain/tx',
+  '43113': 'https://explorer-test.avax.network/c-chain/tx',
 };
 
 const CHAIN_ID = process.env.NEXT_PUBLIC_CHAIN_ID ?? '43113';

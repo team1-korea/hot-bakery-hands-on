@@ -1,9 +1,26 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
-import { NicknameStep, ReviewStep } from '@/app/join/JoinSteps';
+import { NicknameStep, PhotoStep, ReviewStep } from '@/app/join/JoinSteps';
 
 describe('참가자 입력 단계', () => {
+  test('사진이 실제로 잘리는 테두리를 하나의 안내로 설명한다', () => {
+    const { container } = render(
+      <PhotoStep
+        source={null}
+        crop={null}
+        error={null}
+        busy={false}
+        onPhoto={() => {}}
+        onCrop={() => {}}
+        onNext={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(/빨간 테두리 안쪽이 그대로 증서에 들어가요/)).toBeVisible();
+    expect(container.querySelector('.photo-guide')).not.toBeInTheDocument();
+  });
+
   test('빈 닉네임으로는 다음 단계로 갈 수 없다', () => {
     render(
       <NicknameStep

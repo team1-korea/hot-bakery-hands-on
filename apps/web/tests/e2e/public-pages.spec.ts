@@ -86,9 +86,25 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
 
   await page.locator('input[type="file"]').nth(1).setInputFiles(path.resolve('cookie.png'));
   await expect(page.getByAltText('맞추는 중인 쿠키 사진')).toBeVisible();
+  const frameResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === '/assets/certificate/certificate-frame-v1.png'
+  ));
   await page.getByRole('button', { name: '다음' }).click();
 
+  expect((await frameResponse).ok()).toBe(true);
   await expect(page.getByRole('heading', { name: /이 사진으로/ })).toBeVisible();
+  const certificatePreview = page.getByAltText('발행될 참가증서');
+  await expect(certificatePreview).toBeVisible();
+  await expect.poll(() => certificatePreview.evaluate((image: HTMLImageElement) => (
+    [image.naturalWidth, image.naturalHeight]
+  ))).toEqual([1080, 1440]);
+  await expect(certificatePreview).toHaveCSS('object-fit', 'contain');
+  const certificateFile = await certificatePreview.evaluate(async (image: HTMLImageElement) => {
+    const blob = await fetch(image.src).then((response) => response.blob());
+    return { size: blob.size, type: blob.type };
+  });
+  expect(certificateFile.type).toBe('image/jpeg');
+  expect(certificateFile.size).toBeLessThan(4 * 1024 * 1024);
   await expect(page.getByText(/행사 종료 30일 후 내려가지만/)).toBeVisible();
   await page.getByRole('button', { name: '이 사진으로 발행하기' }).click();
 
@@ -101,6 +117,10 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   const errors = captureRuntimeErrors(page);
   const nickname = `오븐-${testInfo.project.name}`.slice(0, 12);
   let polls = 0;
+  await page.route('**/cookie.png', (route) => route.fulfill({
+    path: path.resolve('cookie.png'),
+    contentType: 'image/png',
+  }));
   await page.route('**/api/state', (route) => {
     polls += 1;
     const current = polls < 3 ? entry(nickname, 'SUBMITTED') : entry(nickname, 'MINTED');
@@ -109,14 +129,20 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
 
   await page.goto('/display');
   await expect(page.locator('.oven').getByText(nickname)).toBeVisible();
+  await expect(page.locator('.oven img')).toHaveCSS('object-fit', 'contain');
   await expect(page.locator('.workbench').getByText(nickname)).toHaveCount(0);
   await expect(page.locator('.showcase').getByText(nickname)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.showcase img')).toHaveCSS('object-fit', 'contain');
   expect(errors).toEqual([]);
 });
 
 test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다', async ({ page }) => {
   const errors = captureRuntimeErrors(page);
   const minted = entry('쿠키선생', 'MINTED');
+  await page.route('**/cookie.png', (route) => route.fulfill({
+    path: path.resolve('cookie.png'),
+    contentType: 'image/png',
+  }));
   await page.route('**/api/state', (route) => route.fulfill({
     json: {
       ...state([minted]),
@@ -126,6 +152,11 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
 
   await page.goto('/display');
 
+  await expect(page.locator('.showcase img')).toBeVisible();
+  await expect.poll(async () => {
+    const cardBox = await page.locator('.shelf-card-frame').boundingBox();
+    return (cardBox?.width ?? 0) / (cardBox?.height ?? 1);
+  }).toBeCloseTo(3 / 4, 2);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
   await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
 

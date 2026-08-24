@@ -64,7 +64,9 @@
   flex: 1 1 auto;
 }
 
-.card-media > img { z-index: 2; object-fit: cover; object-position: center; }
+.card-media > img { z-index: 2; object-fit: contain; object-position: center; }
+.cookie-card.has-certificate-image .card-media { background: var(--ink); }
+.cookie-card.has-certificate-image :is(.cookie-placeholder, .certificate-placeholder) { display: none; }
 
 .cookie-placeholder,
 .certificate-placeholder {

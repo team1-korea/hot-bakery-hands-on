@@ -109,7 +109,7 @@ export function Showcase({
                 {entry ? (
                   entry.txHash && !isMockServer ? (
                     <a
-                      className="shelf-card-link"
+                      className="shelf-card-frame shelf-card-link"
                       href={`${C_CHAIN_EXPLORER_TX}/${encodeURIComponent(entry.txHash)}`}
                       target="_blank"
                       rel="noreferrer"
@@ -118,7 +118,9 @@ export function Showcase({
                       <CookieCard entry={entry} motionPhase={phase} recordLink />
                     </a>
                   ) : (
-                    <CookieCard entry={entry} motionPhase={phase} />
+                    <div className="shelf-card-frame">
+                      <CookieCard entry={entry} motionPhase={phase} />
+                    </div>
                   )
                 ) : (
                   <span className="empty-slot" aria-hidden="true">

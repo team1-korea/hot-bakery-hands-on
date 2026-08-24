@@ -283,7 +283,7 @@ export function AdminBoard() {
 }
 
 /**
- * 참가자가 올린 사진을 크게 본다. 앞 화면에 걸어 둘 사진인지 여기서 판단하고 그 자리에서 내린다.
+ * 참가자가 올린 증서를 크게 본다. 앞 화면에 걸어 둘 이미지인지 여기서 판단하고 그 자리에서 내린다.
  */
 function PhotoViewer({ entry, busy, onClose, onAct }: {
   entry: AdminEntry;
@@ -300,12 +300,12 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
   }, [onClose]);
 
   return (
-    <div className="admin-viewer" role="dialog" aria-modal="true" aria-label={`${entry.nickname}의 사진`}>
+    <div className="admin-viewer" role="dialog" aria-modal="true" aria-label={`${entry.nickname}의 참가증서`}>
       <button className="admin-viewer-backdrop" type="button" aria-label="닫기" onClick={onClose} />
       <div className="admin-viewer-panel">
         {entry.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={entry.photoUrl} alt={`${entry.nickname}의 쿠키 사진`} />
+          <img src={entry.photoUrl} alt={`${entry.nickname}의 참가증서`} />
         ) : null}
         <div className="admin-viewer-foot">
           <div>
@@ -348,7 +348,7 @@ function Row({ entry, busy, onAct, onZoom }: {
       </td>
       <td>
         {entry.photoUrl ? (
-          <button className="admin-thumb-button" type="button" onClick={onZoom} aria-label={`${entry.nickname}의 사진 크게 보기`}>
+          <button className="admin-thumb-button" type="button" onClick={onZoom} aria-label={`${entry.nickname}의 참가증서 크게 보기`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img className="admin-thumb" src={entry.photoUrl} alt="" />
           </button>

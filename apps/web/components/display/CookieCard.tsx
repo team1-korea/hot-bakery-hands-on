@@ -2,6 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
+import { useState } from 'react';
 
 import type { Entry } from '@/lib/api/types';
 
@@ -44,6 +45,8 @@ export function CookieCard({
   const reduceMotion = useReducedMotion();
   const minted = entry.status === 'MINTED';
   const imageUrl = entry.photoUrl;
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl;
   const variation = ((imageNumber(entry) - 1) % 15) + 1;
   const innerInitial = reduceMotion ? false
     : motionPhase === 'enter' ? { y: -28, scale: 1, rotate: 0 }
@@ -80,20 +83,20 @@ export function CookieCard({
         initial={innerInitial}
         animate={innerAnimate}
         transition={innerTransition}
-        className={`cookie-card ${minted ? 'certificate-card' : 'photo-card'}`}
+        className={`cookie-card ${minted ? 'certificate-card' : 'photo-card'} ${showImage ? 'has-certificate-image' : ''}`}
         data-status={entry.status}
       >
         <div className="card-media">
           {minted ? <CertificatePlaceholder variation={variation} /> : <CookiePlaceholder variation={variation} />}
-          {imageUrl ? (
+          {showImage && imageUrl ? (
             <Image
               src={imageUrl}
-              alt={minted ? `${entry.nickname}의 참가증서` : `${entry.nickname}의 쿠키`}
+              alt={`${entry.nickname}의 참가증서`}
               fill
               unoptimized
               sizes="320px"
               loading={(entry.shelfIndex ?? 15) < 3 ? 'eager' : 'lazy'}
-              onError={(event) => { event.currentTarget.style.display = 'none'; }}
+              onError={() => setFailedImageUrl(imageUrl)}
             />
           ) : null}
           <span className={`status-ticket ${recordLink ? 'is-record-link' : ''}`}>
