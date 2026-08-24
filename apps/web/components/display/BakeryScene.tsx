@@ -66,14 +66,7 @@ export function BakeryScene({
 
   return (
     <section className="bakery-scene">
-      <TopBar stale={stale}>
-        {state.show.layout === 'GALLERY' ? (
-          <button className="session-start" type="button" onClick={onStartSession}>
-            교육 세션 시작
-            <kbd>S</kbd>
-          </button>
-        ) : null}
-      </TopBar>
+      <TopBar stale={stale} />
       <LayoutGroup id="bakery-entry-flow">
         <motion.div
           className="bakery-floor"
@@ -106,6 +99,7 @@ export function BakeryScene({
             page={page}
             pageCount={pageCount}
             onPage={onShelfPage}
+            onStartSession={state.show.layout === 'GALLERY' ? onStartSession : undefined}
             transition={layoutTransition}
           />
         </motion.div>

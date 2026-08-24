@@ -59,13 +59,7 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
       if (target instanceof HTMLElement && ['BUTTON', 'A'].includes(target.tagName) && event.key === ' ') return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;
 
-      if (sessionSlide === null) {
-        if (state.show.layout === 'GALLERY' && event.key.toLowerCase() === 's') {
-          event.preventDefault();
-          startSession();
-        }
-        return;
-      }
+      if (sessionSlide === null) return;
 
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -95,7 +89,7 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [exitSession, sessionSlide, startSession, state.show.layout]);
+  }, [exitSession, sessionSlide]);
 
   return (
     <main className="display-viewport">

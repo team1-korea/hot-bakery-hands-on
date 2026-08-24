@@ -126,8 +126,7 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
 
   await page.goto('/display');
 
-  await expect(page.getByRole('button', { name: /교육 세션 시작/ })).toBeVisible();
-  await page.keyboard.press('s');
+  await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
   await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
 
   await page.keyboard.press('ArrowRight');
