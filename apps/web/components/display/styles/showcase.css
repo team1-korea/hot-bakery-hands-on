@@ -38,7 +38,7 @@
   display: flex;
   min-width: 0;
   min-height: 0;
-  padding: 16px 18px 22px;
+  padding: 4px 8px 6px;
   overflow: hidden;
   align-items: center;
   justify-content: center;
@@ -82,7 +82,7 @@
 .shelf-rail.rail-two { top: calc(66.6666% - 2px); }
 .shelf-rail.rail-three { bottom: 0; }
 
-.slot-light { position: absolute; right: 18px; bottom: 16px; left: 18px; z-index: 1; height: 6px; background: var(--gold); opacity: 0; pointer-events: none; }
+.slot-light { position: absolute; right: 8px; bottom: 4px; left: 8px; z-index: 1; height: 6px; background: var(--gold); opacity: 0; pointer-events: none; }
 .shelf-slot.is-filled .slot-light { opacity: .08; }
 .shelf-slot.is-arriving .slot-light { opacity: 0; }
 .shelf-slot.is-lit .slot-light { animation: shelf-arrival-light var(--time-slot-light) linear forwards; }
@@ -117,7 +117,7 @@
   z-index: 6;
   top: auto;
   bottom: 2px;
-  left: 18px;
+  left: 8px;
   padding: 4px 0;
   color: rgb(23 17 15 / .52);
   font: 700 var(--text-1)/1 var(--mono);

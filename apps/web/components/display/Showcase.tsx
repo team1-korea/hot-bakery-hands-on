@@ -113,9 +113,9 @@ export function Showcase({
                       href={`${C_CHAIN_EXPLORER_TX}/${encodeURIComponent(entry.txHash)}`}
                       target="_blank"
                       rel="noreferrer"
-                      aria-label={`${entry.nickname}의 발행 기록 보기`}
+                      aria-label={`${entry.nickname}의 블록체인 기록 보기`}
                     >
-                      <CookieCard entry={entry} motionPhase={phase} recordLink />
+                      <CookieCard entry={entry} motionPhase={phase} />
                     </a>
                   ) : (
                     <div className="shelf-card-frame">

@@ -155,6 +155,11 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     const cardBox = await page.locator('.shelf-card-frame').boundingBox();
     return (cardBox?.width ?? 0) / (cardBox?.height ?? 1);
   }).toBeCloseTo(3 / 4, 2);
+  await expect.poll(async () => {
+    const cardBox = await page.locator('.showcase .cookie-card').boundingBox();
+    const mediaBox = await page.locator('.showcase .card-media').boundingBox();
+    return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
+  }).toBeGreaterThan(0.72);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
   await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
 
