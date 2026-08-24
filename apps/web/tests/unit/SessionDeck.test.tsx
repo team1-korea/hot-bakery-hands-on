@@ -16,12 +16,11 @@ describe('교육 세션 슬라이드', () => {
     ]);
   });
 
-  test('현재 장의 내용과 민팅 수를 보여 주고 버튼으로 이동한다', () => {
+  test('현재 장의 내용만 간결하게 보여 주고 버튼으로 이동한다', () => {
     const onSlide = vi.fn();
     render(
       <SessionDeck
         slide={0}
-        mintedCount={14}
         stale={false}
         onSlide={onSlide}
         onExit={() => {}}
@@ -29,7 +28,9 @@ describe('교육 세션 슬라이드', () => {
     );
 
     expect(screen.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
-    expect(screen.getByText('14개의 참가증서')).toBeVisible();
+    expect(screen.queryByText(/개의 참가증서/)).not.toBeInTheDocument();
+    expect(screen.queryByText('NFT 교육 세션')).not.toBeInTheDocument();
+    expect(screen.queryByText('Space')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이전 슬라이드' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: '다음 슬라이드' }));
@@ -41,7 +42,6 @@ describe('교육 세션 슬라이드', () => {
     render(
       <SessionDeck
         slide={SESSION_SLIDES.length - 1}
-        mintedCount={14}
         stale={false}
         onSlide={() => {}}
         onExit={onExit}
@@ -56,7 +56,6 @@ describe('교육 세션 슬라이드', () => {
     render(
       <SessionDeck
         slide={5}
-        mintedCount={14}
         stale={false}
         onSlide={() => {}}
         onExit={() => {}}

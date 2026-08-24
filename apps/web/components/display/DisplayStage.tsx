@@ -112,7 +112,6 @@ export function DisplayStage({ qrSvg, isMockServer }: { qrSvg: string; isMockSer
               <DisplayView key="session">
                 <SessionDeck
                   slide={sessionSlide}
-                  mintedCount={state.counts.minted}
                   stale={stale}
                   onSlide={setSessionSlide}
                   onExit={exitSession}
