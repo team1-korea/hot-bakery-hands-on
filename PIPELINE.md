@@ -337,7 +337,7 @@ const logs = await client.getLogs({
 - [x] 공개 state에서 `failureReason`·지갑 주소·DID를 제외한다
 - [x] 중간 상태 실패 처리와 오래된 `JOINED` 자동 내림 로직·내부 라우트가 있다
 - [x] 운영자 대리 사진 업로드 API와 화면이 있다
-- [ ] 참가자·운영자 대리 업로드가 최종 프레임 합성 함수를 함께 쓴다 (에셋 대기)
+- [x] 참가자·운영자 대리 업로드가 외부 최종 프레임과 같은 합성 함수를 함께 쓴다
 - [ ] Vercel에서 `after()`를 검증하고 Supabase에 `/api/internal/sweep` 1분 Cron을 설정한다
 - [ ] 실제 Privy Google 로그인부터 민팅까지 한 명 end-to-end 리허설을 한다
 - [ ] 행사 직전 Supabase·민터 잔액·빈 DB/Storage를 확인한다

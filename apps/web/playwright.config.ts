@@ -8,6 +8,7 @@ const externalEnvironment = [
   'NEXT_PUBLIC_API_BASE_URL',
   'NEXT_PUBLIC_SITE_URL',
   'NEXT_PUBLIC_CHAIN_ID',
+  'NEXT_PUBLIC_CERTIFICATE_FRAME_URL',
   'PRIVY_APP_ID',
   'PRIVY_APP_SECRET',
   'OPERATOR_PASSCODE',
@@ -30,6 +31,7 @@ for (const [key, value] of Object.entries(process.env)) {
   if (value !== undefined) mockEnvironment[key] = value;
 }
 for (const key of externalEnvironment) mockEnvironment[key] = '';
+mockEnvironment.NEXT_PUBLIC_CERTIFICATE_FRAME_URL = 'https://certificate-frame.test/nft-design.jpg';
 
 export default defineConfig({
   testDir: './tests/e2e',

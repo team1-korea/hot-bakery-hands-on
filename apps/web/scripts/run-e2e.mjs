@@ -6,6 +6,7 @@ const externalEnvironment = [
   'NEXT_PUBLIC_API_BASE_URL',
   'NEXT_PUBLIC_SITE_URL',
   'NEXT_PUBLIC_CHAIN_ID',
+  'NEXT_PUBLIC_CERTIFICATE_FRAME_URL',
   'PRIVY_APP_ID',
   'PRIVY_APP_SECRET',
   'OPERATOR_PASSCODE',
@@ -25,6 +26,7 @@ const externalEnvironment = [
 
 const environment = { ...process.env };
 for (const key of externalEnvironment) environment[key] = '';
+environment.NEXT_PUBLIC_CERTIFICATE_FRAME_URL = 'https://certificate-frame.test/nft-design.jpg';
 
 const port = await new Promise((resolve, reject) => {
   const server = createServer();

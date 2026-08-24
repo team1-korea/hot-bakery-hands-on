@@ -65,6 +65,11 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
   const nickname = `쿠키-${testInfo.project.name}`.slice(0, 12);
   let current: Entry | null = null;
   let resultPolls = 0;
+  await page.route('https://certificate-frame.test/nft-design.jpg', (route) => route.fulfill({
+    path: path.resolve('tests/fixtures/certificate-frame.jpg'),
+    contentType: 'image/jpeg',
+    headers: { 'Access-Control-Allow-Origin': '*' },
+  }));
   await page.route('**/api/state', (route) => route.fulfill({ json: state([]) }));
   await page.route('**/api/participants', (route) => {
     current = entry(nickname, 'JOINED');
@@ -87,11 +92,15 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
   await page.locator('input[type="file"]').nth(1).setInputFiles(path.resolve('cookie.png'));
   await expect(page.getByAltText('맞추는 중인 쿠키 사진')).toBeVisible();
   const frameResponse = page.waitForResponse((response) => (
-    new URL(response.url()).pathname === '/assets/certificate/certificate-frame-v1.png'
+    response.url() === 'https://certificate-frame.test/nft-design.jpg'
+  ));
+  const fontResponse = page.waitForResponse((response) => (
+    new URL(response.url()).pathname === '/assets/fonts/pretendard-bold.woff2'
   ));
   await page.getByRole('button', { name: '다음' }).click();
 
   expect((await frameResponse).ok()).toBe(true);
+  expect((await fontResponse).ok()).toBe(true);
   await expect(page.getByRole('heading', { name: /이 사진으로/ })).toBeVisible();
   const certificatePreview = page.getByAltText('발행될 참가증서');
   await expect(certificatePreview).toBeVisible();
@@ -105,6 +114,38 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
   });
   expect(certificateFile.type).toBe('image/jpeg');
   expect(certificateFile.size).toBeLessThan(4 * 1024 * 1024);
+  const certificatePixels = await certificatePreview.evaluate(async (image: HTMLImageElement) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('canvas context unavailable');
+    context.drawImage(image, 0, 0);
+
+    const guidePoints = [
+      [334, 799],
+      [744, 799],
+      [539, 594],
+      [539, 1004],
+    ];
+    const guideColors = guidePoints.map(([x, y]) => (
+      [...context.getImageData(x, y, 1, 1).data.slice(0, 3)]
+    ));
+
+    const nameRegion = context.getImageData(200, 1020, 680, 120).data;
+    let nameRedPixels = 0;
+    for (let index = 0; index < nameRegion.length; index += 4) {
+      const [red, green, blue] = nameRegion.slice(index, index + 3);
+      if (red > 150 && green < 90 && blue < 100 && red > green * 2) nameRedPixels += 1;
+    }
+    return { guideColors, nameRedPixels };
+  });
+  const designRed = [0xda, 0x24, 0x2d];
+  for (const pixel of certificatePixels.guideColors) {
+    const distance = Math.hypot(...pixel.map((channel, index) => channel - designRed[index]));
+    expect(distance).toBeGreaterThan(50);
+  }
+  expect(certificatePixels.nameRedPixels).toBeGreaterThan(100);
   await expect(page.getByText(/행사 종료 30일 후 내려가지만/)).toBeVisible();
   await page.getByRole('button', { name: '이 사진으로 발행하기' }).click();
 
@@ -131,8 +172,15 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   await expect(page.locator('.oven').getByText(nickname)).toBeVisible();
   await expect(page.locator('.oven img')).toHaveCSS('object-fit', 'contain');
   await expect(page.locator('.workbench').getByText(nickname)).toHaveCount(0);
-  await expect(page.locator('.showcase').getByText(nickname)).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.showcase').getByRole('img', { name: `${nickname}의 참가증서` }))
+    .toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.showcase img')).toHaveCSS('object-fit', 'contain');
+  await expect(page.locator('.showcase .certificate-card .card-caption')).toHaveCount(0);
+  await expect.poll(async () => {
+    const cardBox = await page.locator('.showcase .certificate-card').boundingBox();
+    const mediaBox = await page.locator('.showcase .certificate-card .card-media').boundingBox();
+    return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
+  }).toBeGreaterThan(0.98);
   expect(errors).toEqual([]);
 });
 
@@ -159,7 +207,7 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     const cardBox = await page.locator('.showcase .cookie-card').boundingBox();
     const mediaBox = await page.locator('.showcase .card-media').boundingBox();
     return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
-  }).toBeGreaterThan(0.72);
+  }).toBeGreaterThan(0.98);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
   await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
 

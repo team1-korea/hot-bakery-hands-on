@@ -27,11 +27,11 @@
 - 메타데이터 핀 전 닉네임 수정과 `ALLOW_DB_RESET=1`로 잠근 DB·Storage 초기화
 - API·파이프라인·DB·운영자·인수인계 문서의 코드 동기화
 - 실제 Supabase·Storage·Pinata·Fuji E2E 검증 및 테스트 데이터 정리
+- 확정된 3:4 NFT 디자인과 Pretendard Bold 닉네임 합성 적용
 
 ### 남은 작업
 
 - 참가자 화면 Privy Google 로그인과 Bearer token 연결
-- 디자인 프레임 에셋을 받은 뒤 `lib/photo.ts` 공용 합성 및 운영자 대리 업로드 연결
 - Vercel 배포, Supabase Cron 설정, 실제 환경 end-to-end 리허설
 - 행사 전 데이터/Storage 정리와 운영 체크
 
@@ -39,7 +39,8 @@
 
 운영 필수:
 
-`NEXT_PUBLIC_PRIVY_APP_ID`, `PRIVY_APP_ID`, `PRIVY_APP_SECRET`, `OPERATOR_PASSCODE`,
+`NEXT_PUBLIC_PRIVY_APP_ID`, `NEXT_PUBLIC_CERTIFICATE_FRAME_URL`, `PRIVY_APP_ID`,
+`PRIVY_APP_SECRET`, `OPERATOR_PASSCODE`,
 `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET`,
 `PINATA_JWT`, `MINTER_PRIVATE_KEY`, `CRON_SECRET`
 
@@ -70,16 +71,14 @@ npm run build
 ## 알려진 블로커
 
 - 참가자 화면의 Privy Google 로그인·Bearer token 연동
-- 디자인 프레임 에셋·최종 캔버스 규격
 - Vercel에서 `after()` 실행과 Supabase의 `CRON_SECRET`/Cron 호출 검증
 
 ## 다음 에이전트 실행 순서
 
-1. PR #11을 리뷰·머지한다. 프론트 계약은 이미 머지된 PR #10 기준 그대로다.
-2. 참가자 화면에 실제 Privy Bearer token과 공용 프레임 합성을 연결한다.
-3. Vercel 환경변수를 설정해 배포하고 Supabase에서 1분 Cron(`/api/internal/sweep`)을 연결한다.
-4. Vercel `after()`를 포함한 한 명 end-to-end 리허설 뒤 DB·Storage를 비운다.
-5. 행사 직전 Supabase 상태, 민터 권한·잔액, 운영자 로그인과 TV를 확인한다.
+1. Vercel에 `NEXT_PUBLIC_CERTIFICATE_FRAME_URL`을 포함한 운영 환경변수를 설정한다.
+2. Supabase에서 1분 Cron(`/api/internal/sweep`)을 연결한다.
+3. Vercel `after()`를 포함한 한 명 end-to-end 리허설 뒤 DB·Storage를 비운다.
+4. 행사 직전 Supabase 상태, 민터 권한·잔액, 운영자 로그인과 TV를 확인한다.
 
 ## 상세 정본
 

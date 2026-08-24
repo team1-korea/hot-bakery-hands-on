@@ -16,8 +16,6 @@ const OUTPUT_QUALITY = 0.82;
 
 /** 사진을 축소해 여백이 생겼을 때 그 자리를 채우는 색. 진열장·증서의 바탕과 같다. */
 const PAPER = '#f7f1e8';
-const AVA = '#e84142';
-const INK = '#050505';
 
 /** 조정 화면이 붙들고 있는 원본. `blob`은 잘라 낼 때 다시 디코드하는 데 쓴다. */
 export type PhotoSource = { url: string; blob: Blob; width: number; height: number };
@@ -116,14 +114,24 @@ export async function cropPhoto(source: PhotoSource, rect: CropRect): Promise<Bl
 /** 프레임을 포함한 최종 NFT 증서 규격. 사진 크롭 영역의 1:1 비율과는 별개다. */
 export const CERTIFICATE_SIZE = { width: 1080, height: 1440 } as const;
 
-const CERTIFICATE_FRAME_URL = '/assets/certificate/certificate-frame-v1.png';
+const CERTIFICATE_FRAME_URL = process.env.NEXT_PUBLIC_CERTIFICATE_FRAME_URL
+  || '/assets/certificate/nft-design.jpg';
 
-/* 최종 디자인 에셋을 받으면 디자이너가 준 사진·닉네임 영역 좌표로 교체한다. */
-const PHOTO_X = 270;
-const PHOTO_Y = 480;
-const PHOTO_SIZE = 540;
-const NAME_Y = 1104;
-const NAME_MAX_WIDTH = 680;
+/**
+ * 최종 원본(960×1280)의 빨간 사진 안내선은 x=297…661, y=528…892다.
+ * 1080×1440으로 키운 안내선보다 사방 약 5px 크게 그려 JPEG 번짐까지 사진으로 덮는다.
+ */
+const PHOTO_X = 330;
+const PHOTO_Y = 590;
+const PHOTO_SIZE = 420;
+
+const NAME_FONT_FAMILY = '"Pretendard Certificate"';
+const NAME_FONT_WEIGHT = 700;
+const NAME_FONT_MAX_SIZE = 60;
+const NAME_FONT_MIN_SIZE = 38;
+const NAME_Y = 1078;
+const NAME_MAX_WIDTH = 620;
+const NAME_COLOR = '#DA242D';
 
 let cachedCertificateFrame: Blob | null = null;
 
@@ -147,8 +155,9 @@ async function loadCertificateFrame(): Promise<Blob> {
 /**
  * 잘라 낸 정사각형 사진을 3:4 세로형 증서 디자인에 합성한다.
  *
- * 현재 v1 에셋은 완성 전 시안이라 기존 쿠키·이름·ID를 덮어서 개발한다. 최종 PNG가 오면
- * 에셋과 위 좌표만 교체한다. 운영자 대리업로드(`app/admin/certificate.ts`)도 이 함수를 거친다.
+ * 최종 JPG 시안 위에 사진과 닉네임만 더한다. 사진은 시안의 안내선을 살짝 넘어 덮고,
+ * 닉네임은 지정된 Pretendard Bold로 그린다. 운영자 대리업로드
+ * (`app/admin/certificate.ts`)도 이 함수를 거친다.
  */
 export async function composeCertificate(croppedBlob: Blob, nickname: string): Promise<Blob> {
   const frameBlob = await loadCertificateFrame();
@@ -164,7 +173,7 @@ export async function composeCertificate(croppedBlob: Blob, nickname: string): P
     throw new ApiError('INTERNAL', '증서를 만들지 못했어요. 다시 시도해 주세요.');
   }
 
-  if (frame.width !== CERTIFICATE_SIZE.width || frame.height !== CERTIFICATE_SIZE.height) {
+  if (frame.width * CERTIFICATE_SIZE.height !== frame.height * CERTIFICATE_SIZE.width) {
     frame.close();
     photo.close();
     throw new ApiError('INTERNAL', '증서 디자인 크기가 올바르지 않아요. 운영자에게 알려 주세요.');
@@ -184,24 +193,20 @@ export async function composeCertificate(croppedBlob: Blob, nickname: string): P
     ctx.drawImage(frame, 0, 0, CERTIFICATE_SIZE.width, CERTIFICATE_SIZE.height);
     ctx.drawImage(photo, PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE);
 
-    ctx.strokeStyle = AVA;
-    ctx.lineWidth = 4;
-    ctx.strokeRect(PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE);
-
-    // 개발용 시안에 박혀 있는 HEEJIN과 CERTIFICATE ID를 최종 에셋을 받을 때까지 가린다.
-    ctx.fillStyle = INK;
-    ctx.fillRect(170, 1028, 740, 116);
-    ctx.fillRect(270, 1218, 540, 112);
-
-    await document.fonts.ready;
-    const fontFamily = getComputedStyle(document.body).fontFamily || 'sans-serif';
-    let fontSize = 72;
-    ctx.font = `900 ${fontSize}px ${fontFamily}`;
-    while (fontSize > 40 && ctx.measureText(nickname).width > NAME_MAX_WIDTH) {
-      fontSize -= 2;
-      ctx.font = `900 ${fontSize}px ${fontFamily}`;
+    const fonts = await document.fonts.load(
+      `${NAME_FONT_WEIGHT} ${NAME_FONT_MAX_SIZE}px ${NAME_FONT_FAMILY}`,
+    );
+    if (fonts.length === 0) {
+      throw new ApiError('INTERNAL', '증서 글꼴을 불러오지 못했어요. 다시 시도해 주세요.');
     }
-    ctx.fillStyle = AVA;
+
+    let fontSize = NAME_FONT_MAX_SIZE;
+    ctx.font = `${NAME_FONT_WEIGHT} ${fontSize}px ${NAME_FONT_FAMILY}`;
+    while (fontSize > NAME_FONT_MIN_SIZE && ctx.measureText(nickname).width > NAME_MAX_WIDTH) {
+      fontSize -= 2;
+      ctx.font = `${NAME_FONT_WEIGHT} ${fontSize}px ${NAME_FONT_FAMILY}`;
+    }
+    ctx.fillStyle = NAME_COLOR;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(nickname, CERTIFICATE_SIZE.width / 2, NAME_Y);
