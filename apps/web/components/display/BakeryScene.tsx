@@ -99,7 +99,7 @@ export function BakeryScene({
             page={page}
             pageCount={pageCount}
             onPage={onShelfPage}
-            onStartSession={state.show.layout === 'GALLERY' ? onStartSession : undefined}
+            onStartSession={onStartSession}
             transition={layoutTransition}
           />
         </motion.div>

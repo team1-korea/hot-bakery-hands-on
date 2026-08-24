@@ -144,14 +144,12 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     contentType: 'image/png',
   }));
   await page.route('**/api/state', (route) => route.fulfill({
-    json: {
-      ...state([minted]),
-      show: { layout: 'GALLERY', qrVisible: false, shelfPage: 0 },
-    },
+    json: state([minted]),
   }));
 
   await page.goto('/display');
 
+  await expect(page.getByRole('heading', { name: '증서 오븐' })).toBeVisible();
   await expect(page.locator('.showcase img')).toBeVisible();
   await expect.poll(async () => {
     const cardBox = await page.locator('.shelf-card-frame').boundingBox();
