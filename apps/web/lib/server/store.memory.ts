@@ -138,6 +138,8 @@ export async function attachPhoto(
   }
 
   row.entry.photoUrl = photoUrl(await putPhoto(row.entry.id, photo));
+  // 스위퍼가 이탈자로 판단해 내린 카드만 되살린다. 운영자가 직접 숨긴 카드는 유지한다.
+  if (row.entry.status === 'JOINED' && row.autoHiddenAt !== null) row.entry.hidden = false;
   // 이전 사진의 CID로 민팅되지 않게, 재촬영이면 진행 흔적을 지우고 처음부터 다시 굽는다.
   row.entry.failureReason = null;
   row.entry.tokenId = null;
@@ -312,8 +314,8 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
  * 방치된 행을 훑는다. `db/README.md`의 스위퍼 쿼리 두 개를 그대로 옮긴 것이다.
  *
  * **타이머가 아니라 그냥 함수다.** 서버리스에서는 프로세스가 살아 있지 않아 타이머가
- * 돌지 않는다. 실제 배포에서는 pg_cron이나 Vercel Cron이 1분마다 이걸 부르는 라우트를
- * 두드린다. 함수로 두면 테스트에서 그냥 부를 수 있다.
+ * 돌지 않는다. 실제 배포에서는 Supabase Cron이 1분마다 이걸 부르는 라우트를 두드린다.
+ * 함수로 두면 테스트에서 그냥 부를 수 있다.
  *
  * `now`를 받는 것은 시간을 흉내내기 위해서다 — 테스트가 10분을 실제로 기다릴 수 없다.
  */

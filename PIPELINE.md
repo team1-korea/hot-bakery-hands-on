@@ -272,7 +272,8 @@ select pg_try_advisory_lock(42);   -- 못 잡으면 이번 인보케이션은 �
 ### 스위퍼
 
 `GET|POST /api/internal/sweep`가 두 가지를 훑습니다. `Authorization: Bearer <CRON_SECRET>`으로
-잠겨 있으며, Vercel Cron 또는 외부 스케줄러가 1분마다 호출해야 합니다.
+잠겨 있으며, 운영에서는 Supabase Cron이 1분마다 호출합니다. 설치 SQL은
+`apps/web/db/cron.sql`에 있습니다.
 
 **① 중간 상태로 멈춘 행 → `FAILED`.** `after()`는 재시도를 해주지 않습니다. 인보케이션이 죽으면
 행이 `SUBMITTED`나 `PINNED`로 남습니다. **N분 이상 중간 상태인 행을 `FAILED`로 내립니다.** 안
@@ -282,7 +283,8 @@ select pg_try_advisory_lock(42);   -- 못 잡으면 이번 인보케이션은 �
 남습니다. **N분(10분 정도) 넘게 `JOINED`인 행을 자동으로 `hidden` 처리합니다.** 이걸 안 붙이면
 작업대가 유령 카드로 찹니다.
 
-> `hidden`은 되돌릴 수 있어야 합니다. 늦게 돌아온 참가자가 사진을 내면 다시 보여야 합니다.
+> `hidden`은 되돌릴 수 있어야 합니다. 자동으로 내려간 참가자가 늦게 사진을 내면 제출
+> 트랜잭션이 다시 보여 줍니다. 운영자가 직접 숨긴 카드는 자동 복원하지 않습니다.
 
 ### ⚠️ 이미 발행된 건의 복구
 
@@ -336,6 +338,6 @@ const logs = await client.getLogs({
 - [x] 중간 상태 실패 처리와 오래된 `JOINED` 자동 내림 로직·내부 라우트가 있다
 - [x] 운영자 대리 사진 업로드 API와 화면이 있다
 - [ ] 참가자·운영자 대리 업로드가 최종 프레임 합성 함수를 함께 쓴다 (에셋 대기)
-- [ ] Vercel에서 `after()`를 검증하고 `/api/internal/sweep` 1분 Cron을 설정한다
+- [ ] Vercel에서 `after()`를 검증하고 Supabase에 `/api/internal/sweep` 1분 Cron을 설정한다
 - [ ] 실제 Privy Google 로그인부터 민팅까지 한 명 end-to-end 리허설을 한다
 - [ ] 행사 직전 Supabase·민터 잔액·빈 DB/Storage를 확인한다

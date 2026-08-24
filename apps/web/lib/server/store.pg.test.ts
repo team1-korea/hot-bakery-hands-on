@@ -467,6 +467,29 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal((await getAdminState()).entries[0].hidden, false);
   });
 
+  test('자동으로 내려간 참가자가 사진을 제출하면 TV에 다시 나타난다', async () => {
+    const entry = await joined(1);
+    await age(entry.id, 11);
+    assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
+
+    const attached = await submit(entry.id);
+    assert.ok(attached.ok);
+    assert.equal(attached.entry.status, 'SUBMITTED');
+    assert.equal(attached.entry.hidden, false);
+    assert.equal((await getAdminState()).entries[0].autoHidden, true);
+  });
+
+  test('운영자가 직접 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
+    const entry = await joined(1);
+    await setHidden(entry.id, true);
+
+    const attached = await submit(entry.id);
+    assert.ok(attached.ok);
+    assert.equal(attached.entry.status, 'SUBMITTED');
+    assert.equal(attached.entry.hidden, true);
+    assert.equal((await getAdminState()).entries[0].autoHidden, false);
+  });
+
   test('화면 상태가 DB에 남는다', async () => {
     // 메모리에 두면 인보케이션마다 달라서 운영자가 GALLERY로 바꿔도 TV는 LIVE를 본다.
     assert.deepEqual(await updateShow({ layout: 'GALLERY', shelfPage: 1 }), {

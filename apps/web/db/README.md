@@ -144,9 +144,9 @@ JOINED ──→ SUBMITTED ──→ PINNED ──→ MINTING ──→ MINTED
 사진을 가져오면 다시 올려야 하기 때문입니다.
 
 `auto_hidden_at`은 스위퍼가 운영자와 싸우지 않게 하는 장치입니다. 스위퍼는 이 값이 null인
-행만 내리고, 한 번 내린 뒤에는 다시 손대지 않습니다. 그래서 늦게 온 참가자를 운영자가 다시
-올려도 10분 뒤에 또 내려가지 않습니다. **운영자가 다시 올릴 때 `auto_hidden_at`을 지우지
-마세요.**
+행만 내리고, 한 번 내린 뒤에는 다시 손대지 않습니다. 자동으로 내려간 참가자가 늦게 사진을
+제출하면 `attachPhoto`가 `hidden`을 false로 바꿔 TV에 다시 올립니다. 운영자가 직접 숨긴 행은
+사진을 제출해도 숨김을 유지합니다. **복원할 때 `auto_hidden_at`을 지우지 마세요.**
 
 ---
 
@@ -248,8 +248,48 @@ update entries set hidden = true, auto_hidden_at = now()
 ```
 
 로그인만 하고 사라진 사람의 카드가 행사 내내 작업대에 남습니다. **되돌릴 수 있어야 합니다** —
-늦게 온 참가자가 사진을 내면 운영자가 `hidden`을 false로 풉니다. 그때 `auto_hidden_at`은
-그대로 두세요. 그래야 스위퍼가 또 내리지 않습니다.
+자동으로 내려간 참가자가 늦게 사진을 내면 제출 트랜잭션이 `hidden`을 false로 바꿉니다.
+운영자가 직접 숨긴 카드는 자동으로 올리지 않으며, `auto_hidden_at`은 그대로 둡니다.
+
+### Supabase Cron 연결
+
+Vercel Hobby Cron은 1분 주기로 실행할 수 없으므로 Supabase의 `pg_cron`과 `pg_net`이 배포된
+`POST /api/internal/sweep`를 1분마다 호출합니다. 앱 코드와 스케줄러는 같은 `CRON_SECRET`으로
+인증하고, 값은 저장소가 아니라 Supabase Vault에 보관합니다.
+
+1. Vercel Production 환경에 충분히 긴 임의의 `CRON_SECRET`을 설정합니다.
+2. Supabase Dashboard의 SQL Editor에서 아래 두 값을 한 번 저장합니다. 두 번째 값은 Vercel에
+   넣은 것과 정확히 같아야 합니다.
+
+```sql
+select vault.create_secret(
+  'https://avalanche-bakery.vercel.app',
+  'hot_bakery_app_url'
+);
+select vault.create_secret(
+  '<Vercel Production의 CRON_SECRET>',
+  'hot_bakery_cron_secret'
+);
+```
+
+3. 같은 SQL Editor에서 [`cron.sql`](./cron.sql)을 실행합니다. 이 파일은 기존
+   `hot-bakery-sweep` 작업을 먼저 내리므로 다시 실행해도 작업이 중복되지 않습니다.
+4. 1분 뒤 실행 이력을 확인합니다. `status`가 `succeeded`여야 합니다.
+
+```sql
+select jobid, jobname, schedule, active
+  from cron.job
+ where jobname = 'hot-bakery-sweep';
+
+select status, return_message, start_time, end_time
+  from cron.job_run_details
+ where jobid = (select jobid from cron.job where jobname = 'hot-bakery-sweep')
+ order by start_time desc
+ limit 10;
+```
+
+Cron 성공은 HTTP 요청을 예약했다는 뜻입니다. Vercel 로그에서 `/api/internal/sweep`가 200으로
+응답하는 것도 확인하세요. 401이면 두 곳의 `CRON_SECRET`이 다른 것입니다.
 
 ### 운영자 — 아직 안 낸 사람
 

@@ -61,7 +61,8 @@ npm run lint
 - Vercel Root Directory는 `apps/web`; 운영 필수 환경변수는 [API_REFERENCE.md](../../API_REFERENCE.md)에 맞춘다.
 - Privy에서 Google 로그인, embedded EVM wallet, 배포 오리진을 설정한다.
 - Supabase 스키마·RLS·공개 `certificates` 버킷을 확인하고 프로젝트를 깨워 둔다.
-- Vercel Cron이 `Authorization: Bearer <CRON_SECRET>`으로 `/api/internal/sweep`를 1분마다 부르게 한다.
+- Supabase Cron이 `Authorization: Bearer <CRON_SECRET>`으로 `/api/internal/sweep`를 1분마다
+  부르게 한다. 설정은 [db/README.md](./db/README.md)를 따른다.
 - 참가자와 운영자 대리 업로드가 같은 최종 프레임 합성을 쓰는지 확인한다.
 - `ALLOW_DB_RESET`은 운영에서 빼고 `OPERATOR_PASSCODE`는 길게 설정한다.
 - 리허설 데이터를 DB·Storage에서 지운 뒤 실제 Google 로그인 한 명을 끝까지 발행해 본다.
