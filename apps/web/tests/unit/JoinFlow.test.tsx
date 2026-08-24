@@ -82,6 +82,9 @@ describe('참가자 기록 복원', () => {
 
     expect(await screen.findByRole('heading', { name: '완성됐어요' })).toBeVisible();
     expect(screen.getByText('서버닉네임')).toBeVisible();
+    expect(screen.getByText((_, element) => (
+      element?.classList.contains('join-shelf') ?? false
+    ))).toHaveTextContent('앞 화면에서 #7을 찾아보세요');
   });
 
   test('진열장이 가득 차도 로그인한 기존 참가자는 결과를 복원한다', async () => {

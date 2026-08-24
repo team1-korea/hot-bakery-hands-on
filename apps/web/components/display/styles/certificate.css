@@ -1,5 +1,29 @@
 .certificate-card { border-width: var(--line-thin); }
-.certificate-card .card-media { border-bottom: 0; }
+.certificate-card .card-media { border-bottom: var(--line-thin) solid var(--ink); }
+
+.certificate-caption {
+  height: 38px;
+  padding: 6px 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+}
+
+.certificate-caption > strong {
+  color: var(--ember);
+  font: 700 19px/1 var(--mono);
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+
+.card-nickname {
+  min-width: 0;
+  overflow: hidden;
+  font: 900 17px/1 var(--display);
+  letter-spacing: -.03em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .certificate-placeholder {
   overflow: hidden;
