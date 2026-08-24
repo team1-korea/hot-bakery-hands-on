@@ -59,13 +59,11 @@ export const SESSION_SLIDES: readonly SessionSlide[] = [
 
 export function SessionDeck({
   slide,
-  mintedCount,
   stale,
   onSlide,
   onExit,
 }: {
   slide: number;
-  mintedCount: number;
   stale: boolean;
   onSlide: (slide: number) => void;
   onExit: () => void;
@@ -77,14 +75,12 @@ export function SessionDeck({
 
   return (
     <section className="session-deck" aria-label="NFT 교육 세션">
-      <TopBar stale={stale}>
-        <span className="session-mode">NFT 교육 세션</span>
-      </TopBar>
+      <TopBar stale={stale} />
 
       <div className="session-stage">
         <AnimatePresence initial={false} mode="wait">
           <motion.article
-            className="session-slide"
+            className={`session-slide session-slide--${current.id}`}
             key={current.id}
             role="group"
             aria-roledescription="슬라이드"
@@ -94,7 +90,7 @@ export function SessionDeck({
             exit={reduceMotion ? undefined : { x: -70, opacity: 0 }}
             transition={{ duration: reduceMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
           >
-            <SlideContent slide={current} mintedCount={mintedCount} />
+            <SlideContent slide={current} />
           </motion.article>
         </AnimatePresence>
       </div>
@@ -126,12 +122,6 @@ export function SessionDeck({
           ))}
         </div>
 
-        <p className="session-key-help" aria-hidden="true">
-          <kbd>←</kbd><kbd>→</kbd> 이동
-          <kbd>Space</kbd> 다음
-          <kbd>Esc</kbd> 진열장
-        </p>
-
         {last ? (
           <button className="session-nav-button is-exit" type="button" onClick={onExit}>
             진열장으로 돌아가기
@@ -152,20 +142,12 @@ export function SessionDeck({
   );
 }
 
-function SlideContent({ slide, mintedCount }: { slide: SessionSlide; mintedCount: number }) {
+function SlideContent({ slide }: { slide: SessionSlide }) {
   if (slide.id === 'opening') {
     return (
       <div className="session-opening">
-        <div className="session-opening-copy">
-          <h1>{slide.title}</h1>
-          <p>{slide.lead}</p>
-          <strong>{mintedCount}개의 참가증서</strong>
-        </div>
-        <div className="session-opening-mark" aria-hidden="true">
-          <span>COOKIE</span>
-          <i />
-          <b>NFT</b>
-        </div>
+        <h1 aria-label={slide.title}>방금, 쿠키가 <em>NFT</em>가 되었습니다</h1>
+        <p>{slide.lead}</p>
       </div>
     );
   }
@@ -190,54 +172,63 @@ function SlideContent({ slide, mintedCount }: { slide: SessionSlide; mintedCount
 
 function AnatomySlide() {
   return (
-    <div className="session-layers">
-      <section className="session-layer is-image">
-        <span>certificate.jpg</span>
-        <strong>완성된 증서 이미지</strong>
-        <p>쿠키 사진에 프레임을 합성한, 눈에 보이는 한 장</p>
-      </section>
-      <section className="session-layer is-metadata">
-        <span>metadata.json</span>
-        <strong>이름 · 설명 · 속성</strong>
+    <ol className="session-layers">
+      <li>
+        <span>IMAGE</span>
+        <div>
+          <strong>완성된 증서 이미지</strong>
+          <p>쿠키 사진에 프레임을 합성한, 눈에 보이는 한 장</p>
+        </div>
+        <code>certificate.jpg</code>
+      </li>
+      <li>
+        <span>METADATA</span>
+        <div>
+          <strong>이름 · 설명 · 속성</strong>
+          <p>닉네임, 행사, 발행일을 이미지 주소와 연결</p>
+        </div>
         <code>image: ipfs://&lt;사진 CID&gt;</code>
-        <p>닉네임, 행사, 발행일을 이미지 주소와 연결</p>
-      </section>
-      <section className="session-layer is-token">
-        <span>Avalanche C-Chain</span>
-        <strong>TOKEN #&lt;ID&gt;</strong>
+      </li>
+      <li>
+        <span>TOKEN</span>
+        <div>
+          <strong>C-Chain의 소유 기록</strong>
+          <p>누가 소유하고 어떤 메타데이터를 보는지 기록</p>
+        </div>
         <code>ownerOf · tokenURI</code>
-        <p>누가 소유하고 어떤 메타데이터를 보는지 기록</p>
-      </section>
-    </div>
+      </li>
+    </ol>
   );
 }
 
 function StorageSlide() {
   return (
-    <div className="session-storage">
-      <div className="storage-origin">
-        <strong>원본 쿠키 사진</strong>
-        <p>자르기와 프레임 합성은 참가자 브라우저에서 끝납니다.</p>
-        <b>원본은 서버로 보내지지 않음</b>
-      </div>
-      <FlowArrow />
-      <div className="storage-certificate">
-        <strong>최종 합성 증서</strong>
-        <p>행사 운영용 저장소에 보관하고 같은 바이트를 IPFS에 핀합니다.</p>
-        <span>Supabase Storage · 행사 종료 30일 후 파기</span>
-      </div>
-      <FlowArrow />
-      <div className="storage-ipfs">
+    <ol className="session-storage">
+      <li>
+        <span>1</span>
+        <strong>브라우저</strong>
+        <p>사진을 자르고 증서 프레임을 합성합니다.</p>
+        <small>원본 사진은 서버로 보내지지 않음</small>
+      </li>
+      <li>
+        <span>2</span>
+        <strong>운영 저장소</strong>
+        <p>최종 합성 증서 한 장을 행사 운영용으로 보관합니다.</p>
+        <small>Supabase Storage · 행사 종료 30일 후 파기</small>
+      </li>
+      <li>
+        <span>3</span>
         <strong>IPFS</strong>
+        <p>이미지와 메타데이터에 내용 기반 CID가 생깁니다.</p>
         <code>ipfs://bafy…</code>
-        <p>이미지와 메타데이터에 각각 내용 기반 CID가 생깁니다.</p>
-      </div>
-      <FlowArrow />
-      <div className="storage-chain">
+      </li>
+      <li>
+        <span>4</span>
         <strong>C-Chain</strong>
-        <p>이미지 바이트가 아니라 메타데이터 CID를 기록합니다.</p>
-      </div>
-    </div>
+        <p>이미지 바이트 대신 메타데이터 CID를 기록합니다.</p>
+        <small>체인에는 파일이 아닌 주소만 기록</small>
+      </li>
+    </ol>
   );
 }
 
@@ -249,12 +240,12 @@ function WalletSlide() {
         <i aria-hidden="true" />
         <span>Privy</span>
         <i aria-hidden="true" />
-        <strong>0x… 나의 임베디드 EVM 지갑</strong>
+        <strong>나의 지갑 <code>0x…</code></strong>
       </div>
       <div className="wallet-owner">
         <code>ownerOf(tokenId)</code>
         <span>=</span>
-        <strong>참가자의 Privy 지갑 주소</strong>
+        <strong>참가자 지갑 주소</strong>
       </div>
       <dl className="wallet-roles">
         <div>
@@ -301,7 +292,7 @@ function CertificateSlide() {
   return (
     <div className="session-certificate">
       <div className="certificate-common">
-        <strong>같은 뼈대</strong>
+        <strong>공통 기반</strong>
         <b>ERC-721</b>
         <p>tokenId · ownerOf · tokenURI · 공개된 체인 기록</p>
       </div>
@@ -353,14 +344,6 @@ function Arrow({ direction }: { direction: 'left' | 'right' }) {
         strokeWidth="3"
         strokeLinecap="square"
       />
-    </svg>
-  );
-}
-
-function FlowArrow() {
-  return (
-    <svg className="session-flow-arrow" viewBox="0 0 84 32" aria-hidden="true">
-      <path d="M2 16h72M62 5l12 11-12 11" fill="none" stroke="currentColor" strokeWidth="4" />
     </svg>
   );
 }
