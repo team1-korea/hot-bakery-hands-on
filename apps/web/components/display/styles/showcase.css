@@ -124,6 +124,8 @@
 /* 15칸을 넘으면 사람이 눌러 다음 쪽을 본다. 저절로 넘어가지 않는다. */
 .showcase-heading { justify-content: space-between; }
 
+.showcase-actions { display: flex; align-items: center; gap: 16px; }
+
 .shelf-pager { display: flex; align-items: center; gap: 12px; }
 .shelf-pager strong { min-width: 84px; text-align: center; font: 700 var(--text-2)/1 var(--mono); }
 .shelf-pager button {
@@ -140,3 +142,22 @@
 .shelf-pager button:disabled { opacity: .24; }
 .shelf-pager button:not(:disabled):hover { background: var(--ink); color: var(--paper); }
 .shelf-pager svg { width: 32px; height: 32px; }
+
+.showcase-session-next {
+  display: flex;
+  height: 64px;
+  min-width: 160px;
+  padding: 0 16px 0 22px;
+  gap: 12px;
+  border: var(--line-thick) solid var(--ink);
+  border-radius: var(--radius-small);
+  align-items: center;
+  background: var(--ink);
+  color: var(--paper);
+  font: 900 var(--text-1)/1 var(--display);
+  letter-spacing: -.02em;
+  justify-content: space-between;
+}
+
+.showcase-session-next:hover { border-color: var(--ember); background: var(--ember); }
+.showcase-session-next svg { width: 28px; height: 28px; }

@@ -21,6 +21,7 @@ export function Showcase({
   page,
   pageCount,
   onPage,
+  onStartSession,
   transition,
 }: {
   entries: Entry[];
@@ -31,6 +32,7 @@ export function Showcase({
   page: number;
   pageCount: number;
   onPage: (page: number) => void;
+  onStartSession?: () => void;
   transition: LayoutTransition;
 }) {
   const reduceMotion = useReducedMotion();
@@ -57,22 +59,35 @@ export function Showcase({
     <motion.section className={`showcase zone ${fullPulse ? 'is-complete' : ''}`} layout transition={transition}>
       <header className="showcase-heading">
         <h2>오늘의 진열장</h2>
-        {pageCount > 1 ? (
-          <div className="shelf-pager">
-            <button type="button" onClick={() => onPage(page - 1)} disabled={page === 0} aria-label="이전 쪽">
-              <PagerArrow direction="left" />
-            </button>
-            <strong>{page + 1} / {pageCount}</strong>
+        <div className="showcase-actions">
+          {pageCount > 1 ? (
+            <div className="shelf-pager">
+              <button type="button" onClick={() => onPage(page - 1)} disabled={page === 0} aria-label="이전 쪽">
+                <PagerArrow direction="left" />
+              </button>
+              <strong>{page + 1} / {pageCount}</strong>
+              <button
+                type="button"
+                onClick={() => onPage(page + 1)}
+                disabled={page >= pageCount - 1}
+                aria-label="다음 쪽"
+              >
+                <PagerArrow direction="right" />
+              </button>
+            </div>
+          ) : null}
+          {onStartSession && page === pageCount - 1 ? (
             <button
+              className="showcase-session-next"
               type="button"
-              onClick={() => onPage(page + 1)}
-              disabled={page >= pageCount - 1}
-              aria-label="다음 쪽"
+              aria-label="NFT 교육 세션으로 이동"
+              onClick={onStartSession}
             >
+              NEXT
               <PagerArrow direction="right" />
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </header>
       <motion.div className="shelf-frame" layout transition={transition}>
         <div className="shelf-grid">

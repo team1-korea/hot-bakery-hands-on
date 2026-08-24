@@ -20,6 +20,7 @@ export function BakeryScene({
   qrSvg,
   isMockServer,
   onShelfPage,
+  onStartSession,
 }: {
   state: StateResponse;
   stale: boolean;
@@ -27,6 +28,7 @@ export function BakeryScene({
   qrSvg: string;
   isMockServer: boolean;
   onShelfPage: (page: number) => void;
+  onStartSession: () => void;
 }) {
   const reduceMotion = useReducedMotion();
   const sequence = useDisplaySequence(state.entries, Boolean(reduceMotion), ready);
@@ -97,6 +99,7 @@ export function BakeryScene({
             page={page}
             pageCount={pageCount}
             onPage={onShelfPage}
+            onStartSession={state.show.layout === 'GALLERY' ? onStartSession : undefined}
             transition={layoutTransition}
           />
         </motion.div>
