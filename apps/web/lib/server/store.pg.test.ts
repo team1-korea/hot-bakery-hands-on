@@ -476,7 +476,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.ok(attached.ok);
     assert.equal(attached.entry.status, 'SUBMITTED');
     assert.equal(attached.entry.hidden, false);
-    assert.equal((await getAdminState()).entries[0].autoHidden, true);
+    assert.equal((await getAdminState()).entries[0].autoHidden, false);
   });
 
   test('운영자가 직접 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
@@ -488,6 +488,31 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal(attached.entry.status, 'SUBMITTED');
     assert.equal(attached.entry.hidden, true);
     assert.equal((await getAdminState()).entries[0].autoHidden, false);
+  });
+
+  test('자동 내림 뒤 운영자가 다시 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
+    const entry = await joined(1);
+    await age(entry.id, 11);
+    assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
+    await setHidden(entry.id, false);
+    await setHidden(entry.id, true);
+
+    assert.equal((await getAdminState()).entries[0].autoHidden, false);
+
+    const attached = await submit(entry.id);
+    assert.ok(attached.ok);
+    assert.equal(attached.entry.status, 'SUBMITTED');
+    assert.equal(attached.entry.hidden, true);
+  });
+
+  test('운영자가 직접 내렸다가 다시 올린 카드도 스위퍼가 또 내리지 않는다', async () => {
+    const entry = await joined(1);
+    await setHidden(entry.id, true);
+    await setHidden(entry.id, false);
+
+    await age(entry.id, 120);
+    assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
+    assert.equal((await getAdminState()).entries[0].hidden, false);
   });
 
   test('화면 상태가 DB에 남는다', async () => {

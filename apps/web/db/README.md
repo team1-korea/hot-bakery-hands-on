@@ -107,7 +107,7 @@ select layout, qr_visible, shelf_page from show_state;
 | `tx_hash` | text | 민팅 트랜잭션 전송 |
 | `token_id` | text | 영수증 확인 |
 | `hidden` | bool | 운영자가 내릴 때, 또는 스위퍼가 자동으로 |
-| `auto_hidden_at` | timestamptz | **스위퍼가** 자동으로 내린 시각 |
+| `auto_hidden_at` | timestamptz | 자동 내림 또는 운영자가 표시를 고정한 시각 |
 | `failure_reason` | text | 실패할 때 |
 | `created_at` | timestamptz | 등록 |
 | `status_changed_at` | timestamptz | **상태를 바꿀 때마다** |
@@ -143,10 +143,12 @@ JOINED ──→ SUBMITTED ──→ PINNED ──→ MINTING ──→ MINTED
 `hidden`은 **TV에서만** 감춥니다. **운영자 명단에서는 계속 보여야 합니다** — 나중에 그 참가자가
 사진을 가져오면 다시 올려야 하기 때문입니다.
 
-`auto_hidden_at`은 스위퍼가 운영자와 싸우지 않게 하는 장치입니다. 스위퍼는 이 값이 null인
-행만 내리고, 한 번 내린 뒤에는 다시 손대지 않습니다. 자동으로 내려간 참가자가 늦게 사진을
-제출하면 `attachPhoto`가 `hidden`을 false로 바꿔 TV에 다시 올립니다. 운영자가 직접 숨긴 행은
-사진을 제출해도 숨김을 유지합니다. **복원할 때 `auto_hidden_at`을 지우지 마세요.**
+`auto_hidden_at`은 스위퍼가 운영자와 싸우지 않게 하는 마커입니다. `hidden=true`에서 값이
+있으면 자동 내림, null이면 운영자 내림입니다. 자동으로 내려간 참가자가 사진을 제출하면
+`attachPhoto`가 다시 표시하지만, 운영자가 직접 내린 행은 숨김을 유지합니다.
+
+운영자가 카드를 내리면 `auto_hidden_at`을 null로 바꾸고, 다시 올리면 값을 남깁니다.
+후자는 `hidden=false`인 카드를 스위퍼가 10분 뒤 또 내리지 않게 하는 표시 고정 마커입니다.
 
 ---
 
@@ -249,7 +251,7 @@ update entries set hidden = true, auto_hidden_at = now()
 
 로그인만 하고 사라진 사람의 카드가 행사 내내 작업대에 남습니다. **되돌릴 수 있어야 합니다** —
 자동으로 내려간 참가자가 늦게 사진을 내면 제출 트랜잭션이 `hidden`을 false로 바꿉니다.
-운영자가 직접 숨긴 카드는 자동으로 올리지 않으며, `auto_hidden_at`은 그대로 둡니다.
+운영자가 직접 숨긴 카드는 `auto_hidden_at`이 null이므로 자동으로 올리지 않습니다.
 
 ### Supabase Cron 연결
 

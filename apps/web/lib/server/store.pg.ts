@@ -139,9 +139,10 @@ export async function attachPhoto(
       const found = await client.query<{
         status: EntryStatus;
         certificate_path: string | null;
+        hidden: boolean;
         auto_hidden_at: Date | null;
       }>(
-        'select status, certificate_path, auto_hidden_at from entries where id = $1 for update',
+        'select status, certificate_path, hidden, auto_hidden_at from entries where id = $1 for update',
         [entryId],
       );
       const row = found.rows[0];
@@ -155,7 +156,7 @@ export async function attachPhoto(
       }
 
       const path = await putPhoto(entryId, photo);
-      const restoreVisibility = row.status === 'JOINED' && row.auto_hidden_at !== null;
+      const restoreVisibility = row.status === 'JOINED' && row.hidden && row.auto_hidden_at !== null;
 
       // 재촬영은 이미 잡아 둔 칸을 그대로 쓴다(coalesce). 새 칸을 잡으면 진열장에 구멍이 남는다.
       // 이전 사진의 CID로 민팅되지 않게 진행 흔적은 지우고 처음부터 다시 굽는다.
@@ -287,7 +288,7 @@ export async function getAdminState(): Promise<AdminStateResponse> {
       (row): AdminEntry => ({
         ...toEntry(row),
         walletAddress: row.wallet_address,
-        autoHidden: row.auto_hidden_at !== null,
+        autoHidden: row.hidden && row.auto_hidden_at !== null,
         nicknameEditable: row.metadata_cid === null,
       }),
     ),
@@ -343,13 +344,20 @@ export async function updateShow(patch: Partial<ShowState>): Promise<ShowState> 
 /**
  * 운영자가 카드를 내리거나 다시 올린다.
  *
- * **`auto_hidden_at`을 건드리지 않는다.** 지우면 스위퍼가 10분 뒤에 또 내려서 늦게 온
- * 참가자의 카드가 운영자와 싸운다.
+ * 운영자가 내리면 현재 숨김 원인을 운영자로 바꾸고, 올리면 자동 내림 대상에서
+ * 제외한다. 그래야 늦게 온 참가자에 대한 운영자 판단을 스위퍼가 뒤집지 않는다.
  */
 export async function setHidden(entryId: string, hidden: boolean): Promise<Entry | null> {
   if (!UUID.test(entryId)) return null;
   const result = await query<EntryRow>(
-    `update entries set hidden = $2 where id = $1 returning ${ENTRY_COLUMNS}`,
+    `update entries
+        set hidden = $2,
+            auto_hidden_at = case
+              when $2 then null
+              else coalesce(auto_hidden_at, now())
+            end
+      where id = $1
+    returning ${ENTRY_COLUMNS}`,
     [entryId, hidden],
   );
   return result.rows[0] ? toEntry(result.rows[0]) : null;

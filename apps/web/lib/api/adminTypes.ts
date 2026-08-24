@@ -11,7 +11,7 @@ import type { Entry, ShowState } from './types';
 export type AdminEntry = Entry & {
   /** 참가자 지갑 주소. 체인에서 발행 결과를 대조할 때 쓴다. */
   walletAddress: string;
-  /** 스위퍼가 자동으로 내린 카드인지. 운영자가 직접 내린 것과 구분한다. */
+  /** 현재 숨긴 카드를 스위퍼가 자동으로 내렸는지. */
   autoHidden: boolean;
   /** 메타데이터가 아직 IPFS에 올라가지 않아 닉네임을 안전하게 고칠 수 있는지. */
   nicknameEditable: boolean;

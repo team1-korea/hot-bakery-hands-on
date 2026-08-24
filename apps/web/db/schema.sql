@@ -73,9 +73,9 @@ create table if not exists entries (
 
   hidden          boolean not null default false,
 
-  -- 스위퍼가 자동으로 내린 시각. 운영자가 내린 것과 구분합니다.
-  -- 스위퍼는 이 값이 null인 행만 건드리고, 한 번 내린 뒤에는 다시 손대지 않습니다.
-  -- 그래야 늦게 온 참가자를 운영자가 다시 올렸을 때 스위퍼가 또 내리지 않습니다.
+  -- 스위퍼가 자동으로 내린 시각 또는 운영자가 표시를 고정한 시각입니다.
+  -- hidden=true에서 값이 있으면 자동 내림, null이면 운영자 내림입니다.
+  -- hidden=false에서 값이 있으면 운영자가 표시를 고정한 행이므로 스위퍼가 다시 내리지 않습니다.
   auto_hidden_at  timestamptz,
 
   -- **운영자 전용입니다.** GET /api/state에 절대 넣지 마세요.
@@ -203,8 +203,8 @@ $$ language plpgsql;
 --     and status_changed_at < now() - interval '10 minutes';
 --
 --   되돌릴 수 있어야 합니다. 자동으로 내려간 참가자가 사진을 내면 attachPhoto가
---   hidden을 false로 풉니다. 운영자가 직접 숨긴 카드는 자동으로 올리지 않습니다.
---   auto_hidden_at은 그대로 두세요. 그래야 스위퍼가 또 내리지 않습니다.
+--   hidden을 false로 풉니다. 운영자가 내리면 auto_hidden_at을 비워 자동 복원을 막고,
+--   올리면 값을 남겨 스위퍼가 또 내리지 않게 합니다.
 --
 --   ⚠️ hidden은 **TV에서만** 감춥니다. 운영자 명단에서는 계속 보여야 합니다.
 --      나중에 그 참가자가 사진을 가져오면 다시 올려야 하기 때문입니다.

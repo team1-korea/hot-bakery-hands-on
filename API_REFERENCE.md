@@ -504,7 +504,7 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
       // 공개 Entry의 모든 필드에 더해
       "failureReason": "IPFS 업로드 실패: 504",   // 왜 실패했는지
       "walletAddress": "0x10dd...f608",          // 체인에서 대조할 때
-      "autoHidden": true,                         // 스위퍼가 내린 것인지
+      "autoHidden": true,                         // 현재 숨김이 스위퍼 때문인지
       "nicknameEditable": false                   // metadata CID가 없어 수정 가능한지
     }
   ],
@@ -595,7 +595,8 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 > `recipient`로 조회해 `tokenId`를 건져 `MINTED`로 마무리합니다.
 > 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
 
-**`hidden`을 다시 올릴 때 `auto_hidden_at`을 지우지 마세요.** 스위퍼가 또 내립니다.
+`hidden` 조작은 현재 숨김 원인도 함께 바꿉니다. 운영자가 내린 카드는 늦은 제출에도
+숨김을 유지하고, 운영자가 다시 올린 카드는 스위퍼가 또 내리지 않습니다.
 
 ---
 

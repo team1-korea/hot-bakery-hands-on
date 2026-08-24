@@ -36,7 +36,7 @@ export type Entry = {
    * 등록 시점에 배정하면 로그인만 하고 사라진 사람이 칸을 영구히 점유해 격자에 구멍이 남는다.
    */
   shelfIndex: number | null;
-  /** 운영자가 TV에서 내린 카드. */
+  /** 운영자 또는 스위퍼가 TV에서 숨긴 카드. */
   hidden: boolean;
   /** FAILED일 때만 채운다. 참가자에게 그대로 보여주지 않는다. */
   failureReason: string | null;
