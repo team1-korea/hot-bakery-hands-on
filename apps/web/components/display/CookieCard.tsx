@@ -99,13 +99,11 @@ export function CookieCard({
           ) : null}
           {!minted ? <span className="status-ticket">{STATUS_LABEL[entry.status]}</span> : null}
         </div>
-        <div className="card-caption">
-          {minted ? (
-            <><strong>#{entry.tokenId}</strong><span className="card-nickname">{entry.nickname}</span></>
-          ) : (
+        {!minted ? (
+          <div className="card-caption">
             <strong>{entry.nickname}</strong>
-          )}
-        </div>
+          </div>
+        ) : null}
       </motion.article>
     </motion.div>
   );

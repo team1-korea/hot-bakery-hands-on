@@ -6,3 +6,6 @@ tsconfig.tsbuildinfo
 .DS_Store
 playwright-report/
 test-results/
+
+# 확정 NFT 디자인 원본은 GitHub에 올리지 않는다. 배포에서는 외부 에셋 URL을 사용한다.
+/public/assets/certificate/nft-design.jpg

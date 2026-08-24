@@ -1,0 +1,2 @@
+# 최종 증서 시안은 Supabase Storage에서 불러오며 Vercel 번들에는 포함하지 않는다.
+apps/web/public/assets/certificate/nft-design.jpg

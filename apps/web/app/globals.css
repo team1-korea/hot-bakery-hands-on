@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Pretendard Certificate';
+  src: url('/assets/fonts/pretendard-bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
   --ava: #e84142;
   --ember: #b32b2c;

@@ -1,5 +1,5 @@
 .certificate-card { border-width: var(--line-thin); }
-.certificate-card .card-media { border-bottom-width: var(--line-thin); }
+.certificate-card .card-media { border-bottom: 0; }
 
 .certificate-placeholder {
   overflow: hidden;
@@ -85,16 +85,4 @@
   height: var(--line-thin);
   background: var(--ink);
   content: '';
-}
-
-.certificate-card .card-caption { padding: 6px 8px; }
-.certificate-card .card-caption > strong { font-size: 22px; }
-
-.card-nickname {
-  margin-top: 3px;
-  overflow: hidden;
-  font: 700 19px/1 var(--display);
-  letter-spacing: -0.04em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }

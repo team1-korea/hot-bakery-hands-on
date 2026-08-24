@@ -59,6 +59,7 @@ npm run lint
 ## 배포·행사 전 확인
 
 - Vercel Root Directory는 `apps/web`; 운영 필수 환경변수는 [API_REFERENCE.md](../../API_REFERENCE.md)에 맞춘다.
+- `NEXT_PUBLIC_CERTIFICATE_FRAME_URL`은 Git에 넣지 않은 확정 디자인의 CORS 허용 URL로 설정한다.
 - Privy에서 Google 로그인, embedded EVM wallet, 배포 오리진을 설정한다.
 - Supabase 스키마·RLS·공개 `certificates` 버킷을 확인하고 프로젝트를 깨워 둔다.
 - Supabase Cron이 `Authorization: Bearer <CRON_SECRET>`으로 `/api/internal/sweep`를 1분마다
