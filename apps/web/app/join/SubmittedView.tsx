@@ -77,7 +77,7 @@ export function SubmittedView({ initialEntry, isMockServer, onUnauthenticated }:
         <div className="join-certificate">
           {entry.photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={entry.photoUrl} alt={`${entry.nickname}의 쿠키`} />
+            <img src={entry.photoUrl} alt={`${entry.nickname}의 참가증서`} />
           ) : null}
           <div className="join-certificate-foot">
             <strong>{entry.nickname}</strong>

@@ -63,10 +63,11 @@ export function PhotoStep({ source, crop, error, busy, onPhoto, onCrop, onNext }
       ) : (
         <div className="photo-frame is-empty">
           <p>{busy ? '사진을 준비하고 있어요…' : '아직 사진이 없어요'}</p>
-          <div className="photo-guide" aria-hidden="true"><i /><i /><i /><i /></div>
         </div>
       )}
-      <p className="join-guide">틀 안에 쿠키가 꽉 차게 맞춰 주세요. 틀 밖은 잘려 나가요.</p>
+      <p className="join-guide">
+        빨간 테두리 안쪽이 그대로 증서에 들어가요. 쿠키가 잘 보이게 맞춰 주세요.
+      </p>
       {error ? <p className="join-error">{error}</p> : null}
 
       {/*
@@ -126,7 +127,9 @@ export function NicknameStep({ nickname, error, busy, onNickname, onNext }: {
   return (
     <section className="join-step">
       <h1>증서에 적을<br />닉네임을 정해 주세요</h1>
-      <p>본명 대신 불릴 닉네임을 적어 주세요. 앞 화면과 증서에 이대로 남습니다.</p>
+      <p className="join-nickname-note">
+        본명 대신 불릴 닉네임을 적어 주세요. 앞 화면과 증서에 이대로 남습니다.
+      </p>
 
       <label className="join-field">
         <span>닉네임 · 최대 12자</span>
@@ -176,7 +179,7 @@ export function ReviewStep({ nickname, previewUrl, error, busy, onSubmit, onBack
       <div className="join-review">
         {previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={previewUrl} alt="발행될 쿠키 사진" />
+          <img src={previewUrl} alt="발행될 참가증서" />
         ) : null}
         <strong>{nickname}</strong>
       </div>

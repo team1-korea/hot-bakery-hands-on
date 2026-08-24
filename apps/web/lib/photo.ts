@@ -7,7 +7,7 @@ import { ApiError } from './api/client';
  */
 const SOURCE_MAX_EDGE = 1600;
 
-/** 발행되는 정사각형의 최대 한 변. 크게 확대한 경우엔 이보다 작게 나온다. */
+/** 증서 안에 들어가는 정사각형 사진의 최대 한 변. 크게 확대하면 이보다 작게 나온다. */
 const OUTPUT_MAX_EDGE = 1080;
 
 /** 중간 산물이라 손실을 덜 준다. 최종 인코딩은 잘라 낼 때 한 번 더 한다. */
@@ -17,8 +17,7 @@ const OUTPUT_QUALITY = 0.82;
 /** 사진을 축소해 여백이 생겼을 때 그 자리를 채우는 색. 진열장·증서의 바탕과 같다. */
 const PAPER = '#f7f1e8';
 const AVA = '#e84142';
-const INK = '#17110f';
-const GOLD = '#d9a441';
+const INK = '#050505';
 
 /** 조정 화면이 붙들고 있는 원본. `blob`은 잘라 낼 때 다시 디코드하는 데 쓴다. */
 export type PhotoSource = { url: string; blob: Blob; width: number; height: number };
@@ -114,55 +113,102 @@ export async function cropPhoto(source: PhotoSource, rect: CropRect): Promise<Bl
   return toBlob(canvas, OUTPUT_QUALITY);
 }
 
-const CERT_SIZE = 1080;
-const PHOTO_INSET = 80;
-const PHOTO_SIZE = CERT_SIZE - PHOTO_INSET * 2;
-const BORDER_WIDTH = 4;
-const TITLE_Y = 46;
-const NAME_Y = CERT_SIZE - 44;
+/** 프레임을 포함한 최종 NFT 증서 규격. 사진 크롭 영역의 1:1 비율과는 별개다. */
+export const CERTIFICATE_SIZE = { width: 1080, height: 1440 } as const;
+
+const CERTIFICATE_FRAME_URL = '/assets/certificate/certificate-frame-v1.png';
+
+/* 최종 디자인 에셋을 받으면 디자이너가 준 사진·닉네임 영역 좌표로 교체한다. */
+const PHOTO_X = 270;
+const PHOTO_Y = 480;
+const PHOTO_SIZE = 540;
+const NAME_Y = 1104;
+const NAME_MAX_WIDTH = 680;
+
+let cachedCertificateFrame: Blob | null = null;
+
+async function loadCertificateFrame(): Promise<Blob> {
+  if (cachedCertificateFrame) return cachedCertificateFrame;
+
+  let response: Response;
+  try {
+    response = await fetch(CERTIFICATE_FRAME_URL, { cache: 'force-cache' });
+  } catch {
+    throw new ApiError('INTERNAL', '증서 디자인을 불러오지 못했어요. 다시 시도해 주세요.');
+  }
+  if (!response.ok) {
+    throw new ApiError('INTERNAL', '증서 디자인을 불러오지 못했어요. 다시 시도해 주세요.');
+  }
+
+  cachedCertificateFrame = await response.blob();
+  return cachedCertificateFrame;
+}
 
 /**
- * 잘라 낸 정사각형 사진에 프레임을 둘러 증서 이미지를 만든다.
+ * 잘라 낸 정사각형 사진을 3:4 세로형 증서 디자인에 합성한다.
  *
- * 디자인 에셋이 오면 이 함수 안만 바꾸면 된다. 지금은 프로그래밍적 프레임을 쓴다.
- * 운영자 대리업로드(`app/admin/certificate.ts`)도 이 함수를 거친다.
+ * 현재 v1 에셋은 완성 전 시안이라 기존 쿠키·이름·ID를 덮어서 개발한다. 최종 PNG가 오면
+ * 에셋과 위 좌표만 교체한다. 운영자 대리업로드(`app/admin/certificate.ts`)도 이 함수를 거친다.
  */
 export async function composeCertificate(croppedBlob: Blob, nickname: string): Promise<Blob> {
-  const bitmap = await createImageBitmap(croppedBlob);
+  const frameBlob = await loadCertificateFrame();
+  let frame: ImageBitmap | null = null;
+  let photo: ImageBitmap | null = null;
+
+  try {
+    frame = await createImageBitmap(frameBlob);
+    photo = await createImageBitmap(croppedBlob);
+  } catch {
+    frame?.close();
+    photo?.close();
+    throw new ApiError('INTERNAL', '증서를 만들지 못했어요. 다시 시도해 주세요.');
+  }
+
+  if (frame.width !== CERTIFICATE_SIZE.width || frame.height !== CERTIFICATE_SIZE.height) {
+    frame.close();
+    photo.close();
+    throw new ApiError('INTERNAL', '증서 디자인 크기가 올바르지 않아요. 운영자에게 알려 주세요.');
+  }
+
   const canvas = document.createElement('canvas');
-  canvas.width = CERT_SIZE;
-  canvas.height = CERT_SIZE;
+  canvas.width = CERTIFICATE_SIZE.width;
+  canvas.height = CERTIFICATE_SIZE.height;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new ApiError('INTERNAL', '증서를 만들지 못했어요. 다시 시도해 주세요.');
+  if (!ctx) {
+    frame.close();
+    photo.close();
+    throw new ApiError('INTERNAL', '증서를 만들지 못했어요. 다시 시도해 주세요.');
+  }
 
-  ctx.fillStyle = PAPER;
-  ctx.fillRect(0, 0, CERT_SIZE, CERT_SIZE);
+  try {
+    ctx.drawImage(frame, 0, 0, CERTIFICATE_SIZE.width, CERTIFICATE_SIZE.height);
+    ctx.drawImage(photo, PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE);
 
-  ctx.drawImage(bitmap, PHOTO_INSET, PHOTO_INSET, PHOTO_SIZE, PHOTO_SIZE);
-  bitmap.close();
+    ctx.strokeStyle = AVA;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(PHOTO_X, PHOTO_Y, PHOTO_SIZE, PHOTO_SIZE);
 
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = BORDER_WIDTH;
-  ctx.strokeRect(
-    PHOTO_INSET - BORDER_WIDTH,
-    PHOTO_INSET - BORDER_WIDTH,
-    PHOTO_SIZE + BORDER_WIDTH * 2,
-    PHOTO_SIZE + BORDER_WIDTH * 2,
-  );
+    // 개발용 시안에 박혀 있는 HEEJIN과 CERTIFICATE ID를 최종 에셋을 받을 때까지 가린다.
+    ctx.fillStyle = INK;
+    ctx.fillRect(170, 1028, 740, 116);
+    ctx.fillRect(270, 1218, 540, 112);
 
-  ctx.strokeStyle = AVA;
-  ctx.lineWidth = 2;
-  ctx.strokeRect(16, 16, CERT_SIZE - 32, CERT_SIZE - 32);
+    await document.fonts.ready;
+    const fontFamily = getComputedStyle(document.body).fontFamily || 'sans-serif';
+    let fontSize = 72;
+    ctx.font = `900 ${fontSize}px ${fontFamily}`;
+    while (fontSize > 40 && ctx.measureText(nickname).width > NAME_MAX_WIDTH) {
+      fontSize -= 2;
+      ctx.font = `900 ${fontSize}px ${fontFamily}`;
+    }
+    ctx.fillStyle = AVA;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(nickname, CERTIFICATE_SIZE.width / 2, NAME_Y);
 
-  ctx.fillStyle = INK;
-  ctx.font = 'bold 28px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  ctx.fillText('AVALANCHE BAKERY', CERT_SIZE / 2, TITLE_Y);
-
-  ctx.font = 'bold 24px sans-serif';
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(nickname, CERT_SIZE / 2, NAME_Y);
-
-  return toBlob(canvas, OUTPUT_QUALITY);
+    return await toBlob(canvas, OUTPUT_QUALITY);
+  } finally {
+    frame.close();
+    photo.close();
+  }
 }

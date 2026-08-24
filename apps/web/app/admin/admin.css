@@ -69,7 +69,7 @@
 .admin-ops { display: flex; justify-content: flex-end; align-items: center; gap: 6px; flex-wrap: wrap; }
 .admin-ops .admin-reason { flex-basis: 100%; text-align: right; }
 .admin-table tr[data-hidden='true'] { opacity: .45; }
-.admin-thumb { width: 40px; height: 40px; border: var(--line-thin) solid var(--ink); border-radius: var(--radius-small); object-fit: cover; }
+.admin-thumb { width: 30px; height: 40px; border: var(--line-thin) solid var(--ink); border-radius: var(--radius-small); object-fit: contain; background: var(--ink); }
 .admin-shelf { font: 700 15px/1 var(--mono); white-space: nowrap; }
 .admin-shelf small { display: block; margin-top: 4px; color: color-mix(in srgb, var(--ink) 52%, transparent); font: 700 12px/1 var(--display); }
 .admin-token { font: 700 15px/1 var(--mono); color: var(--gold); }

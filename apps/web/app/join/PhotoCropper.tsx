@@ -172,7 +172,6 @@ export function PhotoCropper({ source, crop, onCrop }: {
             transform: `translate(${view?.offset.x ?? 0}px, ${view?.offset.y ?? 0}px)`,
           }}
         />
-        <div className="photo-guide" aria-hidden="true"><i /><i /><i /><i /></div>
       </div>
 
       {/*
