@@ -36,7 +36,7 @@ type Row = {
   walletAddress: string;
   /** 스위퍼가 "얼마나 오래 이 상태였나"를 보는 값. 상태를 바꿀 때마다 같이 갱신한다. */
   statusChangedAt: number;
-  /** 스위퍼가 자동으로 내린 시각. 운영자가 내린 것과 구분한다. */
+  /** 자동 내림 시각 또는 운영자가 표시를 고정한 시각. null인 숨김은 운영자 판단이다. */
   autoHiddenAt: number | null;
   /** 목에서도 닉네임 수정 가능 여부를 실제 DB와 같은 기준으로 판단한다. */
   metadataCid: string | null;
@@ -138,6 +138,10 @@ export async function attachPhoto(
   }
 
   row.entry.photoUrl = photoUrl(await putPhoto(row.entry.id, photo));
+  // 스위퍼가 이탈자로 판단해 내린 카드만 되살린다. 운영자가 직접 숨긴 카드는 유지한다.
+  if (row.entry.status === 'JOINED' && row.entry.hidden && row.autoHiddenAt !== null) {
+    row.entry.hidden = false;
+  }
   // 이전 사진의 CID로 민팅되지 않게, 재촬영이면 진행 흔적을 지우고 처음부터 다시 굽는다.
   row.entry.failureReason = null;
   row.entry.tokenId = null;
@@ -232,7 +236,7 @@ export async function getAdminState(): Promise<AdminStateResponse> {
       (row): AdminEntry => ({
         ...row.entry,
         walletAddress: row.walletAddress,
-        autoHidden: row.autoHiddenAt !== null,
+        autoHidden: row.entry.hidden && row.autoHiddenAt !== null,
         nicknameEditable: row.metadataCid === null,
       }),
     ),
@@ -274,13 +278,14 @@ export async function updateShow(patch: Partial<ShowState>): Promise<ShowState> 
 /**
  * 운영자가 카드를 내리거나 다시 올린다.
  *
- * **다시 올릴 때 `autoHiddenAt`을 지우지 않는다.** 지우면 스위퍼가 10분 뒤에 또 내려서
- * 늦게 온 참가자의 카드가 운영자와 싸운다.
+ * 운영자가 내리면 현재 숨김 원인을 운영자로 바꾸고, 올리면 자동 내림 대상에서
+ * 제외한다. 그래야 늦게 온 참가자에 대한 운영자 판단을 스위퍼가 뒤집지 않는다.
  */
 export async function setHidden(entryId: string, hidden: boolean): Promise<Entry | null> {
   const row = store.rows.find((candidate) => candidate.entry.id === entryId);
   if (!row) return null;
   row.entry.hidden = hidden;
+  row.autoHiddenAt = hidden ? null : (row.autoHiddenAt ?? Date.now());
   return row.entry;
 }
 
@@ -312,8 +317,8 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
  * 방치된 행을 훑는다. `db/README.md`의 스위퍼 쿼리 두 개를 그대로 옮긴 것이다.
  *
  * **타이머가 아니라 그냥 함수다.** 서버리스에서는 프로세스가 살아 있지 않아 타이머가
- * 돌지 않는다. 실제 배포에서는 pg_cron이나 Vercel Cron이 1분마다 이걸 부르는 라우트를
- * 두드린다. 함수로 두면 테스트에서 그냥 부를 수 있다.
+ * 돌지 않는다. 실제 배포에서는 Supabase Cron이 1분마다 이걸 부르는 라우트를 두드린다.
+ * 함수로 두면 테스트에서 그냥 부를 수 있다.
  *
  * `now`를 받는 것은 시간을 흉내내기 위해서다 — 테스트가 10분을 실제로 기다릴 수 없다.
  */

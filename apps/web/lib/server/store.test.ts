@@ -282,6 +282,43 @@ test('스위퍼가 방치된 JOINED 카드를 내린다', async () => {
   assert.equal((await getAdminState()).entries[0].autoHidden, true);
 });
 
+test('자동으로 내려간 참가자가 사진을 제출하면 TV에 다시 나타난다', async () => {
+  const { entry } = await register(participant(1));
+  await sweep(Date.now() + ABANDONED_JOIN_MS);
+  assert.equal(entry.hidden, true);
+
+  const attached = await attachPhoto(entry.id, PHOTO);
+  assert.ok(attached.ok);
+  assert.equal(attached.entry.status, 'SUBMITTED');
+  assert.equal(attached.entry.hidden, false);
+  assert.equal((await getAdminState()).entries[0].autoHidden, false);
+});
+
+test('운영자가 직접 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
+  const { entry } = await register(participant(1));
+  await setHidden(entry.id, true);
+
+  const attached = await attachPhoto(entry.id, PHOTO);
+  assert.ok(attached.ok);
+  assert.equal(attached.entry.status, 'SUBMITTED');
+  assert.equal(attached.entry.hidden, true);
+  assert.equal((await getAdminState()).entries[0].autoHidden, false);
+});
+
+test('자동 내림 뒤 운영자가 다시 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
+  const { entry } = await register(participant(1));
+  await sweep(Date.now() + ABANDONED_JOIN_MS);
+  await setHidden(entry.id, false);
+  await setHidden(entry.id, true);
+
+  assert.equal((await getAdminState()).entries[0].autoHidden, false);
+
+  const attached = await attachPhoto(entry.id, PHOTO);
+  assert.ok(attached.ok);
+  assert.equal(attached.entry.status, 'SUBMITTED');
+  assert.equal(attached.entry.hidden, true);
+});
+
 test('운영자가 다시 올린 카드를 스위퍼가 또 내리지 않는다', async () => {
   const { entry } = await register(participant(1));
   await sweep(Date.now() + ABANDONED_JOIN_MS);
@@ -291,6 +328,15 @@ test('운영자가 다시 올린 카드를 스위퍼가 또 내리지 않는다'
   await setHidden(entry.id, false);
 
   // 한참 뒤에 스위퍼가 또 돌아도 운영자의 판단을 뒤집으면 안 된다.
+  assert.deepEqual(await sweep(Date.now() + ABANDONED_JOIN_MS * 10), { failed: 0, hidden: 0 });
+  assert.equal(entry.hidden, false);
+});
+
+test('운영자가 직접 내렸다가 다시 올린 카드도 스위퍼가 또 내리지 않는다', async () => {
+  const { entry } = await register(participant(1));
+  await setHidden(entry.id, true);
+  await setHidden(entry.id, false);
+
   assert.deepEqual(await sweep(Date.now() + ABANDONED_JOIN_MS * 10), { failed: 0, hidden: 0 });
   assert.equal(entry.hidden, false);
 });

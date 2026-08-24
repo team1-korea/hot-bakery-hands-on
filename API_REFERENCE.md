@@ -504,7 +504,7 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
       // 공개 Entry의 모든 필드에 더해
       "failureReason": "IPFS 업로드 실패: 504",   // 왜 실패했는지
       "walletAddress": "0x10dd...f608",          // 체인에서 대조할 때
-      "autoHidden": true,                         // 스위퍼가 내린 것인지
+      "autoHidden": true,                         // 현재 숨김이 스위퍼 때문인지
       "nicknameEditable": false                   // metadata CID가 없어 수정 가능한지
     }
   ],
@@ -595,7 +595,8 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 > `recipient`로 조회해 `tokenId`를 건져 `MINTED`로 마무리합니다.
 > 절차는 [PIPELINE.md](./PIPELINE.md)에 있습니다.
 
-**`hidden`을 다시 올릴 때 `auto_hidden_at`을 지우지 마세요.** 스위퍼가 또 내립니다.
+`hidden` 조작은 현재 숨김 원인도 함께 바꿉니다. 운영자가 내린 카드는 늦은 제출에도
+숨김을 유지하고, 운영자가 다시 올린 카드는 스위퍼가 또 내리지 않습니다.
 
 ---
 
@@ -714,15 +715,18 @@ Privy 서버 변수 중 하나라도 빠지면 목 인증으로 열리지 않고
 
 ### `GET|POST /api/internal/sweep`
 
-Vercel Cron 또는 외부 스케줄러가 1분마다 호출하는 내부 복구 엔드포인트입니다.
+Supabase Cron이 1분마다 호출하는 내부 복구 엔드포인트입니다. 재현 가능한 설치 SQL은
+`apps/web/db/cron.sql`에 있습니다.
 
 ```http
 Authorization: Bearer <CRON_SECRET>
 ```
 
 `CRON_SECRET`이 없거나 값이 다르면 `401 UNAUTHENTICATED`입니다. 멈춘 파이프라인은 영수증·이벤트를
-먼저 복구한 뒤 실패 처리하고, 오래된 `JOINED` 카드는 TV에서 자동으로 내립니다. 운영 배포에서
-Cron 일정을 따로 설정해야 하며, 라우트가 존재하는 것만으로 주기 실행되지는 않습니다.
+먼저 복구한 뒤 실패 처리하고, 오래된 `JOINED` 카드는 TV에서 자동으로 내립니다. 자동으로
+내려간 참가자가 나중에 사진을 제출하면 다시 표시하지만, 운영자가 직접 숨긴 카드는 유지합니다.
+운영 배포에서 Cron 일정을 따로 설정해야 하며, 라우트가 존재하는 것만으로 주기 실행되지는
+않습니다.
 
 ---
 
