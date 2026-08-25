@@ -1,11 +1,12 @@
 'use client';
 
 import { LayoutGroup, motion, useReducedMotion } from 'framer-motion';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SHELF_SLOTS, type StateResponse } from '@/lib/api/types';
 
 import { entryZone } from './entryZone';
+import { ExpandedEventQr } from './EventQr';
 import { Oven } from './Oven';
 import { Showcase } from './Showcase';
 import { TopBar } from './TopBar';
@@ -31,6 +32,8 @@ export function BakeryScene({
   onStartSession: () => void;
 }) {
   const reduceMotion = useReducedMotion();
+  const [qrExpanded, setQrExpanded] = useState(false);
+  const qrButtonRef = useRef<HTMLButtonElement>(null);
   const sequence = useDisplaySequence(state.entries, Boolean(reduceMotion), ready);
   const visibleEntries = useMemo(
     () => sequence.entries.filter((entry) => !entry.hidden),
@@ -63,47 +66,76 @@ export function BakeryScene({
       ease: DISPLAY_EASE,
     },
   };
+  const qrVisible = state.show.qrVisible && state.show.layout === 'LIVE';
+  const showExpandedQr = qrVisible && qrExpanded;
+  const closeQr = useCallback(() => {
+    setQrExpanded(false);
+    window.setTimeout(() => qrButtonRef.current?.focus(), 0);
+  }, []);
+
+  useEffect(() => {
+    if (!qrExpanded) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      closeQr();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closeQr, qrExpanded]);
+
+  useEffect(() => {
+    if (qrVisible) return;
+    const timeout = window.setTimeout(() => setQrExpanded(false), 0);
+    return () => window.clearTimeout(timeout);
+  }, [qrVisible]);
 
   return (
     <section className="bakery-scene">
-      <TopBar stale={stale} />
-      <LayoutGroup id="bakery-entry-flow">
-        <motion.div
-          className="bakery-floor"
-          data-layout={state.show.layout.toLowerCase()}
-          layout
-          transition={layoutTransition}
-        >
-          <motion.div className="production-wall" layout transition={layoutTransition}>
-            <Oven
-              entries={ovenEntries}
+      <div className="bakery-scene-content" inert={showExpandedQr} aria-hidden={showExpandedQr}>
+        <TopBar stale={stale} />
+        <LayoutGroup id="bakery-entry-flow">
+          <motion.div
+            className="bakery-floor"
+            data-layout={state.show.layout.toLowerCase()}
+            layout
+            transition={layoutTransition}
+          >
+            <motion.div className="production-wall" layout transition={layoutTransition}>
+              <Oven
+                entries={ovenEntries}
+                phases={sequence.phases}
+                slots={sequence.ovenSlots}
+                flowActive={sequence.boundaryBusy}
+                transition={layoutTransition}
+              />
+              <Workbench
+                entries={workbenchEntries}
+                phases={sequence.phases}
+                qrVisible={qrVisible}
+                qrSvg={qrSvg}
+                onExpandQr={() => setQrExpanded(true)}
+                qrButtonRef={qrButtonRef}
+                transition={layoutTransition}
+              />
+            </motion.div>
+            <Showcase
+              entries={shelfEntries}
               phases={sequence.phases}
-              slots={sequence.ovenSlots}
-              flowActive={sequence.boundaryBusy}
-              transition={layoutTransition}
-            />
-            <Workbench
-              entries={workbenchEntries}
-              phases={sequence.phases}
-              qrVisible={state.show.qrVisible && state.show.layout === 'LIVE'}
-              qrSvg={qrSvg}
+              arrivalIds={sequence.arrivalIds}
+              landedCount={sequence.counts.minted}
+              isMockServer={isMockServer}
+              page={page}
+              pageCount={pageCount}
+              onPage={onShelfPage}
+              onStartSession={onStartSession}
               transition={layoutTransition}
             />
           </motion.div>
-          <Showcase
-            entries={shelfEntries}
-            phases={sequence.phases}
-            arrivalIds={sequence.arrivalIds}
-            landedCount={sequence.counts.minted}
-            isMockServer={isMockServer}
-            page={page}
-            pageCount={pageCount}
-            onPage={onShelfPage}
-            onStartSession={onStartSession}
-            transition={layoutTransition}
-          />
-        </motion.div>
-      </LayoutGroup>
+        </LayoutGroup>
+      </div>
+      {showExpandedQr ? <ExpandedEventQr svg={qrSvg} onClose={closeQr} /> : null}
     </section>
   );
 }

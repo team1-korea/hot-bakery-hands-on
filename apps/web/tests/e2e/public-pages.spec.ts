@@ -20,7 +20,7 @@ test('참가자는 닉네임 입력 단계에 도달한다', async ({ page }) =>
   expect(errors).toEqual([]);
 });
 
-test('TV 공개 화면의 세 구역과 참가 QR을 표시한다', async ({ page }) => {
+test('TV 공개 화면의 참가 QR을 크게 열고 원래 화면으로 돌아간다', async ({ page }) => {
   const errors = captureRuntimeErrors(page);
 
   await page.goto('/display');
@@ -28,7 +28,19 @@ test('TV 공개 화면의 세 구역과 참가 QR을 표시한다', async ({ pag
   await expect(page.getByRole('heading', { name: '오븐 대기' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '증서 오븐' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '오늘의 진열장' })).toBeVisible();
-  await expect(page.getByLabel('참가 페이지 QR 코드')).toBeVisible();
+  const qrButton = page.getByRole('button', { name: '참가 QR 크게 보기' });
+  await expect(qrButton).toBeVisible();
+
+  await qrButton.click();
+  const dialog = page.getByRole('dialog', { name: '참가 QR 확대' });
+  await expect(dialog).toBeVisible();
+  const expandedQr = await dialog.locator('.qr-expanded-code').boundingBox();
+  expect(expandedQr?.width ?? 0).toBeGreaterThan(page.viewportSize()!.width * 0.35);
+  expect(expandedQr?.width).toBeCloseTo(expandedQr?.height ?? 0, 0);
+
+  await page.getByRole('button', { name: '원래 화면으로 돌아가기' }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(qrButton).toBeFocused();
   expect(errors).toEqual([]);
 });
 
