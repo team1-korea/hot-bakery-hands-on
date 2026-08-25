@@ -36,7 +36,8 @@
   사진을 못 올리는 참가자를 운영자가 대신 처리할 수 있게 하기 위해서입니다.
 - **TV 세 구역은 "누가 손대야 하는가"로 나뉩니다.** 작업대 = `JOINED`·`FAILED`(사람 손 필요),
   오븐 = `SUBMITTED`·`PINNED`·`MINTING`(기계가 처리 중), 진열장 = `MINTED`.
-- **개발 네트워크는 Fuji(43113)입니다.** 메인넷 배포는 아직 없습니다.
+- **개발·리허설 기본 네트워크는 Fuji(43113)이고, 행사 운영은 C-Chain 메인넷(43114)입니다.**
+  메인넷에서는 체인 ID·컨트랙트 주소·배포 블록을 환경변수로 함께 전환하고 커스텀 RPC는 쓰지 않습니다.
 - **메타데이터에 `external_url`과 `tokenId`를 넣지 않습니다.**
 - **실명을 받지 않습니다.** 닉네임만 받습니다.
 
@@ -57,7 +58,8 @@
 라우트는 하나이고 저장소 구현만 갈립니다. `store.ts`가 `DATABASE_URL` 유무에 따라
 `store.memory.ts`(로컬 목)와 `store.pg.ts`(Supabase Postgres)를 선택합니다. 사진도 같은 방식으로
 메모리 또는 Supabase Storage를 씁니다. 실제 DB 모드에서는 `pipeline.ts`가 Next.js `after()`로
-Pinata 핀과 Fuji 민팅을 실행합니다.
+Pinata 핀과 현재 설정된 Avalanche C-Chain 민팅을 실행합니다. 개발·리허설 기본값은 Fuji이고,
+행사 배포는 [DECISIONS.md](./DECISIONS.md)의 메인넷 전환 결정을 따릅니다.
 
 **프론트 담당자는 외부 환경변수를 모두 비운 채 `npm run dev`만 실행합니다.** Postgres 설치는
 필요 없습니다. 로컬에서 Privy 서버 변수를 모두 비우면 개발용 목 신원이 생기지만, 운영 환경이나
