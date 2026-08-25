@@ -11,6 +11,7 @@ const ENTRY_ID = '11111111-2222-3333-4444-555555555555';
 const WALLET = '0x0000000000000000000000000000000000000101' as Address;
 const TX = `0x${'1'.repeat(64)}` as Hex;
 const RECOVERED_TX = `0x${'2'.repeat(64)}` as Hex;
+const RETRY_TX = `0x${'3'.repeat(64)}` as Hex;
 
 function entry(patch: Partial<PipelineEntry> = {}): PipelineEntry {
   return {
@@ -61,9 +62,19 @@ class FakeRepository implements PipelineRepository {
     const stale = this.stale.findIndex((candidate) => candidate.id === _id);
     if (stale >= 0) this.stale.splice(stale, 1);
   }
-  async markPipelineFailed(_id: string, reason: string) {
+  async markPipelineFailed(
+    _id: string,
+    reason: string,
+    options: { discardTxHash?: boolean } = {},
+  ) {
     this.failures.push(reason);
-    if (this.row?.id === _id) this.row = { ...this.row, status: 'FAILED' };
+    if (this.row?.id === _id) {
+      this.row = {
+        ...this.row,
+        status: 'FAILED',
+        txHash: options.discardTxHash ? null : this.row.txHash,
+      };
+    }
     const stale = this.stale.findIndex((candidate) => candidate.id === _id);
     if (stale >= 0) this.stale.splice(stale, 1);
   }
@@ -255,4 +266,50 @@ test('스위퍼는 MINTING 영수증을 복구하고, RPC 오류는 FAILED로 �
 
   assert.deepEqual(result, { failed: 2, hidden: 1, recovered: 1, deferred: 1 });
   assert.ok(!repository.failures.some((reason) => reason.includes('RPC unavailable')));
+});
+
+test('확정 리버트된 민팅은 실패 해시를 버리고 새 트랜잭션으로 재시도한다', async () => {
+  const reverted = entry({
+    status: 'MINTING',
+    txHash: TX,
+    metadataCid: 'bafy-metadata',
+    certificateCid: 'bafy-certificate',
+  });
+  repository.row = reverted;
+  repository.stale = [reverted];
+  deps.chain.readMintReceipt = async () => ({ status: 'reverted', txHash: TX });
+
+  const swept = await sweepPipeline(Date.now(), deps);
+
+  assert.equal(swept.failed, 1);
+  assert.equal(repository.row?.status, 'FAILED');
+  assert.equal(repository.row?.txHash, null);
+
+  // 실제 retryEntry와 같은 기준으로 재개 단계를 고른다.
+  if (repository.row) {
+    repository.row = {
+      ...repository.row,
+      status: repository.row.txHash ? 'MINTING' : 'PINNED',
+    };
+  }
+  calls = [];
+  deps.chain.mint = async (_recipient, uri) => {
+    calls.push(`mint:${uri}`);
+    return RETRY_TX;
+  };
+  deps.chain.waitForMint = async (hash) => {
+    calls.push(`receipt:${hash}`);
+    if (hash === TX) throw new Error('transaction reverted');
+    return { tokenId: '56', txHash: hash };
+  };
+
+  await runPipeline(ENTRY_ID, deps);
+
+  assert.deepEqual(calls, [
+    'has-issued',
+    'mint:ipfs://bafy-metadata',
+    `receipt:${RETRY_TX}`,
+  ]);
+  assert.equal(repository.row?.status, 'MINTED');
+  assert.equal(repository.row?.txHash, RETRY_TX);
 });

@@ -22,6 +22,7 @@ import {
 } from './store';
 import {
   getPipelineEntry,
+  markPipelineFailed,
   pinMetadata,
   saveCertificateCid,
   saveMetadataCid,
@@ -406,6 +407,24 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
       [pinned.id, `0x${'1'.repeat(64)}`],
     );
     assert.equal((await retryEntry(pinned.id))?.status, 'MINTING');
+  });
+
+  test('확정 리버트 실패는 txHash를 버려 재시도가 새 민팅 단계에서 시작한다', async () => {
+    const pinned = await joined(1);
+    assert.ok((await submit(pinned.id)).ok);
+    await saveCertificateCid(pinned.id, 'bafy-certificate');
+    await saveMetadataCid(pinned.id, 'bafy-metadata');
+    await query(
+      "update entries set status = 'MINTING', tx_hash = $2 where id = $1",
+      [pinned.id, `0x${'1'.repeat(64)}`],
+    );
+
+    await markPipelineFailed(pinned.id, 'confirmed revert', { discardTxHash: true });
+
+    const failed = await getPipelineEntry(pinned.id);
+    assert.equal(failed?.status, 'FAILED');
+    assert.equal(failed?.txHash, null);
+    assert.equal((await retryEntry(pinned.id))?.status, 'PINNED');
   });
 
   test('민팅 advisory lock은 다른 항목의 콜백도 한 번에 하나만 실행한다', async () => {

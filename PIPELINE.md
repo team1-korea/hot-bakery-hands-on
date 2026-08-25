@@ -9,7 +9,7 @@
 |---|---|
 | 민팅 방식 | **건별 즉시 민팅.** `batchMint` 쓰지 않음 |
 | 실행 순서 | 한 번에 하나씩 **직렬 처리** |
-| 네트워크 | Fuji (`43113`) — `0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36` |
+| 네트워크 | 개발 기본값은 Fuji (`43113`), 행사 운영은 환경변수로 C-Chain 메인넷 (`43114`) 전환 |
 | 참가자 지갑 | Privy 임베디드 EOA. 프론트에서 구글 로그인 |
 | 증서 이미지 합성 | **프론트에서 함.** 정사각형 사진을 1080×1440 세로형 프레임에 합성. 서버는 다시 그리지 않음 |
 | 서버가 받는 이미지 | **합성본 한 장.** 원본 사진은 서버로 오지 않음 |
@@ -276,7 +276,7 @@ select pg_try_advisory_lock(42);   -- 못 잡으면 이번 인보케이션은 �
 `apps/web/db/cron.sql`에 있습니다.
 
 **① 중간 상태로 멈춘 행 → `FAILED`.** `after()`는 재시도를 해주지 않습니다. 인보케이션이 죽으면
-행이 `SUBMITTED`나 `PINNED`로 남습니다. **N분 이상 중간 상태인 행을 `FAILED`로 내립니다.** 안
+행이 `SUBMITTED`나 `PINNED`로 남습니다. **90초 이상 중간 상태인 행을 `FAILED`로 내립니다.** 안
 그러면 영원히 오븐에 남아 있는 카드가 생깁니다.
 
 **② 오래 방치된 `JOINED` 행 → `hidden`.** 로그인만 하고 사라진 사람의 카드가 행사 내내 작업대에
@@ -300,10 +300,14 @@ const logs = await client.getLogs({
   address: CERTIFICATE_ADDRESS,
   event: certificateIssuedEvent,
   args: { recipient },
-  fromBlock: 57821222n,        // deployments/43113.json의 deploymentBlock
+  fromBlock: deploymentBlock,  // 현재 체인의 실제 컨트랙트 배포 블록
 });
 // 여기서 tokenId를 건져 MINTED로 마무리한다
 ```
+
+영수증이 **확정 리버트**라면 스위퍼가 실패 처리하면서 기존 `txHash`를 비웁니다. 운영자가
+재시도하면 `PINNED`부터 새 트랜잭션을 보냅니다. 영수증이 없거나 RPC 조회가 실패한 경우에는
+pending 트랜잭션을 중복 전송하지 않도록 기존 해시를 유지합니다.
 
 ---
 

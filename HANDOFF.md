@@ -4,7 +4,7 @@
 
 ## 목표
 
-8월 29일 행사에서 `apps/web`을 Vercel에 배포하고 Supabase·Pinata·Avalanche Fuji·Privy를 연결해,
+8월 29일 행사에서 `apps/web`을 Vercel에 배포하고 Supabase·Pinata·Avalanche C-Chain·Privy를 연결해,
 참가자 등록 → 증서 이미지 제출 → IPFS 핀 → NFT 민팅 → TV 진열과 운영자 복구가 끝까지 동작하게 합니다.
 
 ## 브랜치와 PR
@@ -50,6 +50,10 @@
 
 `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, `AVALANCHE_RPC_URL`,
 `CERTIFICATE_ADDRESS`, `MINT_GAS_LIMIT`
+
+메인넷 운영 전환 시 필수:
+
+`NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYMENT_BLOCK`
 
 개발 전용(운영 배포 금지): `MOCK_FAILURE_RATE`, `ALLOW_DB_RESET`
 
