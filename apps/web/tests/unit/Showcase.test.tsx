@@ -55,7 +55,7 @@ describe('진열장에서 교육 세션으로 이동', () => {
 });
 
 describe('진열된 NFT 링크', () => {
-  test('카드 전체를 링크로 쓰고 증서에 이미 있는 토큰 번호와 닉네임을 반복하지 않는다', () => {
+  test('카드 전체를 링크로 쓰고 토큰 번호와 닉네임을 한 줄 캡션에 표시한다', () => {
     const entry: Entry = {
       id: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
       nickname: '아발란체 짱',
@@ -76,7 +76,8 @@ describe('진열된 NFT 링크', () => {
       expect.stringContaining('/0x1234'),
     );
     expect(screen.queryByText('발행 기록')).not.toBeInTheDocument();
-    expect(screen.queryByText('#8')).not.toBeInTheDocument();
-    expect(screen.queryByText('아발란체 짱')).not.toBeInTheDocument();
+    const caption = screen.getByText('#8').closest('.certificate-caption');
+    expect(caption).toHaveTextContent('#8아발란체 짱');
+    expect(caption).toContainElement(screen.getByText('아발란체 짱'));
   });
 });

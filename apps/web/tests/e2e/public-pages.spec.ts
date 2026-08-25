@@ -157,6 +157,7 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
 test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이동시킨다', async ({ page }, testInfo) => {
   const errors = captureRuntimeErrors(page);
   const nickname = `오븐-${testInfo.project.name}`.slice(0, 12);
+  const minted = entry(nickname, 'MINTED');
   let polls = 0;
   await page.route('**/cookie.png', (route) => route.fulfill({
     path: path.resolve('cookie.png'),
@@ -164,7 +165,7 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   }));
   await page.route('**/api/state', (route) => {
     polls += 1;
-    const current = polls < 3 ? entry(nickname, 'SUBMITTED') : entry(nickname, 'MINTED');
+    const current = polls < 3 ? entry(nickname, 'SUBMITTED') : minted;
     return route.fulfill({ json: state([current]) });
   });
 
@@ -175,12 +176,16 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   await expect(page.locator('.showcase').getByRole('img', { name: `${nickname}의 참가증서` }))
     .toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.showcase img')).toHaveCSS('object-fit', 'contain');
-  await expect(page.locator('.showcase .certificate-card .card-caption')).toHaveCount(0);
+  const caption = page.locator('.showcase .certificate-card .certificate-caption');
+  await expect(caption).toHaveCount(1);
+  await expect(caption).toHaveCSS('flex-direction', 'row');
+  await expect(caption.getByText(`#${minted.tokenId}`)).toBeVisible();
+  await expect(caption.getByText(nickname)).toBeVisible();
   await expect.poll(async () => {
     const cardBox = await page.locator('.showcase .certificate-card').boundingBox();
     const mediaBox = await page.locator('.showcase .certificate-card .card-media').boundingBox();
     return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
-  }).toBeGreaterThan(0.98);
+  }).toBeGreaterThan(0.83);
   expect(errors).toEqual([]);
 });
 
@@ -207,7 +212,7 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     const cardBox = await page.locator('.showcase .cookie-card').boundingBox();
     const mediaBox = await page.locator('.showcase .card-media').boundingBox();
     return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
-  }).toBeGreaterThan(0.98);
+  }).toBeGreaterThan(0.83);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
   await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
 

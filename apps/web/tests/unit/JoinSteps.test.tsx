@@ -35,6 +35,21 @@ describe('참가자 입력 단계', () => {
     expect(screen.getByRole('button', { name: '다음' })).toBeDisabled();
   });
 
+  test('닉네임 입력은 최대 12자로 제한한다', () => {
+    render(
+      <NicknameStep
+        nickname=""
+        error={null}
+        busy={false}
+        onNickname={() => {}}
+        onNext={() => {}}
+      />,
+    );
+
+    expect(screen.getByRole('textbox', { name: /닉네임/ })).toHaveAttribute('maxlength', '12');
+    expect(screen.getByText('닉네임 · 최대 12자')).toBeVisible();
+  });
+
   test('닉네임이 있으면 다음 동작을 호출한다', () => {
     const onNext = vi.fn();
     render(
