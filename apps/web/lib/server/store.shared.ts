@@ -19,8 +19,14 @@ export function withoutFailureReason(entry: Entry): Entry {
   return { ...entry, failureReason: null };
 }
 
-/** 중간 상태(오븐 안)로 이만큼 멈춰 있으면 스위퍼가 FAILED로 내린다. */
-export const STUCK_MS = 5 * 60 * 1_000;
+/**
+ * 중간 상태(오븐 안)로 이만큼 멈춰 있으면 스위퍼가 FAILED로 내린다.
+ *
+ * 라우트가 `maxDuration = 60`이라 60초를 넘겨 살아 있는 파이프라인은 없다. 그래서
+ * 이보다 오래 중간 상태인 행은 인보케이션이 죽은 것이 확실하고, 정상 건을 잘못
+ * 내릴 위험이 없다. 참가자가 앞 화면 앞에 서서 기다리므로 여유는 30초만 준다.
+ */
+export const STUCK_MS = 90 * 1_000;
 
 /** 사진 없이 JOINED로 이만큼 방치되면 스위퍼가 TV에서 내린다. */
 export const ABANDONED_JOIN_MS = 10 * 60 * 1_000;

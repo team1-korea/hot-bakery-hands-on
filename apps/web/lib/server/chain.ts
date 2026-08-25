@@ -13,7 +13,7 @@ import {
   type Hex,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { avalancheFuji } from 'viem/chains';
+import { avalanche, avalancheFuji } from 'viem/chains';
 
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json';
 import deployment from '@contracts/deployments/43113.json';
@@ -32,14 +32,40 @@ import deployment from '@contracts/deployments/43113.json';
 const abi = certificateAbi as Abi;
 
 /**
- * 주소와 배포 블록의 정본은 `contracts/deployments/43113.json`이다.
- * 환경변수는 다른 배포를 가리킬 때만 쓰고, 그때는 아래 조회 시작 블록도 같이 어긋나므로
- * 배포 파일을 함께 갱신해야 한다.
+ * 어느 체인에 쓰는지. 브라우저의 Explorer 링크(`lib/explorer.ts`)와 같은 값을 본다.
+ * 하나로 묶어야 링크는 Fuji를 가리키는데 민팅은 메인넷으로 나가는 어긋남이 없다.
+ *
+ * `Number(...) ||`인 이유는 아래 `MINT_GAS_LIMIT`과 같다. 빈 값이 0으로 새는 것을 막는다.
  */
-const contractAddress = (process.env.CERTIFICATE_ADDRESS ?? deployment.address) as Address;
+const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || avalancheFuji.id;
+const chain = chainId === avalanche.id ? avalanche : avalancheFuji;
 
-/** `findIssuedTokenId`가 로그를 훑기 시작하는 지점. 이보다 앞에는 컨트랙트가 없다. */
-const deploymentBlock = BigInt(deployment.deploymentBlock);
+/**
+ * 주소와 배포 블록의 정본은 Fuji에서는 `contracts/deployments/43113.json`이다.
+ * 다른 체인이면 배포 파일이 없으므로 둘 다 환경변수로 받는다. **주소만 바꾸면 안 된다.**
+ * 조회 시작 블록이 남으면 `findIssuedMint`가 엉뚱한 구간을 훑어 이미 발행된 건을 놓친다.
+ */
+function resolveDeployment(): { address: Address; block: bigint } {
+  const address = process.env.CERTIFICATE_ADDRESS as Address | undefined;
+  const block = Number(process.env.CERTIFICATE_DEPLOYMENT_BLOCK) || 0;
+
+  if (chainId === avalancheFuji.id) {
+    return {
+      address: address ?? (deployment.address as Address),
+      block: BigInt(block || deployment.deploymentBlock),
+    };
+  }
+
+  // 메인넷에서 Fuji 기본값으로 조용히 넘어가면 진짜 돈을 없는 컨트랙트에 태운다.
+  if (!address || !block) {
+    throw new Error(
+      `체인 ${chainId}에는 CERTIFICATE_ADDRESS와 CERTIFICATE_DEPLOYMENT_BLOCK을 함께 설정해야 합니다.`,
+    );
+  }
+  return { address, block: BigInt(block) };
+}
+
+const { address: contractAddress, block: deploymentBlock } = resolveDeployment();
 
 /**
  * 영수증 파싱과 로그 조회가 함께 쓰는 이벤트.
@@ -51,9 +77,9 @@ const certificateIssuedEvent = parseAbiItem(
   'event CertificateIssued(uint256 indexed tokenId, address indexed recipient, string tokenURI)',
 );
 
-/** RPC를 안 주면 viem이 Fuji 공개 RPC를 쓴다. 읽기 전용 호출은 환경변수 없이도 돈다. */
+/** RPC를 안 주면 viem이 그 체인의 공개 RPC를 쓴다. 읽기 전용 호출은 환경변수 없이도 돈다. */
 const publicClient = createPublicClient({
-  chain: avalancheFuji,
+  chain,
   transport: http(process.env.AVALANCHE_RPC_URL),
 });
 
@@ -167,7 +193,7 @@ export async function mint(recipient: Address, metadataUri: string): Promise<Hex
 
   const walletClient = createWalletClient({
     account,
-    chain: avalancheFuji,
+    chain,
     transport: http(process.env.AVALANCHE_RPC_URL),
   });
 
