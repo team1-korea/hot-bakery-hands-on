@@ -1,6 +1,7 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import type { Ref } from 'react';
 
 import type { Entry } from '@/lib/api/types';
 
@@ -16,12 +17,16 @@ export function Workbench({
   phases,
   qrVisible,
   qrSvg,
+  onExpandQr,
+  qrButtonRef,
   transition,
 }: {
   entries: Entry[];
   phases: Map<string, CardMotionPhase>;
   qrVisible: boolean;
   qrSvg: string;
+  onExpandQr: () => void;
+  qrButtonRef: Ref<HTMLButtonElement>;
   transition: LayoutTransition;
 }) {
   const waitingCount = entries.filter((entry) => phases.get(entry.id) !== 'to-oven').length;
@@ -43,7 +48,7 @@ export function Workbench({
                 exit={{ opacity: 0, y: 12 }}
                 transition={{ duration: 0.4, ease: DISPLAY_EASE }}
               >
-                <EventQr svg={qrSvg} />
+                <EventQr svg={qrSvg} onExpand={onExpandQr} buttonRef={qrButtonRef} />
               </motion.div>
             ) : null}
           </AnimatePresence>

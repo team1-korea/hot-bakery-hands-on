@@ -2,6 +2,8 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
+import { C_CHAIN } from '@/lib/explorer';
+
 import { TopBar } from './TopBar';
 
 type SessionSlideId =
@@ -304,7 +306,10 @@ function CertificateSlide() {
         <section>
           <strong>이번 참가증서</strong>
           <p><b>EIP-5192 Locked</b> — 전송과 승인을 막은 소울바운드 참여 증명입니다.</p>
-          <small>한 지갑에 한 장 · Fuji 테스트넷 · 오발급은 소각 후 새 토큰으로 재발급</small>
+          <small>
+            한 지갑에 한 장 · {C_CHAIN.testnet ? 'Fuji 테스트넷' : 'Avalanche 메인넷'} ·
+            오발급은 소각 후 새 토큰으로 재발급
+          </small>
         </section>
       </div>
     </div>
@@ -315,8 +320,8 @@ function ChainSlide() {
   return (
     <div className="session-chain">
       <dl className="chain-ledger">
-        <div><dt>NETWORK</dt><dd>Fuji C-Chain · 43113</dd></div>
-        <div><dt>CONTRACT</dt><dd>0x67Ce…6b36</dd></div>
+        <div><dt>NETWORK</dt><dd>{C_CHAIN.label} · {C_CHAIN.id}</dd></div>
+        <div><dt>CONTRACT</dt><dd>Avalanche Bakery Certificate</dd></div>
         <div><dt>EVENT</dt><dd>CertificateIssued</dd></div>
         <div><dt>TOKEN</dt><dd>#&lt;tokenId&gt; → 0x&lt;참가자 지갑&gt;</dd></div>
         <div><dt>URI</dt><dd>ipfs://&lt;metadata CID&gt;</dd></div>

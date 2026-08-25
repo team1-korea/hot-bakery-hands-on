@@ -83,6 +83,16 @@ const publicClient = createPublicClient({
   transport: http(process.env.AVALANCHE_RPC_URL),
 });
 
+/** 관리자 명단이 잔액 RPC 장애를 기다리지 않도록 잔액 조회만 짧게 끊는다. */
+const BALANCE_RPC_TIMEOUT_MS = 750;
+const balanceClient = createPublicClient({
+  chain,
+  transport: http(process.env.AVALANCHE_RPC_URL, {
+    retryCount: 0,
+    timeout: BALANCE_RPC_TIMEOUT_MS,
+  }),
+});
+
 /**
  * `mint`가 `AlreadyIssued`로 리버트한 상태.
  *
@@ -126,22 +136,30 @@ function requireMinterAccount(): PrivateKeyAccount {
  * 키가 없거나 RPC가 죽으면 null이다. 명단 자체는 계속 떠야 하므로 던지지 않는다.
  */
 let balanceCache: { at: number; value: MinterBalance } | null = null;
+let balanceRequest: Promise<MinterBalance> | null = null;
 const BALANCE_TTL_MS = 30_000;
 
 export type MinterBalance = { address: Address; wei: string } | null;
 
 export async function minterBalance(): Promise<MinterBalance> {
   if (balanceCache && Date.now() - balanceCache.at < BALANCE_TTL_MS) return balanceCache.value;
+  if (balanceRequest) return balanceRequest;
 
-  let value: MinterBalance = null;
-  try {
-    const { address } = requireMinterAccount();
-    value = { address, wei: (await publicClient.getBalance({ address })).toString() };
-  } catch {
-    value = null;
-  }
-  balanceCache = { at: Date.now(), value };
-  return value;
+  balanceRequest = (async () => {
+    let value: MinterBalance = null;
+    try {
+      const { address } = requireMinterAccount();
+      value = { address, wei: (await balanceClient.getBalance({ address })).toString() };
+    } catch {
+      value = null;
+    }
+    balanceCache = { at: Date.now(), value };
+    return value;
+  })().finally(() => {
+    balanceRequest = null;
+  });
+
+  return balanceRequest;
 }
 
 /**

@@ -50,6 +50,8 @@ describe('교육 세션 슬라이드', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '진열장으로 돌아가기' }));
     expect(onExit).toHaveBeenCalledOnce();
+    expect(screen.getByText('Fuji C-Chain · 43113')).toBeVisible();
+    expect(screen.getByText('Avalanche Bakery Certificate')).toBeVisible();
   });
 
   test('참가증서 복구는 전송 예외가 아니라 소각 후 재발급으로 안내한다', () => {

@@ -58,7 +58,9 @@
 - **참가자 개인키 생성·보관.** Privy가 사용자 Google 계정과 연결해 관리합니다. 프론트도 백엔드도
   참가자 개인키를 조회하거나 저장하지 않습니다.
 
-컨트랙트는 Fuji에 배포돼 있습니다: `0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36`
+개발 기본 컨트랙트는 Fuji에 배포돼 있습니다:
+`0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36`. 행사 운영은 메인넷 컨트랙트를 배포한 뒤
+체인 ID·주소·배포 블록을 환경변수로 함께 전환합니다.
 
 ---
 
@@ -84,7 +86,7 @@
 | 조건 | 저장소·사진 | 파이프라인 | 인증 |
 |---|---|---|---|
 | 로컬, `DATABASE_URL` 없음 | `store.memory.ts` + 메모리 사진 | `setTimeout` 목 상태 전이, 가짜 tx | Privy 서버 변수 모두 없으면 개발용 목 신원 |
-| 실제, `DATABASE_URL` 있음 | `store.pg.ts` + Supabase Storage | `after()` → Pinata → Fuji 민팅 | Privy access token 검증 + Users API 지갑 조회 |
+| 실제, `DATABASE_URL` 있음 | `store.pg.ts` + Supabase Storage | `after()` → Pinata → 설정된 C-Chain 민팅 | Privy access token 검증 + Users API 지갑 조회 |
 
 부분 설정은 안전하게 실패합니다. 운영 환경이거나 Privy 변수 일부만 있으면 목 인증으로 열리지 않고
 `401`이며, 실제 DB 파이프라인에 Pinata·민터 설정이 빠지면 해당 항목은 `FAILED`로 기록됩니다.

@@ -546,12 +546,19 @@ export async function saveMinted(entryId: string, tokenId: string, txHash: Hex):
   );
 }
 
-export async function markPipelineFailed(entryId: string, reason: string): Promise<void> {
+export async function markPipelineFailed(
+  entryId: string,
+  reason: string,
+  options: { discardTxHash?: boolean } = {},
+): Promise<void> {
   await query(
     `update entries
-        set status = 'FAILED', failure_reason = $2, status_changed_at = now()
+        set status = 'FAILED',
+            failure_reason = $2,
+            tx_hash = case when $3 then null else tx_hash end,
+            status_changed_at = now()
       where id = $1 and status <> 'MINTED' and certificate_path is not null`,
-    [entryId, reason.slice(0, 1_000)],
+    [entryId, reason.slice(0, 1_000), options.discardTxHash === true],
   );
 }
 

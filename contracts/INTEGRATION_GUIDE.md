@@ -43,20 +43,24 @@ ABI는 컨트랙트 빌드 후 다음 명령으로 추출할 수 있습니다.
 }
 ```
 
-프론트엔드에는 ABI JSON과 컨트랙트 주소만 전달하면 됩니다. 서버 민터 개인키를 프론트엔드 저장소나
-`NEXT_PUBLIC_*` 환경변수에 넣으면 안 됩니다.
+현재 앱은 브라우저에서 컨트랙트를 직접 호출하지 않습니다. 브라우저는 Explorer와 교육 화면에
+`NEXT_PUBLIC_CHAIN_ID`만 사용하고, 컨트랙트 읽기·민팅·이벤트 복구는 서버의 `chain.ts`가 담당합니다.
+서버 민터 개인키를 프론트엔드 저장소나 `NEXT_PUBLIC_*` 환경변수에 넣으면 안 됩니다.
 
 ```dotenv
 # 브라우저에서 읽을 수 있는 값
-NEXT_PUBLIC_AVALANCHE_CHAIN_ID=43113
-NEXT_PUBLIC_CERTIFICATE_ADDRESS=0x...
-NEXT_PUBLIC_AVALANCHE_RPC_URL=https://...
+NEXT_PUBLIC_CHAIN_ID=43113 # 43113=Fuji(기본), 43114=메인넷
 
 # 서버 전용 값
-CERTIFICATE_ADDRESS=0x...
-AVALANCHE_RPC_URL=https://...
+CERTIFICATE_ADDRESS=              # Fuji는 deployments/43113.json 기본값, 메인넷은 필수
+CERTIFICATE_DEPLOYMENT_BLOCK=     # Fuji는 deployments/43113.json 기본값, 메인넷은 필수
+AVALANCHE_RPC_URL=                # 비우면 선택한 체인의 공개 RPC
 MINTER_PRIVATE_KEY=0x...
 ```
+
+행사 메인넷 배포에서는 `NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`,
+`CERTIFICATE_DEPLOYMENT_BLOCK`을 한 세트로 설정합니다. 이번 행사에서는 `AVALANCHE_RPC_URL`을
+비워 Avalanche 공개 RPC를 사용합니다.
 
 ## 2. 누가 어떤 함수를 호출하는가
 
@@ -114,19 +118,29 @@ MINTER_PRIVATE_KEY=0x...
 - JavaScript에서 `uint256`은 `bigint`로 반환됩니다. JSON 응답에 넣을 때는 `tokenId.toString()`으로
   변환합니다.
 
-### 읽기 예시
+### 서버 읽기 예시
 
 ```ts
 import { createPublicClient, http, type Address } from 'viem'
-import { avalancheFuji } from 'viem/chains'
+import { avalanche, avalancheFuji } from 'viem/chains'
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
+import fujiDeployment from '@contracts/deployments/43113.json'
 
-const contractAddress = process.env
-  .NEXT_PUBLIC_CERTIFICATE_ADDRESS as Address
+const chain = process.env.NEXT_PUBLIC_CHAIN_ID === '43114'
+  ? avalanche
+  : avalancheFuji
+const contractAddress = (
+  process.env.CERTIFICATE_ADDRESS
+  ?? (chain.id === avalancheFuji.id ? fujiDeployment.address : undefined)
+) as Address | undefined
+
+if (!contractAddress) {
+  throw new Error('메인넷에서는 CERTIFICATE_ADDRESS가 필요합니다.')
+}
 
 export const publicClient = createPublicClient({
-  chain: avalancheFuji,
-  transport: http(process.env.NEXT_PUBLIC_AVALANCHE_RPC_URL),
+  chain,
+  transport: http(process.env.AVALANCHE_RPC_URL),
 })
 
 export async function getCertificateStatus(
@@ -329,20 +343,32 @@ import {
   type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { avalancheFuji } from 'viem/chains'
+import { avalanche, avalancheFuji } from 'viem/chains'
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
+import fujiDeployment from '@contracts/deployments/43113.json'
 
-const address = process.env.CERTIFICATE_ADDRESS as Address
+const chain = process.env.NEXT_PUBLIC_CHAIN_ID === '43114'
+  ? avalanche
+  : avalancheFuji
+const address = (
+  process.env.CERTIFICATE_ADDRESS
+  ?? (chain.id === avalancheFuji.id ? fujiDeployment.address : undefined)
+) as Address | undefined
+
+if (!address) {
+  throw new Error('메인넷에서는 CERTIFICATE_ADDRESS가 필요합니다.')
+}
+
 const account = privateKeyToAccount(process.env.MINTER_PRIVATE_KEY as Hex)
 
 const publicClient = createPublicClient({
-  chain: avalancheFuji,
+  chain,
   transport: http(process.env.AVALANCHE_RPC_URL),
 })
 
 const walletClient = createWalletClient({
   account,
-  chain: avalancheFuji,
+  chain,
   transport: http(process.env.AVALANCHE_RPC_URL),
 })
 
@@ -518,7 +544,9 @@ const recoveryRole = await publicClient.readContract({
 
 ## 11. 구현 체크리스트
 
-- [ ] Fuji/Mainnet별 컨트랙트 주소를 분리했다.
+- [ ] 개발·리허설은 Fuji, 행사 운영은 메인넷 체인 ID를 사용한다.
+- [ ] 메인넷의 컨트랙트 주소와 실제 배포 블록을 함께 설정했다.
+- [ ] 이번 행사 배포에서 커스텀 RPC를 비우고 선택 체인의 공개 RPC를 사용한다.
 - [ ] ABI를 최신 배포 버전과 맞췄다.
 - [ ] 민터 개인키는 서버 전용 환경변수에만 저장했다.
 - [ ] 모든 쓰기 호출 전에 시뮬레이션한다.

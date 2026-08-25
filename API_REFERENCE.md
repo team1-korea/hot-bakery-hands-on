@@ -514,7 +514,11 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
   "capabilities": {
     "resetDatabase": false,                       // 서버가 초기화를 허용하는지
     "mockServer": false                           // 메모리 목 저장소인지
-  }
+  },
+  "minter": {
+    "address": "0x57ec...1234",                 // 서버 민터 주소
+    "wei": "25000000000000000"                  // 현재 AVAX 잔액(wei 문자열)
+  }                                                // 키가 없거나 RPC 장애면 null
 }
 ```
 
@@ -651,7 +655,7 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 | `deferred` | RPC 조회 오류라 상태를 유지하고 다음 점검으로 미룬 수 |
 | `hidden` | 10분 넘게 사진을 안 내 자동으로 TV에서 내린 `JOINED` 수 |
 
-5분 이상 멈춘 `SUBMITTED`·`PINNED`·`MINTING`을 점검합니다. `MINTING`은 무조건 실패 처리하지
+90초 이상 멈춘 `SUBMITTED`·`PINNED`·`MINTING`을 점검합니다. `MINTING`은 무조건 실패 처리하지
 않고 영수증과 이벤트를 먼저 조회합니다. Cron과 동시에 실행돼도 Postgres try-advisory-lock으로
 한 번만 돌며, 다른 점검이 이미 실행 중이면 네 값 모두 0입니다. 응답은 캐시하지 않고 최대 60초를
 기다립니다.
@@ -728,8 +732,9 @@ MINTER_PRIVATE_KEY=
 CRON_SECRET=                  # /api/internal/sweep Bearer 인증
 
 # 선택값(기본값 있음)
-AVALANCHE_RPC_URL=            # 비우면 Fuji 공개 RPC
-CERTIFICATE_ADDRESS=          # 비우면 deployments/43113.json
+AVALANCHE_RPC_URL=            # 비우면 선택한 체인의 공개 RPC
+CERTIFICATE_ADDRESS=          # Fuji는 기본 배포값, 그 외 체인은 필수
+CERTIFICATE_DEPLOYMENT_BLOCK= # Fuji는 기본 배포값, 그 외 체인은 필수
 MINT_GAS_LIMIT=               # 비우면 300000
 
 # 로컬·준비 환경 전용. 운영 Vercel에는 넣지 않는다
@@ -740,6 +745,10 @@ ALLOW_DB_RESET=
 비밀키와 토큰에 **`NEXT_PUBLIC_`을 붙이면 안 됩니다.** 브라우저 번들에 들어갑니다. 운영에서는
 Privy 서버 변수 중 하나라도 빠지면 목 인증으로 열리지 않고 `401`로 잠깁니다. `DATABASE_URL`이
 없는 로컬 개발만 메모리 목 파이프라인을 사용합니다.
+
+메인넷 운영 전환은 `NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`,
+`CERTIFICATE_DEPLOYMENT_BLOCK`을 한 세트로 설정합니다. 이번 행사에서는 커스텀 RPC를 운영하지
+않고 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다.
 
 ### `GET|POST /api/internal/sweep`
 

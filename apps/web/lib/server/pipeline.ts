@@ -24,7 +24,11 @@ type PipelineRepository = {
     pin: (entry: PipelineEntry) => Promise<string>,
   ): Promise<PipelineEntry | null>;
   saveMinted(entryId: string, tokenId: string, txHash: Hex): Promise<void>;
-  markPipelineFailed(entryId: string, reason: string): Promise<void>;
+  markPipelineFailed(
+    entryId: string,
+    reason: string,
+    options?: { discardTxHash?: boolean },
+  ): Promise<void>;
   withMintLock<T>(
     entryId: string,
     run: (entry: PipelineEntry, actions: MintLockActions) => Promise<T>,
@@ -231,7 +235,11 @@ async function sweepPipelineLocked(
       const reason = receipt?.status === 'reverted'
         ? '민팅 트랜잭션 실패 (스위퍼)'
         : '민팅 영수증을 확인하지 못함 (스위퍼)';
-      await deps.repository.markPipelineFailed(entry.id, reason);
+      await deps.repository.markPipelineFailed(entry.id, reason, {
+        // 영수증이 확정 리버트일 때만 새 트랜잭션을 보낼 수 있다.
+        // pending·조회 불가는 기존 해시를 보존해 중복 전송을 막는다.
+        discardTxHash: receipt?.status === 'reverted',
+      });
       mintingFailed += 1;
     } catch (error) {
       // RPC 자체가 잠시 죽은 것을 체인 실패로 오인하지 않는다. 다음 cron이 다시 본다.

@@ -40,7 +40,7 @@ npm run dev
 ## 서버
 
 화면과 API는 같은 Next.js 앱입니다. `DATABASE_URL`이 없으면 재시작 시 사라지는 메모리 목,
-있으면 Supabase Postgres·Storage와 Pinata·Fuji 파이프라인을 씁니다. 프론트 담당자는 외부 서비스나
+있으면 Supabase Postgres·Storage와 Pinata·설정된 Avalanche C-Chain 파이프라인을 씁니다. 프론트 담당자는 외부 서비스나
 Postgres를 설치하지 않고 환경변수를 비운 채 개발합니다. 참가자 API 계약은
 [../../API_REFERENCE.md](../../API_REFERENCE.md)에서 `프론트는 여기까지` 구간만 보면 됩니다.
 

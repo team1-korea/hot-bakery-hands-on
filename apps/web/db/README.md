@@ -230,7 +230,7 @@ update entries
        failure_reason = '처리 중 멈춤 (스위퍼)',
        status_changed_at = now()
  where status in ('SUBMITTED', 'PINNED')
-   and status_changed_at < now() - interval '5 minutes';
+   and status_changed_at < now() - interval '90 seconds';
 ```
 
 `after()`는 재시도를 해주지 않습니다. 인보케이션이 죽으면 행이 중간 상태로 남고, 그대로 두면
