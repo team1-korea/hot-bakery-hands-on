@@ -487,7 +487,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
 
   test('자동으로 내려간 참가자가 사진을 제출하면 TV에 다시 나타난다', async () => {
     const entry = await joined(1);
-    await age(entry.id, 11);
+    await age(entry.id, 11 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
 
     const attached = await submit(entry.id);
@@ -510,7 +510,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
 
   test('자동 내림 뒤 운영자가 다시 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
     const entry = await joined(1);
-    await age(entry.id, 11);
+    await age(entry.id, 11 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
     await setHidden(entry.id, false);
     await setHidden(entry.id, true);
@@ -528,7 +528,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     await setHidden(entry.id, true);
     await setHidden(entry.id, false);
 
-    await age(entry.id, 120);
+    await age(entry.id, 120 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
     assert.equal((await getAdminState()).entries[0].hidden, false);
   });
