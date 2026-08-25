@@ -19,6 +19,7 @@ const EMPTY_STATE: AdminStateResponse = {
   show: { layout: 'LIVE', qrVisible: true, shelfPage: 0 },
   counts: { submitted: 0, minted: 0 },
   capabilities: { resetDatabase: false, mockServer: false },
+  minter: null,
 };
 
 /**

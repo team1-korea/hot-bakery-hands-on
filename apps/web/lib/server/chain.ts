@@ -119,6 +119,32 @@ function requireMinterAccount(): PrivateKeyAccount {
 }
 
 /**
+ * 민터 지갑의 잔액. 운영자 화면이 가스가 마르기 전에 알아채라고 있는 값이다.
+ *
+ * 운영자 명단은 1초마다 폴링하므로 그대로 부르면 매초 RPC를 두드린다. 30초만 캐시한다 —
+ * 잔액은 민팅 한 번에 아주 조금씩만 줄어서 이 정도 지연은 판단을 바꾸지 않는다.
+ * 키가 없거나 RPC가 죽으면 null이다. 명단 자체는 계속 떠야 하므로 던지지 않는다.
+ */
+let balanceCache: { at: number; value: MinterBalance } | null = null;
+const BALANCE_TTL_MS = 30_000;
+
+export type MinterBalance = { address: Address; wei: string } | null;
+
+export async function minterBalance(): Promise<MinterBalance> {
+  if (balanceCache && Date.now() - balanceCache.at < BALANCE_TTL_MS) return balanceCache.value;
+
+  let value: MinterBalance = null;
+  try {
+    const { address } = requireMinterAccount();
+    value = { address, wei: (await publicClient.getBalance({ address })).toString() };
+  } catch {
+    value = null;
+  }
+  balanceCache = { at: Date.now(), value };
+  return value;
+}
+
+/**
  * 과거에 일반 발급된 적이 있는지.
  *
  * **현재 보유 여부가 아니다.** 소각한 뒤에도 계속 `true`다(INTEGRATION_GUIDE.md 3절).

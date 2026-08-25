@@ -270,7 +270,8 @@ export async function getState(): Promise<StateResponse> {
  * `hidden`인 카드도 그대로 내려보낸다. TV에서만 감춘 것이고, 나중에 그 참가자가 사진을
  * 가져오면 다시 올려야 한다.
  */
-export async function getAdminState(): Promise<AdminStateResponse> {
+/** 민터 잔액은 체인 조회라 라우트에서 얹는다. 저장소는 DB만 본다. */
+export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'>> {
   const [rows, show] = await Promise.all([
     query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
