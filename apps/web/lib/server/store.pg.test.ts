@@ -26,6 +26,7 @@ import {
   saveCertificateCid,
   saveMetadataCid,
   withMintLock,
+  withSweepLock,
 } from './store.pg';
 
 /**
@@ -66,10 +67,10 @@ async function submit(entryId: string, photo: Photo = PHOTO, options: { operator
 }
 
 /** 스위퍼는 "얼마나 오래 이 상태였나"를 본다. 10분을 실제로 기다릴 수 없으니 행을 늙힌다. */
-async function age(entryId: string, minutes: number) {
+async function age(entryId: string, seconds: number) {
   await query(
-    'update entries set status_changed_at = now() - make_interval(mins => $2::int) where id = $1',
-    [entryId, minutes],
+    'update entries set status_changed_at = now() - make_interval(secs => $2::int) where id = $1',
+    [entryId, seconds],
   );
 }
 
@@ -356,7 +357,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     await saveCertificateCid(entry.id, 'bafy-old-certificate');
     await saveMetadataCid(entry.id, 'bafy-old-metadata');
 
-    await age(entry.id, 6);
+    await age(entry.id, 6 * 60);
     assert.equal((await sweep()).failed, 1);
 
     // 참가자 경로는 여전히 막힌다 — 사진이 이미 있다.
@@ -382,7 +383,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
   test('운영자가 재시도하면 FAILED가 다시 오븐으로 들어간다', async () => {
     const entry = await joined(1);
     assert.ok((await submit(entry.id)).ok);
-    await age(entry.id, 6);
+    await age(entry.id, 6 * 60);
     await sweep();
 
     const retried = await retryEntry(entry.id);
@@ -430,14 +431,31 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal(maximum, 1);
   });
 
+  test('cron과 운영자 수동 스위프가 겹치면 하나만 실행한다', async () => {
+    let signalStarted!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    let releaseFirst!: () => void;
+    const release = new Promise<void>((resolve) => { releaseFirst = resolve; });
+
+    const first = withSweepLock(async () => {
+      signalStarted();
+      await release;
+      return 'first';
+    });
+    await started;
+    assert.equal(await withSweepLock(async () => 'second'), null);
+    releaseFirst();
+    assert.equal(await first, 'first');
+  });
+
   test('스위퍼가 오븐에서 멈춘 행을 FAILED로 내린다', async () => {
     const entry = await joined(1);
     assert.ok((await submit(entry.id)).ok);
 
-    await age(entry.id, 4);
+    await age(entry.id, 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
 
-    await age(entry.id, 6);
+    await age(entry.id, 6 * 60);
     assert.deepEqual(await sweep(), { failed: 1, hidden: 0 });
 
     const [row] = (await getAdminState()).entries;
@@ -451,10 +469,10 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
   test('스위퍼가 방치된 JOINED를 내리고, 운영자가 올린 것은 다시 내리지 않는다', async () => {
     const entry = await joined(1);
 
-    await age(entry.id, 9);
+    await age(entry.id, 9 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
 
-    await age(entry.id, 11);
+    await age(entry.id, 11 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
     assert.equal((await getAdminState()).entries[0].autoHidden, true);
 
@@ -462,14 +480,14 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     assert.equal((await setHidden(entry.id, false))?.hidden, false);
 
     // 한참 뒤에 스위퍼가 또 돌아도 운영자의 판단을 뒤집으면 안 된다.
-    await age(entry.id, 120);
+    await age(entry.id, 120 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
     assert.equal((await getAdminState()).entries[0].hidden, false);
   });
 
   test('자동으로 내려간 참가자가 사진을 제출하면 TV에 다시 나타난다', async () => {
     const entry = await joined(1);
-    await age(entry.id, 11);
+    await age(entry.id, 11 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
 
     const attached = await submit(entry.id);
@@ -492,7 +510,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
 
   test('자동 내림 뒤 운영자가 다시 내린 참가자는 사진을 제출해도 숨김을 유지한다', async () => {
     const entry = await joined(1);
-    await age(entry.id, 11);
+    await age(entry.id, 11 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 1 });
     await setHidden(entry.id, false);
     await setHidden(entry.id, true);
@@ -510,7 +528,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     await setHidden(entry.id, true);
     await setHidden(entry.id, false);
 
-    await age(entry.id, 120);
+    await age(entry.id, 120 * 60);
     assert.deepEqual(await sweep(), { failed: 0, hidden: 0 });
     assert.equal((await getAdminState()).entries[0].hidden, false);
   });
@@ -535,7 +553,7 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
     // 아직 사진을 안 낸 카드도 공개 응답에 실린다. 새는 면적에 포함시켜 확인한다.
     const second = await joined(2);
 
-    await age(first.id, 6);
+    await age(first.id, 6 * 60);
     assert.equal((await sweep()).failed, 1);
 
     const admin = await getAdminState();

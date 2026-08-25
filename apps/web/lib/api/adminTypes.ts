@@ -26,4 +26,6 @@ export type AdminStateResponse = {
     resetDatabase: boolean;
     mockServer: boolean;
   };
+  /** 민터 지갑 잔액(wei 문자열). 키가 없거나 체인 조회에 실패하면 null이다. */
+  minter: { address: string; wei: string } | null;
 };

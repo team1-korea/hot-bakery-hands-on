@@ -98,3 +98,15 @@ export type ResetResult = { deleted: { participants: number; entries: number } }
 export function resetAdminData() {
   return call<ResetResult>('/api/admin/reset', { method: 'POST' }, 30_000);
 }
+
+export type AdminSweepResult = {
+  failed: number;
+  hidden: number;
+  recovered: number;
+  deferred: number;
+};
+
+/** 멈춘 파이프라인과 오래 방치된 등록을 운영자가 즉시 한 번 점검한다. */
+export function runAdminSweep() {
+  return call<AdminSweepResult>('/api/admin/sweep', { method: 'POST' }, 60_000);
+}

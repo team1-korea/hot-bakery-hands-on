@@ -31,6 +31,7 @@ type PipelineRepository = {
   ): Promise<T | null>;
   findStaleMinting(now?: number): Promise<PipelineEntry[]>;
   sweep(now?: number): Promise<{ failed: number; hidden: number }>;
+  withSweepLock<T>(run: () => Promise<T>): Promise<T | null>;
 };
 
 type IpfsGateway = {
@@ -197,6 +198,16 @@ export async function sweepPipeline(
   }
 
   const deps = dependencies ?? productionDependencies();
+  // Vercel Cron과 운영자 수동 점검이 겹쳐도 같은 항목을 두 번 집계하거나 동시에
+  // 복구하지 않는다. 이미 실행 중이면 이번 호출은 멱등한 no-op이다.
+  const result = await deps.repository.withSweepLock(() => sweepPipelineLocked(now, deps));
+  return result ?? { failed: 0, hidden: 0, recovered: 0, deferred: 0 };
+}
+
+async function sweepPipelineLocked(
+  now: number,
+  deps: PipelineDependencies,
+): Promise<SweepResult> {
   let recovered = 0;
   let mintingFailed = 0;
   let deferred = 0;

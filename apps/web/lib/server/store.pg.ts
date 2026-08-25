@@ -270,7 +270,8 @@ export async function getState(): Promise<StateResponse> {
  * `hidden`인 카드도 그대로 내려보낸다. TV에서만 감춘 것이고, 나중에 그 참가자가 사진을
  * 가져오면 다시 올려야 한다.
  */
-export async function getAdminState(): Promise<AdminStateResponse> {
+/** 민터 잔액은 체인 조회라 라우트에서 얹는다. 저장소는 DB만 본다. */
+export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'>> {
   const [rows, show] = await Promise.all([
     query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
@@ -613,6 +614,17 @@ export async function findStaleMinting(now: number = Date.now()): Promise<Pipeli
     [new Date(now - STUCK_MS)],
   );
   return result.rows.map(toPipelineEntry);
+}
+
+/** cron과 운영자 수동 스위프 중 하나만 실행한다. 이미 실행 중이면 null이다. */
+export async function withSweepLock<T>(run: () => Promise<T>): Promise<T | null> {
+  return transaction(async (client) => {
+    const result = await client.query<{ acquired: boolean }>(
+      `select pg_try_advisory_xact_lock(hashtext('hot-bakery-sweep')) as acquired`,
+    );
+    if (!result.rows[0]?.acquired) return null;
+    return run();
+  });
 }
 
 // ---------------------------------------------------------------------------

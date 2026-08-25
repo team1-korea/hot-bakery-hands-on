@@ -115,8 +115,8 @@ TV 애니메이션을 확인하려면 카드가 여러 상태로 흩어져 있�
 | 진열장 두 쪽 | 15장 넘게 제출합니다 |
 | 처음부터 다시 | `DATABASE_URL`이 없으면 **서버 재시작**으로 비워집니다 |
 
-`DATABASE_URL`이 있으면 Postgres에 남습니다. 그때는 운영자 화면의 초기화 버튼을 쓰거나
-`apps/web/db/reset.sql`을 돌리세요.
+`DATABASE_URL`이 있으면 Postgres에 남습니다. 준비 환경에 `ALLOW_DB_RESET=1`을 넣고 운영자 화면의
+**테스트 데이터 초기화** 버튼으로 비우세요. SQL 비상 절차는 [DB 문서](./apps/web/db/README.md)에만 둡니다.
 
 ### 폴링 주기
 
@@ -192,6 +192,7 @@ Authorization: Bearer <privy-access-token>
 | `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
 | `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
 | `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
+| `POST` | `/api/admin/sweep` | 운영자 | 운영자 | **멈춘 작업 점검/복구.** Cron을 기다리지 않고 실행 |
 | `POST` | `/api/admin/reset` | 운영자 | 운영자 | 테스트 데이터 삭제. `ALLOW_DB_RESET=1`일 때만 존재 |
 | `GET`·`POST` | `/api/internal/sweep` | `CRON_SECRET` | 스케줄러 | 멈춘 파이프라인 복구·방치 카드 정리 |
 
@@ -634,6 +635,32 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 
 ---
 
+### `POST /api/admin/sweep`
+
+운영자 화면의 **멈춘 작업 점검/복구** 버튼이 부릅니다. 요청 본문은 없고 운영자 쿠키로 인증합니다.
+
+```jsonc
+// 200
+{ "failed": 1, "hidden": 2, "recovered": 1, "deferred": 0 }
+```
+
+| 필드 | 뜻 |
+|---|---|
+| `recovered` | 체인 영수증·`CertificateIssued`를 찾아 `MINTED`로 복구한 수 |
+| `failed` | 체인에도 성공 기록이 없어 `FAILED`로 내린 수 |
+| `deferred` | RPC 조회 오류라 상태를 유지하고 다음 점검으로 미룬 수 |
+| `hidden` | 10분 넘게 사진을 안 내 자동으로 TV에서 내린 `JOINED` 수 |
+
+5분 이상 멈춘 `SUBMITTED`·`PINNED`·`MINTING`을 점검합니다. `MINTING`은 무조건 실패 처리하지
+않고 영수증과 이벤트를 먼저 조회합니다. Cron과 동시에 실행돼도 Postgres try-advisory-lock으로
+한 번만 돌며, 다른 점검이 이미 실행 중이면 네 값 모두 0입니다. 응답은 캐시하지 않고 최대 60초를
+기다립니다.
+
+행사 운영자는 내부 Cron URL이나 CLI를 직접 호출하지 않습니다. Cron은 자동 안전망이고, 급하면
+이 버튼을 누릅니다.
+
+---
+
 ### `POST /api/admin/entries/{id}/photo`
 
 **운영자 대리 업로드입니다.** 참가자가 사진을 못 올릴 때 운영자가 대신 올려 파이프라인을
@@ -728,6 +755,9 @@ Authorization: Bearer <CRON_SECRET>
 내려간 참가자가 나중에 사진을 제출하면 다시 표시하지만, 운영자가 직접 숨긴 카드는 유지합니다.
 운영 배포에서 Cron 일정을 따로 설정해야 하며, 라우트가 존재하는 것만으로 주기 실행되지는
 않습니다.
+
+운영자 쿠키로 수동 실행하는 계약은 `POST /api/admin/sweep`입니다. 두 경로는 같은 복구 로직과
+advisory lock을 공유합니다.
 
 ---
 
