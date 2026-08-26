@@ -226,13 +226,13 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
   }).toBeGreaterThan(0.83);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
-  await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '내 쿠키 사진이, 내 지갑의 참가증서가 되었습니다' })).toBeVisible();
 
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('heading', { name: 'NFT 한 장은 세 겹으로 이루어집니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'NFT는 세 가지가 연결된 하나의 기록입니다' })).toBeVisible();
 
   await page.keyboard.press('End');
-  await expect(page.getByRole('heading', { name: 'C-Chain에는 소유와 발행 기록이 남습니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '발행 기록은 공개되고, 개인키는 공개되지 않습니다' })).toBeVisible();
   await page.getByRole('button', { name: '진열장으로 돌아가기' }).click();
 
   await expect(page.getByRole('heading', { name: '오늘의 진열장' })).toBeVisible();

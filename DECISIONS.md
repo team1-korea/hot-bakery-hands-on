@@ -283,6 +283,15 @@ Vercel에는 `NEXT_PUBLIC_CHAIN_ID`, `CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYM
 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다. 배포 전에는 메인넷 컨트랙트의
 민터 권한과 서버 민터의 AVAX 잔액을 확인합니다.
 
+### 2026-08-25 · 행사 후 같은 지갑을 Core Wallet에서 확인 — 운영
+
+행사 후 Google 로그인 이메일로 Privy 개인키 내보내기와 Core Wallet 계정 가져오기 절차를
+별도로 안내합니다. 참가자가 본인 기기에서 개인키를 Core에 가져오면 NFT를 다른 지갑으로
+전송하는 것이 아니라, Privy와 같은 지갑 주소를 Core에서도 여는 것입니다.
+
+앱과 운영자는 개인키를 요청하거나 받거나 저장하지 않습니다. 안내에는 개인키를 운영자·링크·
+메신저·공용 PC와 공유하지 말라는 경고를 포함합니다.
+
 ---
 
 ## 아직 미정
@@ -290,6 +299,5 @@ Vercel에는 `NEXT_PUBLIC_CHAIN_ID`, `CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYM
 | 항목 | 정할 사람 | 메모 |
 |---|---|---|
 | 증서 페이지(`/certificates/{tokenId}`) | 백엔드 | 미구현. `external_url`을 뺐으므로 필수는 아니지만, 운영 기간 조회용으로 검토 중 |
-| 발행 완료 시 참가자에게 알릴지 | 팀 | Privy가 이메일을 갖고 있어 우리가 보낼 수단이 없습니다 |
 | 오발급 정정 경로(`revoke` → `reissue`) | 백엔드 | 미구현. 행사 규모상 생략 가능 |
 | 운영자 비밀번호 시도 횟수 제한 | 백엔드 | 현재 무제한 |
