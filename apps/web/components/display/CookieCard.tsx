@@ -2,7 +2,7 @@
 
 import { motion, useReducedMotion } from 'framer-motion';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Entry } from '@/lib/api/types';
 
@@ -24,6 +24,17 @@ const STATUS_LABEL = {
   FAILED: '다시 확인',
 } as const;
 
+/** Storage/CDN 전파가 잠깐 늦어도 오븐에서 증서가 영구히 사라지지 않게 제한적으로 재시도한다. */
+const IMAGE_RETRY_DELAYS = [600, 1_200] as const;
+
+function retryImageUrl(url: string, attempt: number) {
+  if (attempt === 0) return url;
+  const hashIndex = url.indexOf('#');
+  const base = hashIndex < 0 ? url : url.slice(0, hashIndex);
+  const hash = hashIndex < 0 ? '' : url.slice(hashIndex);
+  return `${base}${base.includes('?') ? '&' : '?'}bakery_retry=${attempt}${hash}`;
+}
+
 function imageNumber(entry: Entry) {
   const value = Number(entry.id.replace(/\D/g, ''));
   return Number.isFinite(value) ? value : 1;
@@ -43,8 +54,8 @@ export function CookieCard({
   const reduceMotion = useReducedMotion();
   const minted = entry.status === 'MINTED';
   const imageUrl = entry.photoUrl;
-  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
-  const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl;
+  const [loadedImageUrl, setLoadedImageUrl] = useState<string | null>(null);
+  const imageLoaded = Boolean(imageUrl) && loadedImageUrl === imageUrl;
   const variation = ((imageNumber(entry) - 1) % 15) + 1;
   const innerInitial = reduceMotion ? false
     : motionPhase === 'enter' ? { y: -28, scale: 1, rotate: 0 }
@@ -81,20 +92,18 @@ export function CookieCard({
         initial={innerInitial}
         animate={innerAnimate}
         transition={innerTransition}
-        className={`cookie-card ${minted ? 'certificate-card' : 'photo-card'} ${showImage ? 'has-certificate-image' : ''}`}
+        className={`cookie-card ${minted ? 'certificate-card' : 'photo-card'} ${imageLoaded ? 'has-certificate-image' : ''}`}
         data-status={entry.status}
       >
         <div className="card-media">
           {minted ? <CertificatePlaceholder variation={variation} /> : <CookiePlaceholder variation={variation} />}
-          {showImage && imageUrl ? (
-            <Image
+          {imageUrl ? (
+            <RetryingCertificateImage
+              key={imageUrl}
               src={imageUrl}
               alt={`${entry.nickname}의 참가증서`}
-              fill
-              unoptimized
-              sizes="320px"
-              loading={(entry.shelfIndex ?? 15) < 3 ? 'eager' : 'lazy'}
-              onError={() => setFailedImageUrl(imageUrl)}
+              eager={(entry.shelfIndex ?? 15) < 3}
+              onLoad={() => setLoadedImageUrl(imageUrl)}
             />
           ) : null}
           {!minted ? <span className="status-ticket">{STATUS_LABEL[entry.status]}</span> : null}
@@ -111,6 +120,54 @@ export function CookieCard({
         )}
       </motion.article>
     </motion.div>
+  );
+}
+
+function RetryingCertificateImage({
+  src,
+  alt,
+  eager,
+  onLoad,
+}: {
+  src: string;
+  alt: string;
+  eager: boolean;
+  onLoad: () => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [waiting, setWaiting] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const retryTimer = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+  }, []);
+
+  if (waiting || failed) return null;
+
+  return (
+    <Image
+      src={retryImageUrl(src, attempt)}
+      alt={alt}
+      fill
+      unoptimized
+      sizes="320px"
+      loading={eager ? 'eager' : 'lazy'}
+      onLoad={onLoad}
+      onError={() => {
+        const delay = IMAGE_RETRY_DELAYS[attempt];
+        if (delay === undefined) {
+          setFailed(true);
+          return;
+        }
+        setWaiting(true);
+        retryTimer.current = window.setTimeout(() => {
+          retryTimer.current = null;
+          setAttempt((current) => current + 1);
+          setWaiting(false);
+        }, delay);
+      }}
+    />
   );
 }
 
