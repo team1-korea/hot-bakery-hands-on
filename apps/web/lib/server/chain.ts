@@ -293,8 +293,25 @@ export async function mint(recipient: Address, metadataUri: string): Promise<Hex
  *   동시 처리 때문에 믿을 수 없다(INTEGRATION_GUIDE.md 3절).
  * - **tokenId는 문자열로 돌려준다.** `uint256`은 `bigint`라 그대로 JSON에 넣을 수 없다.
  */
+/**
+ * 영수증을 기다리는 상한. **viem 기본값은 180초로, 라우트 수명(`maxDuration = 60`)의 3배다.**
+ *
+ * 그래서 영수증이 오지 않는 트랜잭션을 만나면 viem이 스스로 포기하는 일은 없고 **항상 Vercel이
+ * 먼저 인보케이션을 죽인다.** 죽으면 행이 `MINTING`으로 남는데, 그 상태는 운영자 화면에서
+ * 정상적으로 굽는 카드와 구별되지 않는다 — 「실패」 카운터에도 안 잡히고 재시도 버튼도 안 뜬다.
+ * 스위퍼로 풀 수는 있지만 90초를 더 기다려야 하고 운영자가 그럴 이유를 알아채기 어렵다.
+ *
+ * 정상 민팅은 몇 초면 영수증이 나온다(C-Chain 블록 약 2초). 이보다 오래 걸리는 건 nonce 경합에서
+ * 밀려나 사라진 트랜잭션이므로, 먼저 포기해 `FAILED`로 내리는 편이 낫다 — **실패는 화면에 뜨고
+ * 버튼이 생기지만 멈춤은 그렇지 않다.**
+ */
+const MINT_RECEIPT_TIMEOUT_MS = 20_000;
+
 export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHash: Hex }> {
-  const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await publicClient.waitForTransactionReceipt({
+    hash: txHash,
+    timeout: MINT_RECEIPT_TIMEOUT_MS,
+  });
   if (receipt.status !== 'success') {
     throw new Error(`민팅 트랜잭션이 실패했습니다: ${txHash}`);
   }

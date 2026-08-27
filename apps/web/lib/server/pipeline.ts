@@ -135,7 +135,12 @@ export async function runPipeline(
     if (stage === '민팅' && (await recoverIssued(entryId, deps).catch(() => false))) return;
 
     const reason = `${stage} 실패: ${errorMessage(error)}`;
-    await deps.repository.markPipelineFailed(entryId, reason).catch((recordError) => {
+    // 영수증을 못 받았고 트랜잭션도 사라졌다면 해시를 놓아준다. 남겨 두면 재시도가 상태를
+    // MINTING으로 되돌리고 죽은 해시를 다시 기다려, 운영자가 몇 번을 눌러도 같은 자리를 돈다.
+    const discardTxHash = stage === '민팅'
+      && await mintTransactionVanished(entryId, deps).catch(() => false);
+
+    await deps.repository.markPipelineFailed(entryId, reason, { discardTxHash }).catch((recordError) => {
       throw new AggregateError([error, recordError], reason);
     });
   }
@@ -175,6 +180,16 @@ async function mintEntry(entryId: string, deps: PipelineDependencies): Promise<v
   if (!outcome || outcome.kind === 'done') return;
   const receipt = await deps.chain.waitForMint(outcome.txHash);
   await deps.repository.saveMinted(entryId, receipt.tokenId, receipt.txHash);
+}
+
+/** 보낸 트랜잭션이 체인에도 mempool에도 없는지. 조회에 실패하면 판단하지 않는다. */
+async function mintTransactionVanished(
+  entryId: string,
+  deps: PipelineDependencies,
+): Promise<boolean> {
+  const entry = await deps.repository.getPipelineEntry(entryId);
+  if (!entry?.txHash) return false;
+  return deps.chain.transactionDisappeared(entry.txHash);
 }
 
 async function recoverIssued(entryId: string, deps: PipelineDependencies): Promise<boolean> {
