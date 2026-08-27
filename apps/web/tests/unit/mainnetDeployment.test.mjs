@@ -26,6 +26,9 @@ function verifierClient(deployment, { denyRole = undefined } = {}) {
     async getCode() {
       return '0x6000';
     },
+    async getBalance() {
+      return 100000000000000000n;
+    },
     async readContract({ functionName, args }) {
       if (functionName === 'name') return 'Avalanche Bakery Certificate';
       if (functionName === 'symbol') return 'ABAKE';
@@ -65,6 +68,8 @@ describe('메인넷 배포 안전장치', () => {
       minterCanMint: true,
       adminCanRecover: true,
       adminCanManage: true,
+      minterBalanceWei: 100000000000000000n,
+      minterBalanceAvax: '0.1',
     });
   });
 
@@ -75,5 +80,16 @@ describe('메인넷 배포 안전장치', () => {
       abiFile: ABI,
       client: verifierClient(deployment, { denyRole: MINTER_ROLE }),
     })).rejects.toThrow(/민터 또는 관리자 권한/);
+  });
+
+  test('민터 AVAX 잔액이 0이면 전환 검증을 거절한다', async () => {
+    const deployment = await readMainnetDeployment(ARTIFACT);
+    const client = verifierClient(deployment);
+    client.getBalance = async () => 0n;
+
+    await expect(verifyMainnetDeployment(deployment, {
+      abiFile: ABI,
+      client,
+    })).rejects.toThrow(/AVAX 잔액이 0/);
   });
 });

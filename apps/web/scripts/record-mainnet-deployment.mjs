@@ -40,7 +40,7 @@ const deployment = validateMainnetDeployment({
   admin: options.admin,
   minter: options.minter,
 });
-await verifyMainnetDeployment(deployment, {
+const verification = await verifyMainnetDeployment(deployment, {
   abiFile: path.join(repositoryRoot, 'contracts/abi/AvalancheBakeryCertificate.json'),
 });
 
@@ -49,6 +49,7 @@ console.log(`컨트랙트     ${deployment.address}`);
 console.log(`배포 블록    ${deployment.deploymentBlock}`);
 console.log(`관리자       ${deployment.admin}`);
 console.log(`민터         ${deployment.minter}`);
+console.log(`민터 잔액    ${verification.minterBalanceAvax} AVAX`);
 
 if (!options.apply) {
   console.log('');

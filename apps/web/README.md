@@ -83,6 +83,8 @@ npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
 npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
   --admin 0x... --minter 0x... --apply --confirm RECORD
 
+# 생성된 contracts/deployments/43114.json을 커밋하고 PR 리뷰·main 머지를 마친 뒤 다음 단계로 간다.
+
 # 주소와 배포 블록만 Vercel에 미리 등록. 활성 체인은 여전히 Fuji
 npm run chain:prepare-mainnet
 npm run chain:prepare-mainnet -- --apply --confirm PREPARE
@@ -93,6 +95,10 @@ npm run chain:switch -- mainnet --apply --confirm 43114
 npm run chain:switch -- fuji
 npm run chain:switch -- fuji --apply --confirm 43113
 ```
+
+세 명령은 메인넷 민터의 AVAX 잔액도 확인해 정확한 값을 출력하며, 잔액이 0이면 중단합니다. 실제
+행사 인원을 발행할 만큼 충전됐는지는 출력된 잔액과 당시 가스비를 함께 확인합니다. 기록 후 생성된
+`deployments/43114.json`이 `main`에 머지되기 전에는 Vercel 사전 등록이나 전환을 실행하지 않습니다.
 
 `prepare-mainnet`과 `chain:switch -- mainnet`은 `deployments/43114.json`을 다시 온체인 검증합니다.
 메인넷 전환은 검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꾸므로, 사전 등록이 누락돼도

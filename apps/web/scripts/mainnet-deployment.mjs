@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 
 import {
   createPublicClient,
+  formatEther,
   getAddress,
   http,
   isAddress,
@@ -107,10 +108,11 @@ export async function verifyMainnetDeployment(deployment, { abiFile, client = un
     readContract('RECOVERY_ROLE'),
     readContract('DEFAULT_ADMIN_ROLE'),
   ]);
-  const [minterCanMint, adminCanRecover, adminCanManage] = await Promise.all([
+  const [minterCanMint, adminCanRecover, adminCanManage, minterBalanceWei] = await Promise.all([
     readContract('hasRole', [minterRole, deployment.minter]),
     readContract('hasRole', [recoveryRole, deployment.admin]),
     readContract('hasRole', [adminRole, deployment.admin]),
+    publicClient.getBalance({ address: deployment.minter }),
   ]);
 
   if (name !== EXPECTED_NAME || symbol !== EXPECTED_SYMBOL) {
@@ -119,6 +121,17 @@ export async function verifyMainnetDeployment(deployment, { abiFile, client = un
   if (!minterCanMint || !adminCanRecover || !adminCanManage) {
     throw new Error('메인넷 컨트랙트의 민터 또는 관리자 권한이 배포 기록과 다릅니다.');
   }
+  if (minterBalanceWei === 0n) {
+    throw new Error('메인넷 민터의 AVAX 잔액이 0입니다. 가스비를 충전한 뒤 다시 확인하세요.');
+  }
 
-  return { name, symbol, minterCanMint, adminCanRecover, adminCanManage };
+  return {
+    name,
+    symbol,
+    minterCanMint,
+    adminCanRecover,
+    adminCanManage,
+    minterBalanceWei,
+    minterBalanceAvax: formatEther(minterBalanceWei),
+  };
 }

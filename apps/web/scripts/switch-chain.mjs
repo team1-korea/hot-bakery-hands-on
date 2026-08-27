@@ -26,10 +26,11 @@ const deployment = needsMainnetDeployment
   : null;
 
 if (deployment) {
-  await verifyMainnetDeployment(deployment, {
+  const verification = await verifyMainnetDeployment(deployment, {
     abiFile: path.join(repositoryRoot, 'contracts/abi/AvalancheBakeryCertificate.json'),
   });
   console.log('검증         메인넷 코드·배포 트랜잭션·민터/관리자 권한 일치');
+  console.log(`민터 잔액    ${verification.minterBalanceAvax} AVAX`);
 }
 
 const updates = preparingMainnet
