@@ -563,19 +563,56 @@ export async function markPipelineFailed(
 }
 
 /**
- * 민터 지갑의 nonce를 DB advisory transaction lock으로 직렬화한다.
+ * 민팅 차례를 기다리는 동안 **커넥션을 쥐고 있지 않는다.**
  *
- * 락을 잡은 연결과 상태 조회·txHash 저장이 같은 트랜잭션을 쓴다.
- * 다른 인보케이션이 대기 중이어도 첫 인보케이션이 다른 DB 연결을 추가로
- * 요구하지 않아 풀(max=3)이 교착되지 않는다.
+ * 예전에는 커넥션을 먼저 잡은 뒤 `pg_advisory_xact_lock`으로 블로킹 대기를 했다. 민팅은
+ * 어차피 한 번에 하나씩이라, 뒤에 밀린 사람들이 자기 차례를 기다리며 풀(`max: 3`)을 통째로
+ * 점거했다. 그러면 민팅과 아무 상관없는 질의 — 사진 CID 저장, 실패 기록, 운영자 화면 조회 —
+ * 까지 커넥션을 못 얻어 10초 뒤 `timeout exceeded when trying to connect`으로 죽는다.
+ *
+ * 20명이 동시에 내면 대기로만 `1.5초 x (0+1+...+19)` = 약 285 커넥션·초를 요구하는데,
+ * 커넥션 3개로는 감당이 안 된다. 실측에서 20명 중 5명이 이 이유로 실패했다.
+ *
+ * 그래서 `try` 잠금으로 바꾼다. 차례가 아니면 트랜잭션을 끝내 커넥션을 돌려주고 잠깐 쉰다.
+ * **대기에 쓰는 커넥션이 0이 된다.** 민팅 자체는 여전히 한 번에 하나씩이다.
  */
+/** 차례를 못 잡고 이만큼 지나면 포기한다. 라우트가 `maxDuration = 60`이라 그 안에 끝내고
+ *  실패를 기록할 여유를 남긴다. 포기한 건은 FAILED가 되어 운영자가 다시 시도로 푼다. */
+const MINT_LOCK_WAIT_MS = 45_000;
+/** 다시 시도하기 전 쉬는 시간. 여러 명이 같은 순간에 깨어나 풀을 두드리지 않게 흔들어 준다. */
+const MINT_LOCK_RETRY_MS = 400;
+const MINT_LOCK_JITTER_MS = 600;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function withMintLock<T>(
   entryId: string,
   run: (entry: PipelineEntry, actions: MintLockActions) => Promise<T>,
 ): Promise<T | null> {
   if (!UUID.test(entryId)) return null;
+
+  const deadline = Date.now() + MINT_LOCK_WAIT_MS;
+  for (;;) {
+    const attempt = await mintLockAttempt(entryId, run);
+    if (attempt.ran) return attempt.value;
+    if (Date.now() >= deadline) throw new Error('민팅 차례를 기다리다 시간이 지났습니다.');
+    await sleep(MINT_LOCK_RETRY_MS + Math.random() * MINT_LOCK_JITTER_MS);
+  }
+}
+
+/** 차례를 잡았으면 `ran: true`. 못 잡았으면 아무것도 하지 않고 커넥션을 돌려준다. */
+async function mintLockAttempt<T>(
+  entryId: string,
+  run: (entry: PipelineEntry, actions: MintLockActions) => Promise<T>,
+): Promise<{ ran: false } | { ran: true; value: T | null }> {
   return transaction(async (client) => {
-    await client.query(`select pg_advisory_xact_lock(hashtext('hot-bakery-mint'))`);
+    const lock = await client.query<{ acquired: boolean }>(
+      `select pg_try_advisory_xact_lock(hashtext('hot-bakery-mint')) as acquired`,
+    );
+    if (!lock.rows[0]?.acquired) return { ran: false };
+
     const found = await client.query<PipelineRow>(
       `select ${PIPELINE_COLUMNS}
          from entries e
@@ -585,7 +622,7 @@ export async function withMintLock<T>(
       [entryId],
     );
     const row = found.rows[0];
-    if (!row) return null;
+    if (!row) return { ran: true, value: null };
 
     const actions: MintLockActions = {
       async setMinting(txHash) {
@@ -607,7 +644,7 @@ export async function withMintLock<T>(
         );
       },
     };
-    return run(toPipelineEntry(row), actions);
+    return { ran: true, value: await run(toPipelineEntry(row), actions) };
   });
 }
 

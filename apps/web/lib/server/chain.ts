@@ -1,6 +1,9 @@
 import {
   BaseError,
   ContractFunctionRevertedError,
+  NonceTooHighError,
+  NonceTooLowError,
+  TransactionNotFoundError,
   TransactionReceiptNotFoundError,
   createPublicClient,
   createWalletClient,
@@ -231,8 +234,36 @@ export async function simulateMint(
  */
 const MINT_GAS_LIMIT = BigInt(Number(process.env.MINT_GAS_LIMIT) || 300_000);
 
+/**
+ * nonce가 어긋났을 때 다시 보내는 횟수.
+ *
+ * nonce는 이 지갑이 지금까지 보낸 트랜잭션 수이고, 다음 건은 반드시 그 다음 번호여야 한다.
+ * 번호는 우리가 세지 않고 보낼 때마다 RPC에 묻는데, 공개 엔드포인트는 노드가 여러 대이고
+ * 노드마다 mempool이 달라서 **방금 나간 트랜잭션을 못 본 노드가 뒤처진 번호를 준다.**
+ * 실측에서 같은 주소의 pending nonce가 `23 → 24 → 23`으로 되돌아갔고, 그대로 보내면
+ * 이미 쓴 번호라 거절당한다. 20명 규모에서 민팅의 30%가 이 이유로 실패했다.
+ *
+ * **쉬지 않고 곧바로 다시 보낸다.** 요청마다 다른 노드가 받으므로 즉시 다시 물어도 사실상
+ * 새로 뽑는 것과 같다(위 `23 → 24 → 23`이 그 증거다). 여기서 기다리면 민팅 락을 쥔 채로
+ * 기다리는 셈이라 뒤에 선 참가자가 전부 밀리고, 그쪽이 `maxDuration = 60`에 훨씬 위험하다.
+ *
+ * 재시도가 안전한 이유는 두 가지다. 거절당했다는 것은 트랜잭션이 **받아들여지지 않았다는**
+ * 뜻이라 중복 전송이 아니고, 설령 중복으로 나가도 컨트랙트가 주소당 한 장만 허용해
+ * `AlreadyIssued`로 되돌아온다 — 그 복구 경로는 이미 아래에 있다.
+ */
+const MINT_SEND_ATTEMPTS = 3;
+
+/** 보내려던 번호가 어긋났을 뿐 트랜잭션은 나가지 않은 상태. 다시 보내면 된다. */
+function isStaleNonce(error: unknown): boolean {
+  if (!(error instanceof BaseError)) return false;
+  return Boolean(error.walk((cause) => (
+    cause instanceof NonceTooLowError || cause instanceof NonceTooHighError
+  )));
+}
+
 export async function mint(recipient: Address, metadataUri: string): Promise<Hex> {
   const account = requireMinterAccount();
+  // 시뮬레이션은 한 번만 한다. 인자가 그대로라 결과도 같고, 락을 쥔 시간만 늘어난다.
   const { request } = await simulateMint(recipient, metadataUri, account);
 
   const walletClient = createWalletClient({
@@ -241,10 +272,17 @@ export async function mint(recipient: Address, metadataUri: string): Promise<Hex
     transport: http(process.env.AVALANCHE_RPC_URL),
   });
 
-  return walletClient.writeContract({
-    ...request,
-    gas: MINT_GAS_LIMIT,
-  } as Parameters<typeof walletClient.writeContract>[0]);
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      // nonce를 넘기지 않으므로 viem이 매번 새로 조회한다. 그래서 재시도에 의미가 있다.
+      return await walletClient.writeContract({
+        ...request,
+        gas: MINT_GAS_LIMIT,
+      } as Parameters<typeof walletClient.writeContract>[0]);
+    } catch (error) {
+      if (attempt >= MINT_SEND_ATTEMPTS || !isStaleNonce(error)) throw error;
+    }
+  }
 }
 
 /**
@@ -267,6 +305,27 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
   }
 
   return { tokenId: issued.args.tokenId.toString(), txHash };
+}
+
+/**
+ * 그 해시가 체인에도 mempool에도 없는지.
+ *
+ * nonce 경합에서 밀려난 트랜잭션은 해시만 남기고 사라진다. 영수증도 없고 앞으로도 안 생기는데,
+ * DB에 해시가 남아 있으면 `retryEntry`가 상태를 `MINTING`으로 되돌리고 `mintEntry`는
+ * `txHash`가 있다는 이유로 새로 보내지 않고 그 죽은 해시를 계속 기다린다. 운영자가 「재시도」를
+ * 몇 번 눌러도 같은 자리를 돈다 — 실측에서 60명 중 3명이 이렇게 갇혔다.
+ *
+ * **찾지 못한 것과 조회에 실패한 것을 구분한다.** RPC가 잠시 죽은 것을 "사라졌다"로 읽으면
+ * 아직 살아 있는 트랜잭션의 해시를 버려 같은 발급을 두 번 보내게 된다.
+ */
+export async function transactionDisappeared(txHash: Hex): Promise<boolean> {
+  try {
+    await publicClient.getTransaction({ hash: txHash });
+    return false;
+  } catch (error) {
+    if (error instanceof TransactionNotFoundError) return true;
+    throw error;
+  }
 }
 
 export type MintReceipt =

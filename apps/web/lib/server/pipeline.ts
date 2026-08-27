@@ -7,6 +7,7 @@ import {
   hasBeenIssued,
   mint,
   readMintReceipt,
+  transactionDisappeared,
   waitForMint,
   type MintReceipt,
 } from './chain';
@@ -48,6 +49,7 @@ type ChainGateway = {
   mint(recipient: Address, metadataUri: string): Promise<Hex>;
   waitForMint(txHash: Hex): Promise<{ tokenId: string; txHash: Hex }>;
   readMintReceipt(txHash: Hex): Promise<MintReceipt | null>;
+  transactionDisappeared(txHash: Hex): Promise<boolean>;
   findIssuedMint(recipient: Address): Promise<{ tokenId: string; txHash: Hex } | null>;
 };
 
@@ -62,7 +64,7 @@ function productionDependencies(): PipelineDependencies {
   return {
     repository: postgres,
     ipfs: pinataFromEnv(),
-    chain: { hasBeenIssued, mint, waitForMint, readMintReceipt, findIssuedMint },
+    chain: { hasBeenIssued, mint, waitForMint, readMintReceipt, transactionDisappeared, findIssuedMint },
     readPhoto: readStoredPhoto,
   };
 }
@@ -232,13 +234,19 @@ async function sweepPipelineLocked(
         continue;
       }
 
+      // 영수증이 없으면 아직 mempool에 있는 것인지, 밀려나 사라진 것인지 갈라 본다.
+      const gone = receipt === null && entry.txHash !== null
+        && await deps.chain.transactionDisappeared(entry.txHash);
+
       const reason = receipt?.status === 'reverted'
         ? '민팅 트랜잭션 실패 (스위퍼)'
-        : '민팅 영수증을 확인하지 못함 (스위퍼)';
+        : gone
+          ? '민팅 트랜잭션이 사라짐 (스위퍼)'
+          : '민팅 영수증을 확인하지 못함 (스위퍼)';
       await deps.repository.markPipelineFailed(entry.id, reason, {
-        // 영수증이 확정 리버트일 때만 새 트랜잭션을 보낼 수 있다.
-        // pending·조회 불가는 기존 해시를 보존해 중복 전송을 막는다.
-        discardTxHash: receipt?.status === 'reverted',
+        // 확정 리버트이거나 체인에도 mempool에도 없을 때만 새 트랜잭션을 보낼 수 있다.
+        // 아직 pending인 해시를 버리면 같은 발급이 두 번 나간다.
+        discardTxHash: receipt?.status === 'reverted' || gone,
       });
       mintingFailed += 1;
     } catch (error) {
