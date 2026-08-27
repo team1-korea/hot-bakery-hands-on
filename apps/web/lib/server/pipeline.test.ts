@@ -122,6 +122,7 @@ beforeEach(() => {
       mint: async (_recipient, uri) => { calls.push(`mint:${uri}`); return TX; },
       waitForMint: async () => { calls.push('receipt'); return { tokenId: '42', txHash: TX }; },
       readMintReceipt: async () => null,
+      transactionDisappeared: async () => false,
       findIssuedMint: async () => null,
     },
   };
@@ -312,4 +313,43 @@ test('확정 리버트된 민팅은 실패 해시를 버리고 새 트랜잭션�
   ]);
   assert.equal(repository.row?.status, 'MINTED');
   assert.equal(repository.row?.txHash, RETRY_TX);
+});
+
+test('사라진 민팅 트랜잭션은 죽은 해시를 버려 재시도가 새로 보낼 수 있게 한다', async () => {
+  const orphaned = entry({
+    status: 'MINTING',
+    txHash: TX,
+    metadataCid: 'bafy-metadata',
+    certificateCid: 'bafy-certificate',
+  });
+  repository.row = orphaned;
+  repository.stale = [orphaned];
+  // 영수증도 없고 mempool에도 없다 — nonce 경합에서 밀려나 사라진 트랜잭션이다.
+  deps.chain.readMintReceipt = async () => null;
+  deps.chain.transactionDisappeared = async () => true;
+
+  const swept = await sweepPipeline(Date.now(), deps);
+
+  assert.equal(swept.failed, 1);
+  assert.equal(repository.row?.status, 'FAILED');
+  // 해시가 남으면 재시도가 MINTING으로 되돌아가 죽은 해시를 영원히 기다린다.
+  assert.equal(repository.row?.txHash, null);
+});
+
+test('아직 mempool에 있는 민팅은 해시를 지키고 중복 전송하지 않는다', async () => {
+  const pending = entry({
+    status: 'MINTING',
+    txHash: TX,
+    metadataCid: 'bafy-metadata',
+    certificateCid: 'bafy-certificate',
+  });
+  repository.row = pending;
+  repository.stale = [pending];
+  deps.chain.readMintReceipt = async () => null;
+  deps.chain.transactionDisappeared = async () => false;
+
+  await sweepPipeline(Date.now(), deps);
+
+  assert.equal(repository.row?.status, 'FAILED');
+  assert.equal(repository.row?.txHash, TX);
 });
