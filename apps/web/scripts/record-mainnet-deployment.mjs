@@ -4,6 +4,8 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
+import { getAddress, isAddress } from 'viem';
+
 import {
   validateMainnetDeployment,
   verifyMainnetDeployment,
@@ -13,6 +15,20 @@ const options = parseArguments(process.argv.slice(2));
 const missing = ['address', 'tx', 'block', 'admin', 'minter']
   .filter((name) => !options[name]);
 if (missing.length > 0) usage(`필수 옵션이 없습니다: ${missing.map((name) => `--${name}`).join(', ')}`);
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const destination = path.join(repositoryRoot, 'contracts/deployments/43114.json');
+const planned = JSON.parse(await readFile(destination, 'utf8'));
+if (planned.status !== 'pending') {
+  throw new Error('메인넷 배포 기록이 이미 존재합니다. 기존 기록을 자동으로 덮어쓰지 않습니다.');
+}
+if (
+  !isAddress(planned.minter)
+  || !isAddress(options.minter)
+  || getAddress(options.minter) !== getAddress(planned.minter)
+) {
+  throw new Error('메인넷 민터는 현재 Production 서버 민터 주소를 그대로 사용해야 합니다.');
+}
 
 const deployment = validateMainnetDeployment({
   network: 'avalanche',
@@ -24,7 +40,6 @@ const deployment = validateMainnetDeployment({
   admin: options.admin,
   minter: options.minter,
 });
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 await verifyMainnetDeployment(deployment, {
   abiFile: path.join(repositoryRoot, 'contracts/abi/AvalancheBakeryCertificate.json'),
 });
@@ -42,7 +57,6 @@ if (!options.apply) {
 }
 if (options.confirm !== 'RECORD') usage('실제 기록에는 --confirm RECORD가 필요합니다.');
 
-const destination = path.join(repositoryRoot, 'contracts/deployments/43114.json');
 const current = JSON.parse(await readFile(destination, 'utf8'));
 if (current.status !== 'pending') {
   throw new Error('메인넷 배포 기록이 이미 존재합니다. 기존 기록을 자동으로 덮어쓰지 않습니다.');

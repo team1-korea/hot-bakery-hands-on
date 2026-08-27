@@ -277,6 +277,9 @@ function zone(status: EntryStatus) {
 메인넷의 `CERTIFICATE_ADDRESS`와 `CERTIFICATE_DEPLOYMENT_BLOCK`은 Fuji 리허설 중에도 Vercel에
 미리 저장할 수 있습니다. Fuji는 이 두 값을 무시하고 커밋된 `deployments/43113.json`만 사용합니다.
 메인넷 배포 결과는 `deployments/43114.json`에 주소·배포 트랜잭션·블록·관리자·민터를 공개 기록합니다.
+초기 `MINTER_ROLE`은 현재 Production 서버 민터와 같은 주소에 부여하고 Vercel의 기존
+`MINTER_PRIVATE_KEY`를 그대로 사용합니다. 배포 전 공개 계획에도 이 민터 주소를 고정해 다른 주소로
+기록하지 못하게 합니다.
 `chain:prepare-mainnet`은 이 기록을 온체인 코드와 역할에 대조한 뒤 주소·블록만 사전 등록하고 활성
 체인은 건드리지 않습니다. 실제 활성화 스위치는 `NEXT_PUBLIC_CHAIN_ID`이며, 행사 때 `chain:switch`가
 검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꿉니다. 주소만 바꾸거나 배포 블록을 빠뜨리면
