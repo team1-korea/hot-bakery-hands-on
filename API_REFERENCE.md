@@ -190,6 +190,8 @@ Authorization: Bearer <privy-access-token>
 | `POST` | `/api/admin/session` | 없음 | 운영자 | 로그인 |
 | `GET` | `/api/admin/session` | 운영자 | 운영자 | 로그인 상태 확인 |
 | `DELETE` | `/api/admin/session` | 운영자 | 운영자 | 로그아웃 |
+| `POST` | `/api/admin/rehearsal` | 운영자+Fuji 확인 | 리허설 스크립트 | 배포 TV용 테스트 증서 한 건 제출 |
+| `DELETE` | `/api/admin/rehearsal` | 운영자+Fuji 확인 | 리허설 스크립트 | 해당 실행의 DB·Storage 테스트 데이터 정리 |
 | `PATCH` | `/api/admin/entries/{id}` | 운영자 | 운영자 | 카드 내리기·재시도 |
 | `POST` | `/api/admin/entries/{id}/photo` | 운영자 | 운영자 | **대리 업로드.** 참가자 대신 증서를 올린다 |
 | `POST` | `/api/admin/sweep` | 운영자 | 운영자 | **멈춘 작업 점검/복구.** Cron을 기다리지 않고 실행 |
@@ -578,6 +580,55 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 // 200
 { "ok": true }
 ```
+
+---
+
+### `POST /api/admin/rehearsal` — 배포 TV 리허설
+
+배포된 `/display`를 보며 여러 건을 동시에 흘려보내기 위한 **운영자 전용 Fuji 도구**입니다.
+일반 참가자 API의 Privy 인증을 우회하지 않고 별도 경로로 격리합니다. 운영자 쿠키와
+`x-bakery-rehearsal: fuji` 헤더가 모두 필요하고, 실제 서버가 Fuji(`43113`) 공개 RPC를 사용할 때만
+동작합니다. 메인넷이나 커스텀 RPC에서는 `400 INVALID_REQUEST`로 닫힙니다.
+
+```http
+POST /api/admin/rehearsal?nickname=부하00
+Content-Type: multipart/form-data
+x-bakery-rehearsal: fuji
+x-bakery-rehearsal-run: deadbeef
+
+photo=<합성 증서 JPEG>
+```
+
+요청 한 번이 서로 다른 폐기용 테스트 지갑을 가진 카드 한 장을 `SUBMITTED`로 만들고 실제
+Storage·Pinata·Fuji 민팅 파이프라인을 시작합니다. 응답은 `POST /api/entries`와 같은 `Entry`입니다.
+저장소의 `npm run rehearse:display -- --confirm fuji`가 이 요청을 기본 6개 동시에 보냅니다.
+POST 자체는 데이터를 자동 삭제하지 않으며, 스크립트가 최종 화면 확인 뒤 아래 정리 요청을
+보낼지 묻습니다.
+
+최종 화면을 확인한 뒤 같은 실행만 정리할 수 있습니다.
+
+```http
+DELETE /api/admin/rehearsal
+Content-Type: application/json
+x-bakery-rehearsal: fuji
+
+{ "runId": "deadbeef" }
+```
+
+서버가 직접 만든 `did:privy:rehearsal-<runId>-...` 참가자만 대상으로 삼습니다. 처리 중인 카드가
+있거나 이 실행 뒤에 실제 카드가 새 진열칸을 차지했다면 삭제하지 않습니다. 성공하면 참가자와
+항목이 DB에서, 해당 합성 증서가 Storage에서 사라져 `/display`·`/admin`에서 없어지고 진열칸도
+반환됩니다.
+
+```jsonc
+{
+  "ok": true,
+  "deleted": { "participants": 6, "entries": 6, "photos": 6 }
+}
+```
+
+이미 민팅된 Fuji NFT와 IPFS 핀은 삭제하지 않습니다. 컨트랙트 기록은 별도 관리자
+`adminBurn`을 실행해도 소각 이력이 남으므로 이 화면 리허설 정리 범위에 포함하지 않습니다.
 
 ---
 

@@ -12,6 +12,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
+    "rehearse:display": "node scripts/rehearse-display.mjs",
     "chain:record-mainnet": "node scripts/record-mainnet-deployment.mjs",
     "chain:prepare-mainnet": "node scripts/switch-chain.mjs prepare-mainnet",
     "chain:switch": "node scripts/switch-chain.mjs",

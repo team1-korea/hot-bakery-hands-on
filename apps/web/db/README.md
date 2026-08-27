@@ -354,6 +354,11 @@ select e.*, p.wallet_address
 
 ## 테스트 데이터 초기화
 
+배포 `/display` 동시 리허설은 전체 초기화를 쓰지 않습니다. 서버가 만든
+`did:privy:rehearsal-<runId>-...` 참가자만 찾아 해당 참가자와 cascade된 항목, 정확한 Storage 객체를
+삭제합니다. 처리 중인 항목이 있거나 그 실행 뒤에 실제 카드가 새 진열칸을 차지했다면 정리를
+거절해 진행 중 파이프라인이나 진열 순서를 망가뜨리지 않습니다. Fuji NFT와 IPFS 핀은 남습니다.
+
 - [`reset.sql`](./reset.sql)은 DB의 `participants`·`entries`만 비우고 `show_state`를 초기값으로
   되돌립니다. **Supabase Storage 객체는 지우지 않습니다.** SQL Editor에서 수동으로 쓸 때는
   버킷도 별도로 비우세요.

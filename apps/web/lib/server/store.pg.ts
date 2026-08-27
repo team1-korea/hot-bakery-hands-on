@@ -5,7 +5,15 @@ import type { AdminEntry, AdminStateResponse } from '@/lib/api/adminTypes';
 import { MAX_ENTRIES, type Entry, type EntryStatus, type ShowState, type StateResponse } from '@/lib/api/types';
 
 import { query, transaction } from './db';
-import { clearPhotos, clearStoredPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
+import {
+  clearPhotos,
+  clearStoredPhotos,
+  deleteStoredPhotos,
+  getPhoto as readPhoto,
+  photoUrl,
+  putPhoto,
+  type Photo,
+} from './storage';
 import {
   ABANDONED_JOIN_MS,
   STUCK_MS,
@@ -14,6 +22,7 @@ import {
   type MintLockActions,
   type NicknameUpdateResult,
   type PipelineEntry,
+  type RehearsalCleanupResult,
   type ResetResult,
 } from './store.shared';
 
@@ -782,4 +791,72 @@ export async function resetAdminData(): Promise<ResetResult> {
     };
   });
   return { deleted };
+}
+
+/** 리허설 DID prefix에 속한 종료 건만 골라 Storage와 DB에서 지운다. */
+export async function deleteRehearsalRun(runId: string): Promise<RehearsalCleanupResult> {
+  const prefix = `did:privy:rehearsal-${runId}-`;
+  const found = await query<{
+    entry_id: string;
+    participant_id: string;
+    status: EntryStatus;
+    certificate_path: string | null;
+    shelf_index: number | null;
+  }>(
+    `select e.id as entry_id, p.id as participant_id, e.status, e.certificate_path, e.shelf_index
+       from entries e
+       join participants p on p.id = e.participant_id
+      where left(p.privy_did, length($1)) = $1`,
+    [prefix],
+  );
+  if (found.rows.length === 0) return { ok: false, code: 'NOT_FOUND' };
+  if (found.rows.some((row) => ['SUBMITTED', 'PINNED', 'MINTING'].includes(row.status))) {
+    return { ok: false, code: 'NOT_READY' };
+  }
+
+  const occupiedIndexes = found.rows
+    .map((row) => row.shelf_index)
+    .filter((index): index is number => index !== null);
+  if (occupiedIndexes.length > 0) {
+    const laterEntry = await query<{ exists: boolean }>(
+      `select exists(
+         select 1
+           from entries e
+           join participants p on p.id = e.participant_id
+          where e.shelf_index >= $1
+            and left(p.privy_did, length($2)) <> $2
+       ) as exists`,
+      [Math.min(...occupiedIndexes), prefix],
+    );
+    if (laterEntry.rows[0]?.exists) return { ok: false, code: 'NOT_READY' };
+  }
+
+  const photoPaths = found.rows
+    .map((row) => row.certificate_path)
+    .filter((path): path is string => path !== null);
+  const photos = await deleteStoredPhotos(photoPaths);
+  const participantIds = [...new Set(found.rows.map((row) => row.participant_id))];
+  const participants = await transaction(async (client) => {
+    const deleted = await client.query<{ id: string }>(
+      `delete from participants
+        where id = any($1::uuid[])
+          and left(privy_did, length($2)) = $2
+          and not exists (
+            select 1 from entries
+             where participant_id = participants.id
+               and status in ('SUBMITTED', 'PINNED', 'MINTING')
+          )
+      returning id`,
+      [participantIds, prefix],
+    );
+    if (deleted.rowCount !== participantIds.length) {
+      throw new Error('리허설 항목 상태가 정리 도중 바뀌었습니다.');
+    }
+    return deleted.rowCount ?? 0;
+  });
+
+  return {
+    ok: true,
+    deleted: { participants, entries: found.rows.length, photos },
+  };
 }

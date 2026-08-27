@@ -3,13 +3,22 @@ import { randomUUID } from 'node:crypto';
 import type { AdminEntry, AdminStateResponse } from '@/lib/api/adminTypes';
 import { MAX_ENTRIES, type Entry, type EntryStatus, type ShowState, type StateResponse } from '@/lib/api/types';
 
-import { clearPhotos, clearStoredPhotos, getPhoto as readPhoto, photoUrl, putPhoto, type Photo } from './storage';
+import {
+  clearPhotos,
+  clearStoredPhotos,
+  deleteStoredPhotos,
+  getPhoto as readPhoto,
+  photoUrl,
+  putPhoto,
+  type Photo,
+} from './storage';
 import {
   ABANDONED_JOIN_MS,
   STUCK_MS,
   SWEPT_REASON,
   type AttachResult,
   type NicknameUpdateResult,
+  type RehearsalCleanupResult,
   type ResetResult,
 } from './store.shared';
 
@@ -420,4 +429,44 @@ export async function resetAdminData(): Promise<ResetResult> {
   store.rows.length = 0;
   store.show = { layout: 'LIVE', qrVisible: true, shelfPage: 0 };
   return { deleted: { participants, entries } };
+}
+
+/** 현재 리허설 실행이 만든 행만 지운다. 일반 참가자 DID는 호출자가 ID를 알아도 대상이 아니다. */
+export async function deleteRehearsalRun(runId: string): Promise<RehearsalCleanupResult> {
+  const prefix = `did:privy:rehearsal-${runId}-`;
+  const targets = store.rows.filter((row) => row.privyDid.startsWith(prefix));
+  if (targets.length === 0) return { ok: false, code: 'NOT_FOUND' };
+  if (targets.some((row) => ['SUBMITTED', 'PINNED', 'MINTING'].includes(row.entry.status))) {
+    return { ok: false, code: 'NOT_READY' };
+  }
+
+  const targetIds = new Set(targets.map((row) => row.entry.id));
+  const occupiedIndexes = targets
+    .map((row) => row.entry.shelfIndex)
+    .filter((index): index is number => index !== null);
+  const firstTargetIndex = occupiedIndexes.length > 0 ? Math.min(...occupiedIndexes) : null;
+  if (
+    firstTargetIndex !== null
+    && store.rows.some((row) => (
+      !targetIds.has(row.entry.id)
+      && row.entry.shelfIndex !== null
+      && row.entry.shelfIndex >= firstTargetIndex
+    ))
+  ) {
+    return { ok: false, code: 'NOT_READY' };
+  }
+
+  const photoPaths = targets
+    .filter((row) => row.entry.photoUrl !== null)
+    .map((row) => row.entry.id);
+  const photos = await deleteStoredPhotos(photoPaths);
+  store.rows = store.rows.filter((row) => !targetIds.has(row.entry.id));
+  return {
+    ok: true,
+    deleted: {
+      participants: new Set(targets.map((row) => row.privyDid)).size,
+      entries: targets.length,
+      photos,
+    },
+  };
 }

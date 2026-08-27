@@ -172,6 +172,23 @@ export async function clearStoredPhotos(): Promise<number> {
     for (const file of files) paths.push(`${prefix}/${file.name}`);
   }
 
+  await deleteRemotePaths(supabase, paths, '저장된 증서 전체 삭제');
+
+  return paths.length;
+}
+
+/** 리허설 종료 뒤 DB에서 확인한 정확한 객체만 지운다. 실제 참가자 폴더는 prefix로 받지 않는다. */
+export async function deleteStoredPhotos(paths: string[]): Promise<number> {
+  const uniquePaths = [...new Set(paths.filter(Boolean))];
+  for (const path of uniquePaths) memoryPhotos.delete(path);
+
+  const supabase = config();
+  if (!supabase || uniquePaths.length === 0) return uniquePaths.length;
+  await deleteRemotePaths(supabase, uniquePaths, '리허설 증서 삭제');
+  return uniquePaths.length;
+}
+
+async function deleteRemotePaths(supabase: Config, paths: string[], operation: string): Promise<void> {
   const batchSize = 100;
   for (let start = 0; start < paths.length; start += batchSize) {
     const prefixes = paths.slice(start, start + batchSize);
@@ -182,11 +199,9 @@ export async function clearStoredPhotos(): Promise<number> {
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     });
     if (!response.ok) {
-      throw new Error(`저장된 증서 전체 삭제 실패 (${response.status}): ${await response.text()}`);
+      throw new Error(`${operation} 실패 (${response.status}): ${await response.text()}`);
     }
   }
-
-  return paths.length;
 }
 
 type ListedObject = { name: string; metadata?: unknown | null };

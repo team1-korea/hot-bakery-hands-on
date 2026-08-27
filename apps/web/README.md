@@ -69,6 +69,29 @@ npm run lint
 - 리허설 데이터를 DB·Storage에서 지운 뒤 실제 Google 로그인 한 명을 끝까지 발행해 본다.
 - TV 브라우저는 `/admin`에 먼저 로그인한 뒤 `/display`를 연다.
 
+### 배포 화면 6건 동시 리허설
+
+Production은 Fuji로 둔 상태에서 배포된 `/display`를 직접 보며 6건을 한꺼번에 제출할 수 있습니다.
+로컬에 저장된 운영자 비밀번호로 배포 서버에 로그인하고, Fuji에서만 열리는 운영자 리허설 API를
+통해 실제 Supabase·Storage·Pinata·Fuji 파이프라인을 실행합니다. 기존 데이터는 지우지 않습니다.
+
+```bash
+cd apps/web
+npm run rehearse:display -- --confirm fuji
+```
+
+스크립트가 Production `/display`를 브라우저로 연 뒤 대기합니다. 화면이 보일 때 Enter를 누르면
+`부하00`부터 `부하05`까지 6건이 동시에 들어갑니다. 기본 테스트 이미지를 바꾸려면
+`--photo ./certificate.jpg`를 붙입니다. `apps/web/.env.local`의 `OPERATOR_PASSCODE`가 배포 값과
+같아야 하며, Production이 Fuji 공개 RPC가 아니거나 남은 진열칸이 부족하면 실제 제출 전에
+중단합니다. 이 경로는 메인넷에서 항상 닫힙니다.
+
+최종 진열을 확인하면 스크립트가 이번 실행의 테스트 데이터만 정리할지 묻습니다. Enter를 누르면
+리허설 DID가 붙은 참가자·항목과 해당 Storage 이미지를 삭제해 `/display`·`/admin`에서 없애고
+진열칸을 반환합니다. 실제 참가자 데이터는 삭제 대상이 될 수 없습니다. Fuji NFT와 IPFS 핀은
+이미 만들어진 공개 기록이라 남습니다. 자동 실행에서 바로 정리하려면 `--cleanup delete`, 남기려면
+`--cleanup keep`을 사용합니다.
+
 ## Fuji ↔ 메인넷 전환
 
 명령은 기본적으로 dry-run이며 Vercel 값을 바꾸지 않습니다. 메인넷 컨트랙트를 배포한 뒤 공개 배포

@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import { beforeEach, test } from 'node:test';
 
 import { PATCH as patchAdminEntry } from '@/app/api/admin/entries/[id]/route';
+import {
+  DELETE as cleanupRehearsal,
+  POST as createRehearsalEntry,
+} from '@/app/api/admin/rehearsal/route';
 import { POST as resetAdmin } from '@/app/api/admin/reset/route';
 import { POST as sweepAdmin } from '@/app/api/admin/sweep/route';
 import { GET as getEntry, POST as postEntry } from '@/app/api/entries/route';
@@ -60,6 +64,32 @@ function asOperator(path: string, body?: unknown) {
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+}
+
+function asOperatorRehearsal(nickname: string, confirmed = true, runId = 'deadbeef') {
+  const passcode = process.env.OPERATOR_PASSCODE ?? 'route-test-passcode';
+  process.env.OPERATOR_PASSCODE = passcode;
+  const form = new FormData();
+  form.set('photo', new File([new Uint8Array([0xff, 0xd8, 0xff])], 'certificate.jpg', {
+    type: 'image/jpeg',
+  }));
+  const url = new URL('http://localhost/api/admin/rehearsal');
+  url.searchParams.set('nickname', nickname);
+  return new Request(url, {
+    method: 'POST',
+    headers: {
+      cookie: `${OPERATOR_COOKIE}=${operatorToken(passcode)}`,
+      ...(confirmed ? { 'x-bakery-rehearsal': 'fuji' } : {}),
+      'x-bakery-rehearsal-run': runId,
+    },
+    body: form,
+  });
+}
+
+function asOperatorRehearsalCleanup(runId: string) {
+  const request = asOperator('/api/admin/rehearsal', { runId });
+  request.headers.set('x-bakery-rehearsal', 'fuji');
+  return new Request(request, { method: 'DELETE' });
 }
 
 test('POST /api/participants — 처음은 201, 다시 부르면 같은 카드로 200', async () => {
@@ -204,6 +234,64 @@ test('POST /api/admin/sweep — 운영자만 멈춘 작업을 수동 점검할 �
   } finally {
     Date.now = originalNow;
   }
+});
+
+test('POST /api/admin/rehearsal — 운영자·Fuji 확인을 모두 요구한다', async () => {
+  const blocked = await createRehearsalEntry(new Request(
+    'http://localhost/api/admin/rehearsal?nickname=리허설',
+    photoBody(),
+  ));
+  assert.equal(blocked.status, 401);
+
+  const unconfirmed = await createRehearsalEntry(asOperatorRehearsal('리허설', false));
+  assert.equal(unconfirmed.status, 400);
+  assert.equal(((await unconfirmed.json()) as ApiErrorBody).error.code, 'INVALID_REQUEST');
+  assert.equal((await getAdminState()).entries.length, 0);
+});
+
+test('POST /api/admin/rehearsal — 별도 지갑의 합성 증서를 곧바로 오븐에 넣는다', async () => {
+  const response = await createRehearsalEntry(asOperatorRehearsal('부하00'));
+  assert.equal(response.status, 201);
+
+  const entry = (await response.json()) as Entry;
+  assert.equal(entry.nickname, '부하00');
+  assert.equal(entry.status, 'SUBMITTED');
+  assert.equal(entry.shelfIndex, 0);
+  assert.equal(entry.photoUrl !== null, true);
+
+  const admin = await getAdminState();
+  assert.match(admin.entries[0].walletAddress, /^0x[0-9a-f]{40}$/);
+  assert.equal('walletAddress' in entry, false);
+});
+
+test('DELETE /api/admin/rehearsal — 해당 실행의 DB·사진·진열칸만 정리한다', async () => {
+  await postParticipant(asParticipant('real-phone', joinBody('실제참가자')));
+  await createRehearsalEntry(asOperatorRehearsal('부하00'));
+  await sweep(Date.now() + STUCK_MS);
+
+  const response = await cleanupRehearsal(asOperatorRehearsalCleanup('deadbeef'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    deleted: { participants: 1, entries: 1, photos: 1 },
+  });
+
+  const admin = await getAdminState();
+  assert.equal(admin.entries.length, 1);
+  assert.equal(admin.entries[0].nickname, '실제참가자');
+  assert.equal(admin.entries[0].shelfIndex, null);
+});
+
+test('DELETE /api/admin/rehearsal — 리허설 뒤에 실제 카드가 들어왔으면 진열 순서를 보존한다', async () => {
+  await createRehearsalEntry(asOperatorRehearsal('부하00'));
+  await postParticipant(asParticipant('real-phone', joinBody('실제참가자')));
+  await postEntry(asParticipant('real-phone', photoBody()));
+  await sweep(Date.now() + STUCK_MS);
+
+  const response = await cleanupRehearsal(asOperatorRehearsalCleanup('deadbeef'));
+  assert.equal(response.status, 400);
+  assert.equal(((await response.json()) as ApiErrorBody).error.code, 'INVALID_REQUEST');
+  assert.equal((await getAdminState()).entries.length, 2);
 });
 
 test('PATCH /api/admin/entries/{id} — 닉네임을 trim하고 잘못된 본문은 hidden을 바꾸지 않는다', async () => {
