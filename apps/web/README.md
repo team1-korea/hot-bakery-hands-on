@@ -68,3 +68,40 @@ npm run lint
 - `ALLOW_DB_RESET`은 운영에서 빼고 `OPERATOR_PASSCODE`는 길게 설정한다.
 - 리허설 데이터를 DB·Storage에서 지운 뒤 실제 Google 로그인 한 명을 끝까지 발행해 본다.
 - TV 브라우저는 `/admin`에 먼저 로그인한 뒤 `/display`를 연다.
+
+## Fuji ↔ 메인넷 전환
+
+명령은 기본적으로 dry-run이며 Vercel 값을 바꾸지 않습니다. 메인넷 컨트랙트를 배포한 뒤 공개 배포
+기록을 만들고, 코드·배포 트랜잭션·민터/관리자 권한을 온체인에서 검증한 값만 Vercel에 사전
+등록합니다. 이 단계에서는 `NEXT_PUBLIC_CHAIN_ID`를 건드리지 않아 Production과 리허설은 Fuji로
+계속 동작합니다. 실제 반영에는 Vercel CLI 로그인과 저장소 루트의 기존 프로젝트 연결이 필요합니다.
+
+```bash
+# 메인넷 배포 직후 한 번: 먼저 온체인 검증을 거쳐 deployments/43114.json을 기록
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x...
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x... --apply --confirm RECORD
+
+# 생성된 contracts/deployments/43114.json을 커밋하고 PR 리뷰·main 머지를 마친 뒤 다음 단계로 간다.
+
+# 주소와 배포 블록만 Vercel에 미리 등록. 활성 체인은 여전히 Fuji
+npm run chain:prepare-mainnet
+npm run chain:prepare-mainnet -- --apply --confirm PREPARE
+
+# 행사 전환과 테스트넷 복귀
+npm run chain:switch -- mainnet
+npm run chain:switch -- mainnet --apply --confirm 43114
+npm run chain:switch -- fuji
+npm run chain:switch -- fuji --apply --confirm 43113
+```
+
+세 명령은 메인넷 민터의 AVAX 잔액도 확인해 정확한 값을 출력하며, 잔액이 0이면 중단합니다. 실제
+행사 인원을 발행할 만큼 충전됐는지는 출력된 잔액과 당시 가스비를 함께 확인합니다. 기록 후 생성된
+`deployments/43114.json`이 `main`에 머지되기 전에는 Vercel 사전 등록이나 전환을 실행하지 않습니다.
+
+`prepare-mainnet`과 `chain:switch -- mainnet`은 `deployments/43114.json`을 다시 온체인 검증합니다.
+메인넷 전환은 검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꾸므로, 사전 등록이 누락돼도
+잘못된 조합으로 활성화하지 않습니다. Fuji는 Vercel에 메인넷 값이 남아 있어도 이를 무시합니다.
+사전 준비 뒤에는 재배포할 필요가 없고, 체인 전환 명령 뒤에만 최신 `main`을 Production으로
+재배포합니다. 전환 전에는 이전 체인의 DB·Storage 데이터를 비워 Explorer 링크가 섞이지 않게 합니다.

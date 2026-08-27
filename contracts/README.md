@@ -29,6 +29,8 @@ Fuji 테스트넷 검증 결과는 [FUJI_SMOKE_TEST.md](./FUJI_SMOKE_TEST.md)에
 
 - ABI: [`abi/AvalancheBakeryCertificate.json`](./abi/AvalancheBakeryCertificate.json)
 - Fuji deployment: [`deployments/43113.json`](./deployments/43113.json)
+- Mainnet deployment: [`deployments/43114.json`](./deployments/43114.json) (`pending`은 아직 미배포이며
+  재사용할 Production 민터 주소만 공개 고정, 배포 후 온체인 검증을 거쳐 `deployed` 기록으로 교체)
 - ABI regeneration: `./scripts/export-abi.sh`
 
 The frontend and backend should use the committed ABI rather than importing the full Foundry `out/` artifact. Whenever
@@ -78,3 +80,17 @@ forge script script/Deploy.s.sol:Deploy --rpc-url "$RPC_URL" --broadcast
 
 The script refuses chains other than Fuji and Avalanche C-Chain mainnet, verifies all three initial role assignments,
 and prints the deployed address and verification results. It never logs the private key.
+
+메인넷 배포 뒤에는 `apps/web`에서 공개 배포 정보와 권한을 온체인 결과와 대조해 기록합니다. `--minter`에는
+Vercel의 기존 `MINTER_PRIVATE_KEY`에서 파생된 운영 민터 주소를 그대로 사용합니다.
+
+```bash
+cd ../apps/web
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x...
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x... --apply --confirm RECORD
+```
+
+생성된 `deployments/43114.json`은 주소·트랜잭션·블록·역할 보유 주소만 담는 공개 기록입니다. 개인키는
+기록하지 않습니다.

@@ -6,7 +6,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     environment: 'jsdom',
-    include: ['tests/unit/**/*.test.{ts,tsx}'],
+    include: ['tests/unit/**/*.test.{ts,tsx,mjs}'],
     setupFiles: ['./tests/setup.ts'],
     clearMocks: true,
     restoreMocks: true,

@@ -19,7 +19,8 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { avalanche, avalancheFuji } from 'viem/chains';
 
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json';
-import deployment from '@contracts/deployments/43113.json';
+
+import { resolveServerChainConfig } from './chainConfig';
 
 /**
  * 증서 컨트랙트 호출. 파이프라인 3·4단계(민팅·영수증)가 보는 유일한 체인 창구다.
@@ -40,45 +41,17 @@ const abi = certificateAbi as Abi;
  *
  * 빈 값은 Fuji로 두고, 행사에서 쓰는 두 체인 외 값은 시작 단계에서 거절한다.
  */
-const configuredChainId = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
-const chainId = configuredChainId ? Number(configuredChainId) : avalancheFuji.id;
-if (chainId !== avalancheFuji.id && chainId !== avalanche.id) {
-  throw new Error(`지원하지 않는 Avalanche 체인 ID입니다: ${configuredChainId}`);
-}
+const serverChainConfig = resolveServerChainConfig();
+const chainId = serverChainConfig.chainId;
 const chain = chainId === avalanche.id ? avalanche : avalancheFuji;
 
 /** 운영자와 리허설 도구가 브라우저 쪽 추측 대신 실제 서버 설정을 확인한다. */
 export const chainRuntime = {
   id: chainId,
-  customRpc: Boolean(process.env.AVALANCHE_RPC_URL?.trim()),
+  customRpc: Boolean(serverChainConfig.rpcUrl),
 } as const;
-
-/**
- * 주소와 배포 블록의 정본은 Fuji에서는 `contracts/deployments/43113.json`이다.
- * 다른 체인이면 배포 파일이 없으므로 둘 다 환경변수로 받는다. **주소만 바꾸면 안 된다.**
- * 조회 시작 블록이 남으면 `findIssuedMint`가 엉뚱한 구간을 훑어 이미 발행된 건을 놓친다.
- */
-function resolveDeployment(): { address: Address; block: bigint } {
-  const address = process.env.CERTIFICATE_ADDRESS as Address | undefined;
-  const block = Number(process.env.CERTIFICATE_DEPLOYMENT_BLOCK) || 0;
-
-  if (chainId === avalancheFuji.id) {
-    return {
-      address: address ?? (deployment.address as Address),
-      block: BigInt(block || deployment.deploymentBlock),
-    };
-  }
-
-  // 메인넷에서 Fuji 기본값으로 조용히 넘어가면 진짜 돈을 없는 컨트랙트에 태운다.
-  if (!address || !block) {
-    throw new Error(
-      `체인 ${chainId}에는 CERTIFICATE_ADDRESS와 CERTIFICATE_DEPLOYMENT_BLOCK을 함께 설정해야 합니다.`,
-    );
-  }
-  return { address, block: BigInt(block) };
-}
-
-const { address: contractAddress, block: deploymentBlock } = resolveDeployment();
+const contractAddress = serverChainConfig.contractAddress;
+const deploymentBlock = serverChainConfig.deploymentBlock;
 
 /**
  * 영수증 파싱과 로그 조회가 함께 쓰는 이벤트.
@@ -93,14 +66,14 @@ const certificateIssuedEvent = parseAbiItem(
 /** RPC를 안 주면 viem이 그 체인의 공개 RPC를 쓴다. 읽기 전용 호출은 환경변수 없이도 돈다. */
 const publicClient = createPublicClient({
   chain,
-  transport: http(process.env.AVALANCHE_RPC_URL),
+  transport: http(serverChainConfig.rpcUrl),
 });
 
 /** 관리자 명단이 잔액 RPC 장애를 기다리지 않도록 잔액 조회만 짧게 끊는다. */
 const BALANCE_RPC_TIMEOUT_MS = 750;
 const balanceClient = createPublicClient({
   chain,
-  transport: http(process.env.AVALANCHE_RPC_URL, {
+  transport: http(serverChainConfig.rpcUrl, {
     retryCount: 0,
     timeout: BALANCE_RPC_TIMEOUT_MS,
   }),
@@ -138,7 +111,11 @@ function toAlreadyIssuedError(error: unknown, recipient: Address): AlreadyIssued
 function requireMinterAccount(): PrivateKeyAccount {
   const key = process.env.MINTER_PRIVATE_KEY;
   if (!key) throw new Error('MINTER_PRIVATE_KEY가 없습니다. 민팅은 서버 민터 지갑으로만 합니다.');
-  return privateKeyToAccount(key as Hex);
+  const account = privateKeyToAccount(key as Hex);
+  if (serverChainConfig.minterAddress && account.address !== serverChainConfig.minterAddress) {
+    throw new Error('MINTER_PRIVATE_KEY가 메인넷 배포 기록의 민터 주소와 다릅니다.');
+  }
+  return account;
 }
 
 /**
@@ -281,7 +258,7 @@ export async function mint(recipient: Address, metadataUri: string): Promise<Hex
   const walletClient = createWalletClient({
     account,
     chain,
-    transport: http(process.env.AVALANCHE_RPC_URL),
+    transport: http(serverChainConfig.rpcUrl),
   });
 
   for (let attempt = 1; ; attempt += 1) {

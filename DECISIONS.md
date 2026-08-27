@@ -274,10 +274,16 @@ function zone(status: EntryStatus) {
 로컬 개발과 사전 검증의 기본 네트워크는 계속 Fuji(`43113`)를 사용하지만, 이번 행사 운영은
 메인넷(`43114`) 컨트랙트를 새로 배포한 뒤 전환합니다.
 
-Vercel에는 `NEXT_PUBLIC_CHAIN_ID`, `CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYMENT_BLOCK`을
-한 세트로 설정합니다. 주소만 바꾸면 민팅 체인과 Explorer가 어긋날 수 있고, 배포 블록이 없으면
-이벤트 복구가 전체 체인을 잘못 조회할 수 있으므로 메인넷에서는 두 서버 값을 모두 필수로
-검증합니다.
+메인넷의 `CERTIFICATE_ADDRESS`와 `CERTIFICATE_DEPLOYMENT_BLOCK`은 Fuji 리허설 중에도 Vercel에
+미리 저장할 수 있습니다. Fuji는 이 두 값을 무시하고 커밋된 `deployments/43113.json`만 사용합니다.
+메인넷 배포 결과는 `deployments/43114.json`에 주소·배포 트랜잭션·블록·관리자·민터를 공개 기록합니다.
+초기 `MINTER_ROLE`은 현재 Production 서버 민터와 같은 주소에 부여하고 Vercel의 기존
+`MINTER_PRIVATE_KEY`를 그대로 사용합니다. 배포 전 공개 계획에도 이 민터 주소를 고정해 다른 주소로
+기록하지 못하게 합니다.
+`chain:prepare-mainnet`은 이 기록을 온체인 코드와 역할에 대조한 뒤 주소·블록만 사전 등록하고 활성
+체인은 건드리지 않습니다. 실제 활성화 스위치는 `NEXT_PUBLIC_CHAIN_ID`이며, 행사 때 `chain:switch`가
+검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꿉니다. 주소만 바꾸거나 배포 블록을 빠뜨리면
+이벤트 복구가 잘못된 구간을 조회할 수 있으므로 메인넷 선택 시에는 두 값을 모두 필수로 검증합니다.
 
 이번 행사만 운영한 뒤 서비스를 종료하므로 커스텀 RPC는 추가하지 않습니다.
 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다. 배포 전에는 메인넷 컨트랙트의
