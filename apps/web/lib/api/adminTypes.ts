@@ -15,6 +15,13 @@ export type AdminEntry = Entry & {
   autoHidden: boolean;
   /** 메타데이터가 아직 IPFS에 올라가지 않아 닉네임을 안전하게 고칠 수 있는지. */
   nicknameEditable: boolean;
+  /**
+   * 지금 상태가 된 시각(ISO 8601).
+   *
+   * 운영자가 "굽는 중"이 20초짼지 3분째인지 구별하려면 이 값이 필요하다. 공개 응답에는
+   * 없다 — 참가자 화면은 남의 진행 상황을 알 이유가 없다.
+   */
+  statusChangedAt: string;
 };
 
 export type AdminStateResponse = {

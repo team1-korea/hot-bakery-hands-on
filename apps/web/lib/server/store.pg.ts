@@ -273,10 +273,15 @@ export async function getState(): Promise<StateResponse> {
 /** 민터 잔액은 체인 조회라 라우트에서 얹는다. 저장소는 DB만 본다. */
 export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter' | 'chain'>> {
   const [rows, show] = await Promise.all([
-    query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
+    query<EntryRow & {
+      auto_hidden_at: Date | null;
+      wallet_address: string;
+      metadata_cid: string | null;
+      status_changed_at: Date;
+    }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
               e.token_id, e.tx_hash, e.hidden, e.failure_reason, e.created_at,
-              e.auto_hidden_at, e.metadata_cid, p.wallet_address
+              e.auto_hidden_at, e.metadata_cid, e.status_changed_at, p.wallet_address
          from entries e
          join participants p on p.id = e.participant_id
         order by e.created_at`,
@@ -291,6 +296,7 @@ export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'
         walletAddress: row.wallet_address,
         autoHidden: row.hidden && row.auto_hidden_at !== null,
         nicknameEditable: row.metadata_cid === null,
+        statusChangedAt: row.status_changed_at.toISOString(),
       }),
     ),
     show,

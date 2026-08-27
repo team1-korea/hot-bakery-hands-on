@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { AdminEntry } from '@/lib/api/adminTypes';
 import { ApiError, logoutOperator } from '@/lib/api/client';
-import { MAX_ENTRIES, SHELF_SLOTS, type EntryStatus } from '@/lib/api/types';
+import { MAX_ENTRIES, SHELF_SLOTS, STUCK_MS, type EntryStatus } from '@/lib/api/types';
 
 import {
   resetAdminData,
@@ -49,6 +49,44 @@ const EMPTY_MESSAGE: Record<Filter, string> = {
  * 실패 이유는 서버가 준 문장이다. 그 안에 내부 상태 이름이 섞여 오면 운영자가 읽는 말로 바꿔 준다.
  * 모르는 낱말은 건드리지 않는다.
  */
+/** 1초마다 갱신되는 현재 시각. 렌더 중 `Date.now()`를 부르면 순수하지 않다. */
+function useNow(): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return now;
+}
+
+/** 아직 끝나지 않은 카드. 이 상태들만 "얼마나 됐나"가 의미가 있다. */
+const UNFINISHED: EntryStatus[] = ['JOINED', 'SUBMITTED', 'PINNED', 'MINTING'];
+
+/**
+ * 이 상태로 얼마나 있었는지.
+ *
+ * 없으면 「굽는 중」이 20초짼지 3분째인지 알 수 없다 — 인보케이션이 죽어 멈춘 카드가
+ * 정상적으로 굽는 카드와 화면에서 똑같이 보인다. 실패한 카드는 「실패」 카운터와 버튼으로
+ * 드러나지만 멈춘 카드는 아무 신호도 내지 않으므로, 여기서 시간을 보여 준다.
+ *
+ * `STUCK_MS`를 넘기면 강조한다 — 그때부터 「멈춘 작업 점검/복구」가 실제로 집어갈 수 있다.
+ * 그 전에 눌러도 안전하지만 결과가 "0건"이라 운영자가 헛걸음한 줄 안다.
+ */
+function StuckFor({ status, since, now }: { status: EntryStatus; since: string; now: number }) {
+  if (!UNFINISHED.includes(status)) return null;
+
+  const seconds = Math.floor((now - new Date(since).getTime()) / 1_000);
+  // 몇 초짜리는 어차피 정상이라 숫자가 흔들리기만 한다.
+  if (!Number.isFinite(seconds) || seconds < 10) return null;
+
+  const label = seconds < 60 ? `${seconds}초` : `${Math.floor(seconds / 60)}분 ${seconds % 60}초`;
+  return (
+    <small className="admin-elapsed" data-tone={seconds * 1_000 >= STUCK_MS ? 'alert' : undefined}>
+      {label}째
+    </small>
+  );
+}
+
 function readableReason(reason: string) {
   return reason.replace(/\b(JOINED|SUBMITTED|PINNED|MINTING|MINTED|FAILED)\b/g, (status) => (
     STATUS_LABEL[status as EntryStatus]
@@ -79,6 +117,7 @@ function avax(wei: string) {
 
 export function AdminBoard() {
   const { state, stale } = useAdminState();
+  const now = useNow();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('ALL');
   const [query, setQuery] = useState('');
@@ -290,6 +329,7 @@ export function AdminBoard() {
               <Row
                 key={entry.id}
                 entry={entry}
+                now={now}
                 busy={busyId === entry.id}
                 onAct={act}
                 onZoom={() => setZoomed(entry)}
@@ -365,9 +405,10 @@ function PhotoViewer({ entry, busy, onClose, onAct }: {
   );
 }
 
-function Row({ entry, busy, onAct, onZoom }: {
+function Row({ entry, busy, now, onAct, onZoom }: {
   entry: AdminEntry;
   busy: boolean;
+  now: number;
   onAct: Act;
   onZoom: () => void;
 }) {
@@ -396,6 +437,7 @@ function Row({ entry, busy, onAct, onZoom }: {
       </td>
       <td>
         <span className="admin-status" data-status={entry.status}>{STATUS_LABEL[entry.status]}</span>
+        <StuckFor status={entry.status} since={entry.statusChangedAt} now={now} />
         {/* 스위퍼가 내린 것과 운영자가 내린 것은 다시 올릴지 판단이 다르다. */}
         {entry.hidden ? (
           <small className="admin-down">{entry.autoHidden ? '자동 내림' : '운영자가 내림'}</small>
