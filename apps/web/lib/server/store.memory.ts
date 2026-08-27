@@ -238,6 +238,7 @@ export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'
         walletAddress: row.walletAddress,
         autoHidden: row.entry.hidden && row.autoHiddenAt !== null,
         nicknameEditable: row.metadataCid === null,
+        statusChangedAt: new Date(row.statusChangedAt).toISOString(),
       }),
     ),
     show: store.show,
