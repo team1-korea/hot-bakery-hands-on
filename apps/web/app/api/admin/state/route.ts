@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import type { AdminStateResponse } from '@/lib/api/adminTypes';
-import { minterBalance } from '@/lib/server/chain';
+import { chainRuntime, minterBalance } from '@/lib/server/chain';
 import { blockNonOperator } from '@/lib/server/http';
 import { getAdminState } from '@/lib/server/store';
 
@@ -20,5 +20,5 @@ export async function GET() {
 
   // 저장소는 DB만 본다. 체인 조회는 여기서 얹어 store를 순수하게 둔다.
   const [state, minter] = await Promise.all([getAdminState(), minterBalance()]);
-  return NextResponse.json<AdminStateResponse>({ ...state, minter });
+  return NextResponse.json<AdminStateResponse>({ ...state, minter, chain: chainRuntime });
 }

@@ -73,7 +73,7 @@ const chainId = configuredChainId ? Number(configuredChainId) : avalancheFuji.id
 if (chainId !== avalancheFuji.id) {
   exit(`부하 테스트는 Fuji(${avalancheFuji.id})에서만 실행할 수 있습니다. 현재 체인 ID: ${chainId}`);
 }
-if (process.env.AVALANCHE_RPC_URL) {
+if (process.env.AVALANCHE_RPC_URL?.trim()) {
   exit('부하 테스트에서는 AVALANCHE_RPC_URL을 비우고 Fuji 공개 RPC를 사용하세요.');
 }
 const publicClient = createPublicClient({
@@ -85,6 +85,14 @@ const publicClient = createPublicClient({
 // 준비
 // ---------------------------------------------------------------------------
 
+const initialState = await adminState();
+if (initialState.chain?.id !== avalancheFuji.id) {
+  exit(`대상 서버가 Fuji가 아닙니다. 서버 체인 ID: ${initialState.chain?.id ?? '(확인 불가)'}`);
+}
+if (initialState.chain.customRpc) {
+  exit('대상 서버가 커스텀 RPC를 사용 중입니다. Fuji 공개 RPC로 실행한 서버만 허용합니다.');
+}
+
 const template = options.photo ? await readFile(options.photo) : synthesizeJpeg(photoBytes);
 
 if (shouldReset) {
@@ -93,7 +101,7 @@ if (shouldReset) {
   console.log(`초기화      ${JSON.stringify((await wiped.json()).deleted)}`);
 }
 
-const before = await adminState();
+const before = shouldReset ? await adminState() : initialState;
 // 진열칸은 30개뿐이다. 이미 잡힌 칸이 있으면 그만큼 SHOWCASE_FULL로 튕겨서 부하를 못 잰다.
 const taken = before.entries.filter((entry) => entry.shelfIndex !== null).length;
 if (taken + count > 30) {
@@ -278,32 +286,48 @@ const waits = minted.map((entry) => (finishedAt.get(entry.id) ?? 0) - (startedAt
 const helped = [...retried.values()].filter((n) => n > 0).length;
 const entryById = new Map(entries.map((entry) => [entry.id, entry]));
 const claimedEntryIds = new Set();
-const failedParticipants = participants.flatMap((participant, index) => {
+const participantOutcomes = participants.map((participant, index) => {
+  const reasons = [];
+  const registrationResult = registered[index];
+  if (!requestSucceeded(registrationResult)) {
+    reasons.push(`등록 실패: ${describeFailure(registrationResult)}`);
+  }
+
   const submitResult = submitted[index];
   const entryId = submitResult.value?.body?.id;
   if (!entryId) {
-    return [{ nickname: participant.nickname, reason: `제출 실패: ${describeFailure(submitResult)}` }];
+    reasons.push(`제출 실패: ${describeFailure(submitResult)}`);
+    return { nickname: participant.nickname, minted: false, reasons };
   }
   if (claimedEntryIds.has(entryId)) {
-    return [{ nickname: participant.nickname, reason: `중복 entry ID 응답: ${entryId}` }];
+    reasons.push(`중복 entry ID 응답: ${entryId}`);
+    return { nickname: participant.nickname, minted: false, reasons };
   }
   claimedEntryIds.add(entryId);
 
   const finalEntry = entryById.get(entryId);
   if (!finalEntry) {
-    return [{ nickname: participant.nickname, reason: '운영자 상태에서 제출 항목을 찾지 못함' }];
+    reasons.push('운영자 상태에서 제출 항목을 찾지 못함');
+    return { nickname: participant.nickname, minted: false, reasons };
   }
-  if (finalEntry.status === 'MINTED') return [];
-  return [{
-    nickname: participant.nickname,
-    reason: String(finalEntry.failureReason ?? finalEntry.status).split('\n')[0].slice(0, 80),
-  }];
+  const wasMinted = finalEntry.status === 'MINTED';
+  if (!wasMinted) {
+    reasons.push(String(finalEntry.failureReason ?? finalEntry.status).split('\n')[0].slice(0, 80));
+  }
+  return { nickname: participant.nickname, minted: wasMinted, reasons };
 });
+const mintedParticipants = participantOutcomes.filter((participant) => participant.minted);
+const unmintedParticipants = participantOutcomes.filter((participant) => !participant.minted);
+const failedParticipants = participantOutcomes.filter((participant) => participant.reasons.length > 0);
+const failedChecks = failedParticipants.flatMap((participant) => (
+  participant.reasons.map((reason) => ({ nickname: participant.nickname, reason }))
+));
 
-console.log(`증서 받음   ${minted.length}/${count}${waits.length ? `  참가자 체감 ${summarize(waits)}` : ''}`);
+console.log(`증서 받음   ${mintedParticipants.length}/${count}${waits.length ? `  참가자 체감 ${summarize(waits)}` : ''}`);
 console.log(`운영자 개입 ${helped}명에게 총 ${[...retried.values()].reduce((a, b) => a + b, 0)}회`);
-console.log(`끝내 실패   ${failedParticipants.length}${failedParticipants.length ? `  (${failedParticipants.map((participant) => participant.nickname).join(', ')})` : ''}`);
-for (const [reason, howMany] of Object.entries(countBy(failedParticipants, (participant) => participant.reason))) {
+console.log(`끝내 미발행 ${unmintedParticipants.length}${unmintedParticipants.length ? `  (${unmintedParticipants.map((participant) => participant.nickname).join(', ')})` : ''}`);
+console.log(`검증 실패   ${failedParticipants.length}${failedParticipants.length ? `  (${failedParticipants.map((participant) => participant.nickname).join(', ')})` : ''}`);
+for (const [reason, howMany] of Object.entries(countBy(failedChecks, (failure) => failure.reason))) {
   console.log(`  ${howMany}건 · ${reason}`);
 }
 if (finishedAt.size > 0) {
@@ -316,7 +340,7 @@ if (minterBefore && minterAddress) {
   console.log(`민터        nonce +${nonce - minterBefore.nonce} · 가스 ${formatEther(minterBefore.balance - balance)} AVAX`);
 }
 
-if (failedParticipants.length > 0 || minted.length !== count) process.exitCode = 1;
+if (failedParticipants.length > 0 || mintedParticipants.length !== count) process.exitCode = 1;
 
 // ---------------------------------------------------------------------------
 
@@ -353,13 +377,17 @@ async function inWaves(items, size, gapMs, run) {
 }
 
 function report(title, results) {
-  const ok = results.filter((result) => result.value && result.value.status < 400);
-  const bad = results.filter((result) => !result.value || result.value.status >= 400);
+  const ok = results.filter(requestSucceeded);
+  const bad = results.filter((result) => !requestSucceeded(result));
   console.log(title);
   console.log(`  성공      ${ok.length}/${results.length}  ${summarize(results.map((result) => result.ms))}`);
   for (const [reason, howMany] of Object.entries(countBy(bad, describeFailure))) {
     console.log(`  실패      ${howMany}건 · ${reason}`);
   }
+}
+
+function requestSucceeded(result) {
+  return Boolean(result.value && result.value.status < 400);
 }
 
 function describeFailure(result) {

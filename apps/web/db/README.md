@@ -110,7 +110,7 @@ select layout, qr_visible, shelf_page from show_state;
 | `auto_hidden_at` | timestamptz | 자동 내림 또는 운영자가 표시를 고정한 시각 |
 | `failure_reason` | text | 실패할 때 |
 | `created_at` | timestamptz | 등록 |
-| `status_changed_at` | timestamptz | **상태를 바꿀 때마다** |
+| `status_changed_at` | timestamptz | 보통 상태 변경 때. `tx_hash` 보존 실패·재시도는 최초 전송 시각 유지 |
 
 ### 상태별로 뭐가 채워져 있나
 

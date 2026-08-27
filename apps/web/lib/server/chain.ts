@@ -38,10 +38,20 @@ const abi = certificateAbi as Abi;
  * 어느 체인에 쓰는지. 브라우저의 Explorer 링크(`lib/explorer.ts`)와 같은 값을 본다.
  * 하나로 묶어야 링크는 Fuji를 가리키는데 민팅은 메인넷으로 나가는 어긋남이 없다.
  *
- * `Number(...) ||`인 이유는 아래 `MINT_GAS_LIMIT`과 같다. 빈 값이 0으로 새는 것을 막는다.
+ * 빈 값은 Fuji로 두고, 행사에서 쓰는 두 체인 외 값은 시작 단계에서 거절한다.
  */
-const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || avalancheFuji.id;
+const configuredChainId = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
+const chainId = configuredChainId ? Number(configuredChainId) : avalancheFuji.id;
+if (chainId !== avalancheFuji.id && chainId !== avalanche.id) {
+  throw new Error(`지원하지 않는 Avalanche 체인 ID입니다: ${configuredChainId}`);
+}
 const chain = chainId === avalanche.id ? avalanche : avalancheFuji;
+
+/** 운영자와 리허설 도구가 브라우저 쪽 추측 대신 실제 서버 설정을 확인한다. */
+export const chainRuntime = {
+  id: chainId,
+  customRpc: Boolean(process.env.AVALANCHE_RPC_URL?.trim()),
+} as const;
 
 /**
  * 주소와 배포 블록의 정본은 Fuji에서는 `contracts/deployments/43113.json`이다.

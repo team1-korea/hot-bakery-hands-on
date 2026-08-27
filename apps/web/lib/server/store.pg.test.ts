@@ -406,7 +406,33 @@ describe('Postgres 저장소 (실제 Supabase)', { skip: LIVE ? false : 'DATABAS
       "update entries set status = 'FAILED', tx_hash = $2, failure_reason = 'test' where id = $1",
       [pinned.id, `0x${'1'.repeat(64)}`],
     );
+    await age(pinned.id, 6 * 60);
+    const sentAt = (await getPipelineEntry(pinned.id))?.statusChangedAt.getTime();
     assert.equal((await retryEntry(pinned.id))?.status, 'MINTING');
+    assert.equal((await getPipelineEntry(pinned.id))?.statusChangedAt.getTime(), sentAt);
+  });
+
+  test('txHash를 보존한 실패와 재시도는 최초 전송 시각도 보존한다', async () => {
+    const pinned = await joined(1);
+    assert.ok((await submit(pinned.id)).ok);
+    await saveCertificateCid(pinned.id, 'bafy-certificate');
+    await saveMetadataCid(pinned.id, 'bafy-metadata');
+    await query(
+      "update entries set status = 'MINTING', tx_hash = $2 where id = $1",
+      [pinned.id, `0x${'1'.repeat(64)}`],
+    );
+    await age(pinned.id, 6 * 60);
+    const sentAt = (await getPipelineEntry(pinned.id))?.statusChangedAt.getTime();
+
+    await markPipelineFailed(pinned.id, 'temporary RPC failure');
+    const failed = await getPipelineEntry(pinned.id);
+    assert.equal(failed?.status, 'FAILED');
+    assert.equal(failed?.statusChangedAt.getTime(), sentAt);
+
+    await retryEntry(pinned.id);
+    const retried = await getPipelineEntry(pinned.id);
+    assert.equal(retried?.status, 'MINTING');
+    assert.equal(retried?.statusChangedAt.getTime(), sentAt);
   });
 
   test('확정 리버트 실패는 txHash를 버려 재시도가 새 민팅 단계에서 시작한다', async () => {

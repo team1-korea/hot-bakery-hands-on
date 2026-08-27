@@ -20,6 +20,7 @@ const EMPTY_STATE: AdminStateResponse = {
   counts: { submitted: 0, minted: 0 },
   capabilities: { resetDatabase: false, mockServer: false },
   minter: null,
+  chain: { id: 0, customRpc: false },
 };
 
 /**

@@ -229,7 +229,7 @@ export async function getState(): Promise<StateResponse> {
  * `hidden`인 카드도 그대로 내려보낸다. TV에서만 감춘 것이고, 나중에 그 참가자가 사진을
  * 가져오면 다시 올려야 한다.
  */
-export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'>> {
+export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter' | 'chain'>> {
   const rows = [...store.rows].sort((a, b) => a.entry.submittedAt.localeCompare(b.entry.submittedAt));
   return {
     entries: rows.map(

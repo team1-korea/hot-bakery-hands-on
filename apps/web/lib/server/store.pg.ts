@@ -271,7 +271,7 @@ export async function getState(): Promise<StateResponse> {
  * 가져오면 다시 올려야 한다.
  */
 /** 민터 잔액은 체인 조회라 라우트에서 얹는다. 저장소는 DB만 본다. */
-export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'>> {
+export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter' | 'chain'>> {
   const [rows, show] = await Promise.all([
     query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
@@ -398,7 +398,8 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
               else 'SUBMITTED'::entry_status
             end,
             failure_reason = null,
-            status_changed_at = now()
+            -- tx_hash가 있으면 새 전송이 아니라 기존 거래 확인 재개다. 최초 전송 시각을 지킨다.
+            status_changed_at = case when tx_hash is not null then status_changed_at else now() end
       where id = $1 and status = 'FAILED'
     returning ${ENTRY_COLUMNS}`,
     [entryId],
@@ -556,7 +557,11 @@ export async function markPipelineFailed(
         set status = 'FAILED',
             failure_reason = $2,
             tx_hash = case when $3 then null else tx_hash end,
-            status_changed_at = now()
+            -- 살아 있을 수 있는 tx_hash를 보존하면 최초 전송 시각도 함께 보존한다.
+            status_changed_at = case
+              when tx_hash is not null and not $3 then status_changed_at
+              else now()
+            end
       where id = $1 and status <> 'MINTED' and certificate_path is not null`,
     [entryId, reason.slice(0, 1_000), options.discardTxHash === true],
   );

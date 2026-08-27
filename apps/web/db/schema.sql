@@ -84,7 +84,8 @@ create table if not exists entries (
   -- 등록 시각. API의 submittedAt이 이 값입니다(카드 정렬 기준).
   created_at      timestamptz not null default now(),
 
-  -- 스위퍼가 "얼마나 오래 이 상태였나"를 보는 값입니다. 상태를 바꿀 때마다 같이 갱신하세요.
+  -- 스위퍼가 "얼마나 오래 이 상태였나"를 보는 값입니다. 보통 상태를 바꿀 때 갱신합니다.
+  -- 단, tx_hash를 보존하는 실패·재시도는 최초 전송 시각을 지켜 중복 전송 유예를 재지 않습니다.
   status_changed_at timestamptz not null default now(),
 
   -- 사진이 없으면 JOINED, 있으면 JOINED가 아니어야 합니다.
