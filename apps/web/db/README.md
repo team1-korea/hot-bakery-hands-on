@@ -211,16 +211,13 @@ select id, nickname, status, shelf_index, hidden, created_at
 ### 민팅 대기열 집어가기
 
 ```sql
-select * from entries
- where status = 'PINNED'
- order by shelf_index
-   for update skip locked
- limit 1;
+select pg_try_advisory_xact_lock(hashtext('hot-bakery-mint'));
 ```
 
 민터 지갑이 하나라 동시에 트랜잭션을 보내면 nonce가 충돌합니다. 서버리스는 인보케이션이
-여러 개 동시에 뜨므로 DB로 막습니다. **못 잡은 인보케이션은 그냥 끝내면 됩니다** — 남은 일은
-다음 제출이나 스위퍼가 주워갑니다.
+여러 개 동시에 뜨므로 DB로 막습니다. 못 잡은 인보케이션은 트랜잭션을 끝내 커넥션을 반납한 뒤
+400~1000ms 간격으로 다시 시도합니다. 최대 20초 안에 차례를 못 잡으면 `FAILED`로 내려 운영자가
+재시도할 수 있게 합니다. 락을 기다리는 동안 DB 커넥션을 계속 점유하면 안 됩니다.
 
 ### 스위퍼 ① 멈춘 행 → `FAILED`
 
@@ -237,7 +234,8 @@ update entries
 영원히 오븐에 있는 카드가 생깁니다.
 
 `MINTING`은 이 SQL로 내리지 않습니다. `/api/internal/sweep`가 영수증과 `CertificateIssued`
-이벤트를 먼저 조회해 성공을 복구하고, 체인에도 없을 때만 실패 처리합니다. 복구 절차는
+이벤트를 먼저 조회해 성공을 복구합니다. 영수증이 없으면 트랜잭션 전송 후 5분을 기다린 뒤 공개 RPC에서
+세 번 연속 트랜잭션을 찾지 못한 경우에만 해시를 비우고 실패 처리합니다. 복구 절차는
 [PIPELINE.md](../../../PIPELINE.md)에 있습니다.
 
 ### 스위퍼 ② 방치된 `JOINED` → `hidden`

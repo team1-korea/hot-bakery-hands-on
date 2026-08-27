@@ -316,11 +316,14 @@ test('확정 리버트된 민팅은 실패 해시를 버리고 새 트랜잭션�
 });
 
 test('사라진 민팅 트랜잭션은 죽은 해시를 버려 재시도가 새로 보낼 수 있게 한다', async () => {
+  const now = Date.parse('2026-08-29T04:00:00.000Z');
   const orphaned = entry({
     status: 'MINTING',
     txHash: TX,
     metadataCid: 'bafy-metadata',
     certificateCid: 'bafy-certificate',
+    submittedAt: new Date(now - 6 * 60_000),
+    statusChangedAt: new Date(now - 6 * 60_000),
   });
   repository.row = orphaned;
   repository.stale = [orphaned];
@@ -328,7 +331,7 @@ test('사라진 민팅 트랜잭션은 죽은 해시를 버려 재시도가 새�
   deps.chain.readMintReceipt = async () => null;
   deps.chain.transactionDisappeared = async () => true;
 
-  const swept = await sweepPipeline(Date.now(), deps);
+  const swept = await sweepPipeline(now, deps);
 
   assert.equal(swept.failed, 1);
   assert.equal(repository.row?.status, 'FAILED');
@@ -337,19 +340,50 @@ test('사라진 민팅 트랜잭션은 죽은 해시를 버려 재시도가 새�
 });
 
 test('아직 mempool에 있는 민팅은 해시를 지키고 중복 전송하지 않는다', async () => {
+  const now = Date.parse('2026-08-29T04:00:00.000Z');
   const pending = entry({
     status: 'MINTING',
     txHash: TX,
     metadataCid: 'bafy-metadata',
     certificateCid: 'bafy-certificate',
+    submittedAt: new Date(now - 6 * 60_000),
+    statusChangedAt: new Date(now - 6 * 60_000),
   });
   repository.row = pending;
   repository.stale = [pending];
   deps.chain.readMintReceipt = async () => null;
   deps.chain.transactionDisappeared = async () => false;
 
-  await sweepPipeline(Date.now(), deps);
+  const swept = await sweepPipeline(now, deps);
 
-  assert.equal(repository.row?.status, 'FAILED');
+  assert.deepEqual(swept, { failed: 0, hidden: 0, recovered: 0, deferred: 1 });
+  assert.equal(repository.row?.status, 'MINTING');
+  assert.equal(repository.row?.txHash, TX);
+});
+
+test('트랜잭션 전송 후 5분이 안 된 민팅은 RPC에서 안 보여도 유실 판정을 미룬다', async () => {
+  const now = Date.parse('2026-08-29T04:00:00.000Z');
+  let missingChecks = 0;
+  const recent = entry({
+    status: 'MINTING',
+    txHash: TX,
+    metadataCid: 'bafy-metadata',
+    certificateCid: 'bafy-certificate',
+    submittedAt: new Date(now - 2 * 60_000),
+    statusChangedAt: new Date(now - 2 * 60_000),
+  });
+  repository.row = recent;
+  repository.stale = [recent];
+  deps.chain.readMintReceipt = async () => null;
+  deps.chain.transactionDisappeared = async () => {
+    missingChecks += 1;
+    return true;
+  };
+
+  const swept = await sweepPipeline(now, deps);
+
+  assert.deepEqual(swept, { failed: 0, hidden: 0, recovered: 0, deferred: 1 });
+  assert.equal(missingChecks, 0);
+  assert.equal(repository.row?.status, 'MINTING');
   assert.equal(repository.row?.txHash, TX);
 });

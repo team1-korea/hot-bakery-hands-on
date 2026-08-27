@@ -252,6 +252,8 @@ const MINT_GAS_LIMIT = BigInt(Number(process.env.MINT_GAS_LIMIT) || 300_000);
  * `AlreadyIssued`로 되돌아온다 — 그 복구 경로는 이미 아래에 있다.
  */
 const MINT_SEND_ATTEMPTS = 3;
+const TRANSACTION_MISSING_CONFIRMATIONS = 3;
+const TRANSACTION_MISSING_RETRY_MS = 400;
 
 /** 보내려던 번호가 어긋났을 뿐 트랜잭션은 나가지 않은 상태. 다시 보내면 된다. */
 function isStaleNonce(error: unknown): boolean {
@@ -308,7 +310,7 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
 }
 
 /**
- * 그 해시가 체인에도 mempool에도 없는지.
+ * 그 해시가 현재 공개 RPC의 반복 조회에도 없는지.
  *
  * nonce 경합에서 밀려난 트랜잭션은 해시만 남기고 사라진다. 영수증도 없고 앞으로도 안 생기는데,
  * DB에 해시가 남아 있으면 `retryEntry`가 상태를 `MINTING`으로 되돌리고 `mintEntry`는
@@ -316,16 +318,22 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
  * 몇 번 눌러도 같은 자리를 돈다 — 실측에서 60명 중 3명이 이렇게 갇혔다.
  *
  * **찾지 못한 것과 조회에 실패한 것을 구분한다.** RPC가 잠시 죽은 것을 "사라졌다"로 읽으면
- * 아직 살아 있는 트랜잭션의 해시를 버려 같은 발급을 두 번 보내게 된다.
+ * 아직 살아 있는 트랜잭션의 해시를 버려 같은 발급을 두 번 보내게 된다. 한 번의 not found도
+ * 노드별 mempool 차이일 수 있어 짧은 간격으로 세 번 확인한다.
  */
 export async function transactionDisappeared(txHash: Hex): Promise<boolean> {
-  try {
-    await publicClient.getTransaction({ hash: txHash });
-    return false;
-  } catch (error) {
-    if (error instanceof TransactionNotFoundError) return true;
-    throw error;
+  for (let attempt = 0; attempt < TRANSACTION_MISSING_CONFIRMATIONS; attempt += 1) {
+    try {
+      await publicClient.getTransaction({ hash: txHash });
+      return false;
+    } catch (error) {
+      if (!(error instanceof TransactionNotFoundError)) throw error;
+    }
+    if (attempt + 1 < TRANSACTION_MISSING_CONFIRMATIONS) {
+      await new Promise((resolve) => setTimeout(resolve, TRANSACTION_MISSING_RETRY_MS));
+    }
   }
+  return true;
 }
 
 export type MintReceipt =
