@@ -4,7 +4,11 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { readMainnetDeployment, verifyMainnetDeployment } from './mainnet-deployment.mjs';
+import {
+  mainnetEnvironmentUpdates,
+  readMainnetDeployment,
+  verifyMainnetDeployment,
+} from './mainnet-deployment.mjs';
 
 const CHAIN_IDS = { fuji: '43113', mainnet: '43114' };
 const options = parseArguments(process.argv.slice(2));
@@ -14,35 +18,24 @@ if (!preparingMainnet && !chainId) {
   usage(`대상은 prepare-mainnet, fuji 또는 mainnet이어야 합니다: ${options.target ?? '(없음)'}`);
 }
 
-if (options.offline && options.apply) usage('--offline은 dry-run에서만 사용할 수 있습니다.');
-
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const deploymentFile = path.resolve(
-  process.cwd(),
-  options.artifact ?? path.join(repositoryRoot, 'contracts/deployments/43114.json'),
-);
+const deploymentFile = path.join(repositoryRoot, 'contracts/deployments/43114.json');
 const needsMainnetDeployment = preparingMainnet || options.target === 'mainnet';
 const deployment = needsMainnetDeployment
   ? await readMainnetDeployment(deploymentFile)
   : null;
 
-if (deployment && !options.offline) {
+if (deployment) {
   await verifyMainnetDeployment(deployment, {
     abiFile: path.join(repositoryRoot, 'contracts/abi/AvalancheBakeryCertificate.json'),
   });
   console.log('검증         메인넷 코드·배포 트랜잭션·민터/관리자 권한 일치');
 }
 
-const mainnetUpdates = deployment
-  ? [
-      ['CERTIFICATE_ADDRESS', deployment.address],
-      ['CERTIFICATE_DEPLOYMENT_BLOCK', String(deployment.deploymentBlock)],
-    ]
-  : [];
 const updates = preparingMainnet
-  ? mainnetUpdates
+  ? mainnetEnvironmentUpdates(deployment, { activate: false })
   : options.target === 'mainnet'
-    ? [...mainnetUpdates, ['NEXT_PUBLIC_CHAIN_ID', chainId]]
+    ? mainnetEnvironmentUpdates(deployment, { activate: true })
     : [['NEXT_PUBLIC_CHAIN_ID', chainId]];
 const confirmation = preparingMainnet ? 'PREPARE' : chainId;
 
@@ -61,7 +54,7 @@ if (!options.apply) {
 }
 
 if (options.confirm !== confirmation) {
-  usage(`실제 반영에는 --confirm ${confirmation}가 필요합니다.`);
+  usage(`실제 반영에는 --confirm ${confirmation} 확인값이 필요합니다.`);
 }
 
 for (const [name, value] of updates) updateVercelEnvironment(repositoryRoot, name, value);
@@ -101,8 +94,6 @@ function parseArguments(argv) {
   const parsed = {
     target,
     apply: false,
-    offline: false,
-    artifact: undefined,
     confirm: undefined,
   };
   for (let index = 0; index < rest.length; index += 1) {
@@ -111,11 +102,7 @@ function parseArguments(argv) {
       parsed.apply = true;
       continue;
     }
-    if (token === '--offline') {
-      parsed.offline = true;
-      continue;
-    }
-    if (token === '--artifact' || token === '--confirm') {
+    if (token === '--confirm') {
       const value = rest[index + 1];
       if (!value || value.startsWith('--')) usage(`${token} 값이 없습니다.`);
       parsed[token.slice(2)] = value;
@@ -130,8 +117,7 @@ function parseArguments(argv) {
 function exampleCommand(currentOptions, confirmation) {
   const script = preparingMainnet ? 'chain:prepare-mainnet' : 'chain:switch';
   const target = preparingMainnet ? '' : ` ${currentOptions.target}`;
-  const artifact = currentOptions.artifact ? ` --artifact ${currentOptions.artifact}` : '';
-  return `npm run ${script} --${target}${artifact} --apply --confirm ${confirmation}`;
+  return `npm run ${script} --${target} --apply --confirm ${confirmation}`;
 }
 
 function usage(message) {

@@ -60,14 +60,24 @@ export function validateMainnetDeployment(raw) {
   };
 }
 
-export async function verifyMainnetDeployment(deployment, { abiFile }) {
+export function mainnetEnvironmentUpdates(deployment, { activate }) {
+  const validated = validateMainnetDeployment(deployment);
+  const updates = [
+    ['CERTIFICATE_ADDRESS', validated.address],
+    ['CERTIFICATE_DEPLOYMENT_BLOCK', String(validated.deploymentBlock)],
+  ];
+  if (activate) updates.push(['NEXT_PUBLIC_CHAIN_ID', String(avalanche.id)]);
+  return updates;
+}
+
+export async function verifyMainnetDeployment(deployment, { abiFile, client = undefined }) {
   const abi = JSON.parse(await readFile(abiFile, 'utf8'));
-  const client = createPublicClient({
+  const publicClient = client ?? createPublicClient({
     chain: avalanche,
     transport: http(undefined, { retryCount: 1, timeout: 10_000 }),
   });
 
-  const receipt = await client.getTransactionReceipt({
+  const receipt = await publicClient.getTransactionReceipt({
     hash: deployment.deploymentTransaction,
   });
   if (
@@ -79,28 +89,28 @@ export async function verifyMainnetDeployment(deployment, { abiFile }) {
     throw new Error('배포 트랜잭션의 컨트랙트 주소 또는 블록이 배포 기록과 다릅니다.');
   }
 
-  const code = await client.getCode({ address: deployment.address });
+  const code = await publicClient.getCode({ address: deployment.address });
   if (!code || code === '0x') {
     throw new Error('메인넷 배포 주소에 컨트랙트 코드가 없습니다.');
   }
 
-  const read = (functionName, args = undefined) => client.readContract({
+  const readContract = (functionName, args = undefined) => publicClient.readContract({
     address: deployment.address,
     abi,
     functionName,
     args,
   });
   const [name, symbol, minterRole, recoveryRole, adminRole] = await Promise.all([
-    read('name'),
-    read('symbol'),
-    read('MINTER_ROLE'),
-    read('RECOVERY_ROLE'),
-    read('DEFAULT_ADMIN_ROLE'),
+    readContract('name'),
+    readContract('symbol'),
+    readContract('MINTER_ROLE'),
+    readContract('RECOVERY_ROLE'),
+    readContract('DEFAULT_ADMIN_ROLE'),
   ]);
   const [minterCanMint, adminCanRecover, adminCanManage] = await Promise.all([
-    read('hasRole', [minterRole, deployment.minter]),
-    read('hasRole', [recoveryRole, deployment.admin]),
-    read('hasRole', [adminRole, deployment.admin]),
+    readContract('hasRole', [minterRole, deployment.minter]),
+    readContract('hasRole', [recoveryRole, deployment.admin]),
+    readContract('hasRole', [adminRole, deployment.admin]),
   ]);
 
   if (name !== EXPECTED_NAME || symbol !== EXPECTED_SYMBOL) {

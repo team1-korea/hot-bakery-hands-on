@@ -62,6 +62,10 @@ export function resolveServerChainConfig(
     };
   }
 
+  if (rpcUrl) {
+    throw new Error('메인넷에서는 AVALANCHE_RPC_URL을 설정하지 않고 공식 공개 RPC를 사용합니다.');
+  }
+
   if (
     mainnetDeployment.network !== 'avalanche'
     || mainnetDeployment.chainId !== 43114

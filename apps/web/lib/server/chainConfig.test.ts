@@ -93,3 +93,15 @@ test('메인넷 환경값이 커밋된 배포 기록과 다르면 시작 단계�
     /커밋된 배포 기록과 다릅니다/,
   );
 });
+
+test('메인넷에서는 커스텀 RPC 설정을 거절한다', () => {
+  assert.throws(
+    () => resolveServerChainConfig({
+      NEXT_PUBLIC_CHAIN_ID: '43114',
+      CERTIFICATE_ADDRESS: MAINNET_ADDRESS,
+      CERTIFICATE_DEPLOYMENT_BLOCK: '70000000',
+      AVALANCHE_RPC_URL: 'https://rpc.example',
+    }, MAINNET_DEPLOYMENT),
+    /공식 공개 RPC/,
+  );
+});
