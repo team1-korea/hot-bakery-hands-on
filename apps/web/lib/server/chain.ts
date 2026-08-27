@@ -111,7 +111,11 @@ function toAlreadyIssuedError(error: unknown, recipient: Address): AlreadyIssued
 function requireMinterAccount(): PrivateKeyAccount {
   const key = process.env.MINTER_PRIVATE_KEY;
   if (!key) throw new Error('MINTER_PRIVATE_KEY가 없습니다. 민팅은 서버 민터 지갑으로만 합니다.');
-  return privateKeyToAccount(key as Hex);
+  const account = privateKeyToAccount(key as Hex);
+  if (serverChainConfig.minterAddress && account.address !== serverChainConfig.minterAddress) {
+    throw new Error('MINTER_PRIVATE_KEY가 메인넷 배포 기록의 민터 주소와 다릅니다.');
+  }
+  return account;
 }
 
 /**

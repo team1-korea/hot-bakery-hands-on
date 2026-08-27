@@ -71,14 +71,21 @@ npm run lint
 
 ## Fuji ↔ 메인넷 전환
 
-명령은 기본적으로 dry-run이며 Vercel 값을 바꾸지 않습니다. 메인넷 컨트랙트를 배포한 직후 주소와
-블록을 한 번 사전 등록합니다. 이때 활성 체인은 바뀌지 않아 Production은 Fuji로 계속 동작합니다.
-실제 반영에는 Vercel CLI 로그인과 저장소 루트의 기존 프로젝트 연결이 필요합니다.
+명령은 기본적으로 dry-run이며 Vercel 값을 바꾸지 않습니다. 메인넷 컨트랙트를 배포한 뒤 공개 배포
+기록을 만들고, 코드·배포 트랜잭션·민터/관리자 권한을 온체인에서 검증한 값만 Vercel에 사전
+등록합니다. 이 단계에서는 `NEXT_PUBLIC_CHAIN_ID`를 건드리지 않아 Production과 리허설은 Fuji로
+계속 동작합니다. 실제 반영에는 Vercel CLI 로그인과 저장소 루트의 기존 프로젝트 연결이 필요합니다.
 
 ```bash
-# 메인넷 컨트랙트 배포 직후 한 번
-npm run chain:prepare-mainnet -- --address 0x... --block 12345678
-npm run chain:prepare-mainnet -- --address 0x... --block 12345678 --apply --confirm PREPARE
+# 메인넷 배포 직후 한 번: 먼저 온체인 검증을 거쳐 deployments/43114.json을 기록
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x...
+npm run chain:record-mainnet -- --address 0x... --tx 0x... --block 12345678 \
+  --admin 0x... --minter 0x... --apply --confirm RECORD
+
+# 주소와 배포 블록만 Vercel에 미리 등록. 활성 체인은 여전히 Fuji
+npm run chain:prepare-mainnet
+npm run chain:prepare-mainnet -- --apply --confirm PREPARE
 
 # 행사 전환과 테스트넷 복귀
 npm run chain:switch -- mainnet
@@ -87,7 +94,8 @@ npm run chain:switch -- fuji
 npm run chain:switch -- fuji --apply --confirm 43113
 ```
 
-Fuji는 Vercel에 메인넷 주소와 블록이 미리 등록돼 있어도 무시합니다. 사전 준비 뒤에는 재배포할
-필요가 없습니다. 체인 전환 명령 뒤에는 최신 `main`을 Production으로 재배포합니다. 전환 전에 이전
-체인의 DB·Storage 테스트 데이터를 비워야 기존 트랜잭션 링크가 새 체인의 Explorer로 잘못 열리지
-않습니다.
+`prepare-mainnet`과 `chain:switch -- mainnet`은 `deployments/43114.json`을 다시 온체인 검증합니다.
+메인넷 전환은 검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꾸므로, 사전 등록이 누락돼도
+잘못된 조합으로 활성화하지 않습니다. Fuji는 Vercel에 메인넷 값이 남아 있어도 이를 무시합니다.
+사전 준비 뒤에는 재배포할 필요가 없고, 체인 전환 명령 뒤에만 최신 `main`을 Production으로
+재배포합니다. 전환 전에는 이전 체인의 DB·Storage 데이터를 비워 Explorer 링크가 섞이지 않게 합니다.

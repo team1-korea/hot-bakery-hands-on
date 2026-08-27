@@ -276,10 +276,11 @@ function zone(status: EntryStatus) {
 
 메인넷의 `CERTIFICATE_ADDRESS`와 `CERTIFICATE_DEPLOYMENT_BLOCK`은 Fuji 리허설 중에도 Vercel에
 미리 저장할 수 있습니다. Fuji는 이 두 값을 무시하고 커밋된 `deployments/43113.json`만 사용합니다.
-`chain:prepare-mainnet`은 두 메인넷 값을 사전 등록하고 활성 체인은 건드리지 않습니다. 실제 활성화
-스위치는 `NEXT_PUBLIC_CHAIN_ID` 하나이며, 행사 때 `chain:switch`로 바꿉니다. 주소만 바꾸거나 배포
-블록을 빠뜨리면 이벤트 복구가 잘못된 구간을 조회할 수 있으므로 메인넷 선택 시에는 두 값을 모두
-필수로 검증합니다.
+메인넷 배포 결과는 `deployments/43114.json`에 주소·배포 트랜잭션·블록·관리자·민터를 공개 기록합니다.
+`chain:prepare-mainnet`은 이 기록을 온체인 코드와 역할에 대조한 뒤 주소·블록만 사전 등록하고 활성
+체인은 건드리지 않습니다. 실제 활성화 스위치는 `NEXT_PUBLIC_CHAIN_ID`이며, 행사 때 `chain:switch`가
+검증된 주소·블록을 먼저 맞춘 뒤 체인 ID를 마지막에 바꿉니다. 주소만 바꾸거나 배포 블록을 빠뜨리면
+이벤트 복구가 잘못된 구간을 조회할 수 있으므로 메인넷 선택 시에는 두 값을 모두 필수로 검증합니다.
 
 이번 행사만 운영한 뒤 서비스를 종료하므로 커스텀 RPC는 추가하지 않습니다.
 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다. 배포 전에는 메인넷 컨트랙트의

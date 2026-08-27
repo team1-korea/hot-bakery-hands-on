@@ -1,0 +1,10 @@
+{
+  "network": "avalanche",
+  "chainId": 43114,
+  "status": "deployed",
+  "address": "0x1111111111111111111111111111111111111111",
+  "deploymentTransaction": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "deploymentBlock": 70000000,
+  "admin": "0x2222222222222222222222222222222222222222",
+  "minter": "0x3333333333333333333333333333333333333333"
+}

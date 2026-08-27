@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-import { isAddress } from 'viem';
+import { readMainnetDeployment, verifyMainnetDeployment } from './mainnet-deployment.mjs';
 
 const CHAIN_IDS = { fuji: '43113', mainnet: '43114' };
 const options = parseArguments(process.argv.slice(2));
@@ -14,23 +14,36 @@ if (!preparingMainnet && !chainId) {
   usage(`대상은 prepare-mainnet, fuji 또는 mainnet이어야 합니다: ${options.target ?? '(없음)'}`);
 }
 
-if (preparingMainnet) {
-  if (!options.address || !isAddress(options.address)) {
-    usage('메인넷 사전 준비에는 올바른 --address가 필요합니다.');
-  }
-  if (!options.block || !/^[1-9]\d*$/.test(options.block)) {
-    usage('메인넷 사전 준비에는 양의 정수 --block이 필요합니다.');
-  }
-} else if (options.address || options.block) {
-  usage('체인 전환에는 --address와 --block을 사용하지 않습니다. 먼저 prepare-mainnet을 실행하세요.');
+if (options.offline && options.apply) usage('--offline은 dry-run에서만 사용할 수 있습니다.');
+
+const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const deploymentFile = path.resolve(
+  process.cwd(),
+  options.artifact ?? path.join(repositoryRoot, 'contracts/deployments/43114.json'),
+);
+const needsMainnetDeployment = preparingMainnet || options.target === 'mainnet';
+const deployment = needsMainnetDeployment
+  ? await readMainnetDeployment(deploymentFile)
+  : null;
+
+if (deployment && !options.offline) {
+  await verifyMainnetDeployment(deployment, {
+    abiFile: path.join(repositoryRoot, 'contracts/abi/AvalancheBakeryCertificate.json'),
+  });
+  console.log('검증         메인넷 코드·배포 트랜잭션·민터/관리자 권한 일치');
 }
 
-const updates = preparingMainnet
+const mainnetUpdates = deployment
   ? [
-      ['CERTIFICATE_ADDRESS', options.address],
-      ['CERTIFICATE_DEPLOYMENT_BLOCK', options.block],
+      ['CERTIFICATE_ADDRESS', deployment.address],
+      ['CERTIFICATE_DEPLOYMENT_BLOCK', String(deployment.deploymentBlock)],
     ]
-  : [['NEXT_PUBLIC_CHAIN_ID', chainId]];
+  : [];
+const updates = preparingMainnet
+  ? mainnetUpdates
+  : options.target === 'mainnet'
+    ? [...mainnetUpdates, ['NEXT_PUBLIC_CHAIN_ID', chainId]]
+    : [['NEXT_PUBLIC_CHAIN_ID', chainId]];
 const confirmation = preparingMainnet ? 'PREPARE' : chainId;
 
 console.log(`작업         ${preparingMainnet ? '메인넷 배포 정보 사전 등록' : `${options.target} 활성화 (${chainId})`}`);
@@ -51,7 +64,6 @@ if (options.confirm !== confirmation) {
   usage(`실제 반영에는 --confirm ${confirmation}가 필요합니다.`);
 }
 
-const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 for (const [name, value] of updates) updateVercelEnvironment(repositoryRoot, name, value);
 
 console.log('');
@@ -86,14 +98,24 @@ function updateVercelEnvironment(cwd, name, value) {
 
 function parseArguments(argv) {
   const [target, ...rest] = argv;
-  const parsed = { target, apply: false, address: undefined, block: undefined, confirm: undefined };
+  const parsed = {
+    target,
+    apply: false,
+    offline: false,
+    artifact: undefined,
+    confirm: undefined,
+  };
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index];
     if (token === '--apply') {
       parsed.apply = true;
       continue;
     }
-    if (token === '--address' || token === '--block' || token === '--confirm') {
+    if (token === '--offline') {
+      parsed.offline = true;
+      continue;
+    }
+    if (token === '--artifact' || token === '--confirm') {
       const value = rest[index + 1];
       if (!value || value.startsWith('--')) usage(`${token} 값이 없습니다.`);
       parsed[token.slice(2)] = value;
@@ -106,17 +128,16 @@ function parseArguments(argv) {
 }
 
 function exampleCommand(currentOptions, confirmation) {
-  if (!preparingMainnet) {
-    return `npm run chain:switch -- ${currentOptions.target} --apply --confirm ${confirmation}`;
-  }
-  return `npm run chain:prepare-mainnet -- --address ${currentOptions.address} --block ${currentOptions.block} `
-    + `--apply --confirm ${confirmation}`;
+  const script = preparingMainnet ? 'chain:prepare-mainnet' : 'chain:switch';
+  const target = preparingMainnet ? '' : ` ${currentOptions.target}`;
+  const artifact = currentOptions.artifact ? ` --artifact ${currentOptions.artifact}` : '';
+  return `npm run ${script} --${target}${artifact} --apply --confirm ${confirmation}`;
 }
 
 function usage(message) {
   console.error(message);
   console.error('');
-  console.error('npm run chain:prepare-mainnet -- --address 0x... --block 12345678');
+  console.error('npm run chain:prepare-mainnet');
   console.error('npm run chain:switch -- fuji');
   console.error('npm run chain:switch -- mainnet');
   process.exit(1);

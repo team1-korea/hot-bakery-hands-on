@@ -1,4 +1,4 @@
-export type CChainInfo = {
+type CChainInfo = {
   id: '43113' | '43114';
   label: string;
   testnet: boolean;

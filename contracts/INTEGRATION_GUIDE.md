@@ -59,10 +59,8 @@ MINTER_PRIVATE_KEY=0x...
 ```
 
 메인넷 주소와 배포 블록은 Fuji 리허설 중에 미리 저장해도 됩니다. Fuji 서버는 커밋된
-`deployments/43113.json`만 사용하고 두 값을 무시합니다. 메인넷 배포 직후 `apps/web`의
-`chain:prepare-mainnet`으로 두 값을 사전 등록하고, 행사 전환 때 `chain:switch`로 체인 ID 하나만
-바꾼 뒤 최신 `main`을 재배포합니다. 이번 행사에서는 `AVALANCHE_RPC_URL`을 비워 Avalanche 공개
-RPC를 사용합니다.
+`deployments/43113.json`만 사용하고 두 값을 무시합니다. 메인넷 배포와 전환 절차는
+[`apps/web/README.md`](../apps/web/README.md#fuji--메인넷-전환)를 따릅니다.
 
 ## 2. 누가 어떤 함수를 호출하는가
 
@@ -126,23 +124,17 @@ RPC를 사용합니다.
 import { createPublicClient, http, type Address } from 'viem'
 import { avalanche, avalancheFuji } from 'viem/chains'
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
-import fujiDeployment from '@contracts/deployments/43113.json'
+import { resolveServerChainConfig } from '@/lib/server/chainConfig'
 
-const chain = process.env.NEXT_PUBLIC_CHAIN_ID === '43114'
+const config = resolveServerChainConfig()
+const chain = config.chainId === avalanche.id
   ? avalanche
   : avalancheFuji
-const contractAddress = (
-  process.env.CERTIFICATE_ADDRESS
-  ?? (chain.id === avalancheFuji.id ? fujiDeployment.address : undefined)
-) as Address | undefined
-
-if (!contractAddress) {
-  throw new Error('메인넷에서는 CERTIFICATE_ADDRESS가 필요합니다.')
-}
+const contractAddress = config.contractAddress
 
 export const publicClient = createPublicClient({
   chain,
-  transport: http(process.env.AVALANCHE_RPC_URL),
+  transport: http(config.rpcUrl),
 })
 
 export async function getCertificateStatus(
@@ -347,31 +339,25 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { avalanche, avalancheFuji } from 'viem/chains'
 import certificateAbi from '@contracts/abi/AvalancheBakeryCertificate.json'
-import fujiDeployment from '@contracts/deployments/43113.json'
+import { resolveServerChainConfig } from '@/lib/server/chainConfig'
 
-const chain = process.env.NEXT_PUBLIC_CHAIN_ID === '43114'
+const config = resolveServerChainConfig()
+const chain = config.chainId === avalanche.id
   ? avalanche
   : avalancheFuji
-const address = (
-  process.env.CERTIFICATE_ADDRESS
-  ?? (chain.id === avalancheFuji.id ? fujiDeployment.address : undefined)
-) as Address | undefined
-
-if (!address) {
-  throw new Error('메인넷에서는 CERTIFICATE_ADDRESS가 필요합니다.')
-}
+const address = config.contractAddress
 
 const account = privateKeyToAccount(process.env.MINTER_PRIVATE_KEY as Hex)
 
 const publicClient = createPublicClient({
   chain,
-  transport: http(process.env.AVALANCHE_RPC_URL),
+  transport: http(config.rpcUrl),
 })
 
 const walletClient = createWalletClient({
   account,
   chain,
-  transport: http(process.env.AVALANCHE_RPC_URL),
+  transport: http(config.rpcUrl),
 })
 
 export async function mintCertificate(
