@@ -16,4 +16,8 @@ describe('C-Chain Explorer 링크', () => {
       explorerTx: 'https://explorer.avax.network/c-chain/tx',
     });
   });
+
+  test('지원하지 않는 값은 Fuji로 조용히 바꾸지 않고 배포를 막는다', () => {
+    expect(() => resolveCChain('43115')).toThrow(/지원하지 않는 Avalanche 체인 ID/);
+  });
 });

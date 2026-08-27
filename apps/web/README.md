@@ -68,3 +68,26 @@ npm run lint
 - `ALLOW_DB_RESET`은 운영에서 빼고 `OPERATOR_PASSCODE`는 길게 설정한다.
 - 리허설 데이터를 DB·Storage에서 지운 뒤 실제 Google 로그인 한 명을 끝까지 발행해 본다.
 - TV 브라우저는 `/admin`에 먼저 로그인한 뒤 `/display`를 연다.
+
+## Fuji ↔ 메인넷 전환
+
+명령은 기본적으로 dry-run이며 Vercel 값을 바꾸지 않습니다. 메인넷 컨트랙트를 배포한 직후 주소와
+블록을 한 번 사전 등록합니다. 이때 활성 체인은 바뀌지 않아 Production은 Fuji로 계속 동작합니다.
+실제 반영에는 Vercel CLI 로그인과 저장소 루트의 기존 프로젝트 연결이 필요합니다.
+
+```bash
+# 메인넷 컨트랙트 배포 직후 한 번
+npm run chain:prepare-mainnet -- --address 0x... --block 12345678
+npm run chain:prepare-mainnet -- --address 0x... --block 12345678 --apply --confirm PREPARE
+
+# 행사 전환과 테스트넷 복귀
+npm run chain:switch -- mainnet
+npm run chain:switch -- mainnet --apply --confirm 43114
+npm run chain:switch -- fuji
+npm run chain:switch -- fuji --apply --confirm 43113
+```
+
+Fuji는 Vercel에 메인넷 주소와 블록이 미리 등록돼 있어도 무시합니다. 사전 준비 뒤에는 재배포할
+필요가 없습니다. 체인 전환 명령 뒤에는 최신 `main`을 Production으로 재배포합니다. 전환 전에 이전
+체인의 DB·Storage 테스트 데이터를 비워야 기존 트랜잭션 링크가 새 체인의 Explorer로 잘못 열리지
+않습니다.

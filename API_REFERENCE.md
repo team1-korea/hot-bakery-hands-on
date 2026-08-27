@@ -740,8 +740,8 @@ CRON_SECRET=                  # /api/internal/sweep Bearer 인증
 
 # 선택값(기본값 있음)
 AVALANCHE_RPC_URL=            # 비우면 선택한 체인의 공개 RPC
-CERTIFICATE_ADDRESS=          # Fuji는 기본 배포값, 그 외 체인은 필수
-CERTIFICATE_DEPLOYMENT_BLOCK= # Fuji는 기본 배포값, 그 외 체인은 필수
+CERTIFICATE_ADDRESS=          # 메인넷 배포 주소. Fuji에서는 설정돼 있어도 무시
+CERTIFICATE_DEPLOYMENT_BLOCK= # 메인넷 배포 블록. Fuji에서는 설정돼 있어도 무시
 MINT_GAS_LIMIT=               # 비우면 300000
 
 # 로컬·준비 환경 전용. 운영 Vercel에는 넣지 않는다
@@ -753,9 +753,23 @@ ALLOW_DB_RESET=
 Privy 서버 변수 중 하나라도 빠지면 목 인증으로 열리지 않고 `401`로 잠깁니다. `DATABASE_URL`이
 없는 로컬 개발만 메모리 목 파이프라인을 사용합니다.
 
-메인넷 운영 전환은 `NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`,
-`CERTIFICATE_DEPLOYMENT_BLOCK`을 한 세트로 설정합니다. 이번 행사에서는 커스텀 RPC를 운영하지
-않고 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다.
+메인넷 주소와 배포 블록은 Fuji 리허설 중에 Vercel에 미리 등록합니다. Fuji는 항상
+`contracts/deployments/43113.json`을 사용하고 두 메인넷 값을 무시합니다. 사전 준비는 활성 체인을
+건드리지 않으며, 행사 전환 때는 `NEXT_PUBLIC_CHAIN_ID` 하나만 바꿉니다.
+
+```bash
+cd apps/web
+# 메인넷 컨트랙트 배포 직후 한 번
+npm run chain:prepare-mainnet -- --address 0x... --block 12345678 --apply --confirm PREPARE
+# 행사 전환
+npm run chain:switch -- mainnet --apply --confirm 43114
+# 테스트넷 복귀
+npm run chain:switch -- fuji --apply --confirm 43113
+```
+
+메인넷 배포 정보만 사전 등록한 뒤에는 재배포할 필요가 없습니다. `NEXT_PUBLIC_CHAIN_ID`를 바꾼
+뒤에는 최신 `main`을 Production으로 재배포해야 합니다. 이번 행사에서는 `AVALANCHE_RPC_URL`을
+비워 선택한 체인의 공식 공개 RPC를 사용합니다.
 
 ### `GET|POST /api/internal/sweep`
 

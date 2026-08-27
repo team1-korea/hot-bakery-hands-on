@@ -1,4 +1,4 @@
-type CChainInfo = {
+export type CChainInfo = {
   id: '43113' | '43114';
   label: string;
   testnet: boolean;
@@ -21,7 +21,11 @@ const C_CHAINS: Record<CChainInfo['id'], CChainInfo> = {
 };
 
 export function resolveCChain(chainId: string | undefined): CChainInfo {
-  return chainId === '43114' ? C_CHAINS['43114'] : C_CHAINS['43113'];
+  const selected = chainId?.trim() || '43113';
+  if (selected !== '43113' && selected !== '43114') {
+    throw new Error(`지원하지 않는 Avalanche 체인 ID입니다: ${selected}`);
+  }
+  return C_CHAINS[selected];
 }
 
 export const C_CHAIN = resolveCChain(process.env.NEXT_PUBLIC_CHAIN_ID);

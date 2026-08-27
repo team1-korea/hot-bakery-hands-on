@@ -52,15 +52,17 @@ ABI는 컨트랙트 빌드 후 다음 명령으로 추출할 수 있습니다.
 NEXT_PUBLIC_CHAIN_ID=43113 # 43113=Fuji(기본), 43114=메인넷
 
 # 서버 전용 값
-CERTIFICATE_ADDRESS=              # Fuji는 deployments/43113.json 기본값, 메인넷은 필수
-CERTIFICATE_DEPLOYMENT_BLOCK=     # Fuji는 deployments/43113.json 기본값, 메인넷은 필수
+CERTIFICATE_ADDRESS=              # 메인넷은 필수. Fuji에서는 설정돼 있어도 무시
+CERTIFICATE_DEPLOYMENT_BLOCK=     # 메인넷은 필수. Fuji에서는 설정돼 있어도 무시
 AVALANCHE_RPC_URL=                # 비우면 선택한 체인의 공개 RPC
 MINTER_PRIVATE_KEY=0x...
 ```
 
-행사 메인넷 배포에서는 `NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`,
-`CERTIFICATE_DEPLOYMENT_BLOCK`을 한 세트로 설정합니다. 이번 행사에서는 `AVALANCHE_RPC_URL`을
-비워 Avalanche 공개 RPC를 사용합니다.
+메인넷 주소와 배포 블록은 Fuji 리허설 중에 미리 저장해도 됩니다. Fuji 서버는 커밋된
+`deployments/43113.json`만 사용하고 두 값을 무시합니다. 메인넷 배포 직후 `apps/web`의
+`chain:prepare-mainnet`으로 두 값을 사전 등록하고, 행사 전환 때 `chain:switch`로 체인 ID 하나만
+바꾼 뒤 최신 `main`을 재배포합니다. 이번 행사에서는 `AVALANCHE_RPC_URL`을 비워 Avalanche 공개
+RPC를 사용합니다.
 
 ## 2. 누가 어떤 함수를 호출하는가
 

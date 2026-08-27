@@ -49,11 +49,21 @@
 선택/기본값 있음:
 
 `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, `AVALANCHE_RPC_URL`,
-`CERTIFICATE_ADDRESS`, `MINT_GAS_LIMIT`
+`CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYMENT_BLOCK`, `MINT_GAS_LIMIT`
 
 메인넷 운영 전환 시 필수:
 
 `NEXT_PUBLIC_CHAIN_ID=43114`, `CERTIFICATE_ADDRESS`, `CERTIFICATE_DEPLOYMENT_BLOCK`
+
+Fuji는 메인넷 주소·블록이 Vercel에 남아 있어도 커밋된 `deployments/43113.json`만 사용합니다.
+메인넷 배포 직후 주소와 블록을 미리 등록합니다. 이 명령은 활성 체인을 바꾸지 않습니다.
+행사 전환 때는 체인 ID만 바꾼 뒤 최신 `main`을 재배포합니다.
+
+```bash
+npm run chain:prepare-mainnet -- --address 0x... --block 12345678 --apply --confirm PREPARE
+npm run chain:switch -- mainnet --apply --confirm 43114
+npm run chain:switch -- fuji --apply --confirm 43113
+```
 
 개발 전용(운영 배포 금지): `MOCK_FAILURE_RATE`, `ALLOW_DB_RESET`
 
