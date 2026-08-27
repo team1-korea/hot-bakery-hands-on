@@ -28,4 +28,6 @@ export type AdminStateResponse = {
   };
   /** 민터 지갑 잔액(wei 문자열). 키가 없거나 체인 조회에 실패하면 null이다. */
   minter: { address: string; wei: string } | null;
+  /** 서버 파이프라인이 실제로 사용하는 체인 설정. 부하 리허설의 안전 확인에도 쓴다. */
+  chain: { id: number; customRpc: boolean };
 };

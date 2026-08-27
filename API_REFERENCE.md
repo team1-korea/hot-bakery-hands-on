@@ -518,11 +518,16 @@ MAX_ENTRIES = 30   // 정원. 진열장 두 쪽
   "minter": {
     "address": "0x57ec...1234",                 // 서버 민터 주소
     "wei": "25000000000000000"                  // 현재 AVAX 잔액(wei 문자열)
-  }                                                // 키가 없거나 RPC 장애면 null
+  },                                               // 키가 없거나 RPC 장애면 null
+  "chain": {
+    "id": 43113,                                  // 서버 파이프라인이 실제로 쓰는 체인
+    "customRpc": false                            // AVALANCHE_RPC_URL 사용 여부
+  }
 }
 ```
 
-화면은 환경변수를 추측하지 말고 `capabilities`만 보고 초기화 버튼과 목 서버 배지를 표시합니다.
+화면 기능은 환경변수를 추측하지 말고 `capabilities`를 봅니다. 리허설 도구는 실제 요청 전에
+`chain`이 Fuji 공개 RPC인지 확인합니다.
 
 **왜 엔드포인트를 나누나.** 공개 `GET /api/state`는 인증이 없어 TV URL을 아는 사람이면
 누구나 봅니다. 그렇다고 같은 엔드포인트가 운영자 쿠키 여부에 따라 다른 것을 뱉게 만들면,
@@ -652,11 +657,13 @@ set-cookie: bakery_operator=60b3761b...; Path=/; Max-Age=43200; HttpOnly; SameSi
 |---|---|
 | `recovered` | 체인 영수증·`CertificateIssued`를 찾아 `MINTED`로 복구한 수 |
 | `failed` | 체인에도 성공 기록이 없어 `FAILED`로 내린 수 |
-| `deferred` | RPC 조회 오류라 상태를 유지하고 다음 점검으로 미룬 수 |
+| `deferred` | 유예 시간 안이거나 pending·RPC 오류라 상태를 유지하고 다음 점검으로 미룬 수 |
 | `hidden` | 10분 넘게 사진을 안 내 자동으로 TV에서 내린 `JOINED` 수 |
 
 90초 이상 멈춘 `SUBMITTED`·`PINNED`·`MINTING`을 점검합니다. `MINTING`은 무조건 실패 처리하지
-않고 영수증과 이벤트를 먼저 조회합니다. Cron과 동시에 실행돼도 Postgres try-advisory-lock으로
+않고 영수증과 이벤트를 먼저 조회합니다. 영수증이 없는 트랜잭션은 전송 후 5분까지 보류하고,
+그 뒤에도 공개 RPC에서 세 번 연속 찾지 못할 때만 해시를 비워 재시도를 허용합니다. RPC 오류나
+pending 거래는 `deferred`로 유지합니다. Cron과 동시에 실행돼도 Postgres try-advisory-lock으로
 한 번만 돌며, 다른 점검이 이미 실행 중이면 네 값 모두 0입니다. 응답은 캐시하지 않고 최대 60초를
 기다립니다.
 

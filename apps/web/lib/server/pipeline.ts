@@ -193,6 +193,9 @@ export type SweepResult = {
   deferred: number;
 };
 
+/** 공개 RPC의 단일 mempool 관측만으로 pending 해시를 버리지 않도록 두는 최소 유예 시간. */
+const MINT_DROP_GRACE_MS = 5 * 60 * 1_000;
+
 /** MINTING은 영수증·이벤트를 먼저 본 뒤에만 FAILED로 내린다. */
 export async function sweepPipeline(
   now: number = Date.now(),
@@ -234,9 +237,20 @@ async function sweepPipelineLocked(
         continue;
       }
 
-      // 영수증이 없으면 아직 mempool에 있는 것인지, 밀려나 사라진 것인지 갈라 본다.
-      const gone = receipt === null && entry.txHash !== null
-        && await deps.chain.transactionDisappeared(entry.txHash);
+      // 공개 RPC 노드마다 mempool이 다를 수 있다. 전송 후 충분히 오래 지난 해시만
+      // 여러 번 조회하고, 하나라도 보이면 그대로 둔다.
+      let gone = false;
+      if (receipt === null && entry.txHash !== null) {
+        if (now - entry.statusChangedAt.getTime() < MINT_DROP_GRACE_MS) {
+          deferred += 1;
+          continue;
+        }
+        gone = await deps.chain.transactionDisappeared(entry.txHash);
+        if (!gone) {
+          deferred += 1;
+          continue;
+        }
+      }
 
       const reason = receipt?.status === 'reverted'
         ? '민팅 트랜잭션 실패 (스위퍼)'
@@ -244,7 +258,7 @@ async function sweepPipelineLocked(
           ? '민팅 트랜잭션이 사라짐 (스위퍼)'
           : '민팅 영수증을 확인하지 못함 (스위퍼)';
       await deps.repository.markPipelineFailed(entry.id, reason, {
-        // 확정 리버트이거나 체인에도 mempool에도 없을 때만 새 트랜잭션을 보낼 수 있다.
+        // 확정 리버트이거나 5분 뒤 반복 조회에도 보이지 않을 때만 새 트랜잭션을 보낼 수 있다.
         // 아직 pending인 해시를 버리면 같은 발급이 두 번 나간다.
         discardTxHash: receipt?.status === 'reverted' || gone,
       });

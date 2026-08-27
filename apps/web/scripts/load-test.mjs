@@ -10,12 +10,13 @@
  * 이걸 빼고 재면 "복구하면 되는 실패"와 "끝내 못 받는 실패"가 구분되지 않는다.
  *
  * **실제 자원을 쓴다.** Supabase DB와 Storage에 행과 파일이 쌓이고, Pinata에 핀이 올라가고,
- * 체인에 진짜 트랜잭션이 나간다. 테스트넷에서만 돌릴 것.
+ * 체인에 진짜 트랜잭션이 나간다. 이 스크립트는 로컬 주소와 Fuji만 허용하며,
+ * `--confirm fuji`를 명시해야 시작한다.
  *
- *   PRIVY_APP_ID= PRIVY_APP_SECRET= npx next dev --port 3100     # 다른 터미널에서
+ *   PRIVY_APP_ID= PRIVY_APP_SECRET= npx next dev --port 3000     # 다른 터미널에서
  *
- *   node scripts/load-test.mjs --count 20 --wave 20 --gap 0 --operator 5 --reset 1
- *   node scripts/load-test.mjs --count 20 --wave 1  --gap 1 --operator 5 --reset 1
+ *   node scripts/load-test.mjs --confirm fuji --count 20 --wave 20 --gap 0 --operator 5 --reset 1
+ *   node scripts/load-test.mjs --confirm fuji --count 20 --wave 1  --gap 1 --operator 5 --reset 1
  *
  * 사진을 주지 않으면 크기만 맞춘 바이트를 만들어 쓴다. 파이프라인의 어느 단계도 JPEG을
  * 디코딩하지 않으므로(멀티파트 파싱 → Storage 업로드 → Pinata 핀 → CID) 부하는 같지만,
@@ -27,23 +28,37 @@ import { readFile } from 'node:fs/promises';
 
 import nextEnv from '@next/env';
 import { createPublicClient, formatEther, http } from 'viem';
-import { avalanche, avalancheFuji } from 'viem/chains';
+import { avalancheFuji } from 'viem/chains';
 
 nextEnv.loadEnvConfig(process.cwd());
 
 const options = parseArguments(process.argv.slice(2));
 const base = options.base ?? 'http://127.0.0.1:3000';
-const count = Number(options.count ?? 30);
-const photoBytes = Number(options.bytes ?? 350_000);
-const pipelineTimeoutMs = Number(options.timeout ?? 300) * 1_000;
+const count = integerOption('count', options.count, 30, 1, 30);
+const photoBytes = integerOption('bytes', options.bytes, 350_000, 22, 4_000_000);
+const pipelineTimeoutMs = integerOption('timeout', options.timeout, 300, 1, 3_600) * 1_000;
 /** 한 번에 몇 명씩 던질지와 묶음 사이 간격. 기본은 전원 동시(최악의 경우). */
-const waveSize = Number(options.wave ?? count);
-const waveGapMs = Number(options.gap ?? 0) * 1_000;
+const waveSize = integerOption('wave', options.wave, count, 1, count);
+const waveGapMs = integerOption('gap', options.gap, 0, 0, 3_600) * 1_000;
 /** 운영자가 실패를 알아채고 버튼을 누르기까지의 시간(초). 0이면 운영자가 없는 셈. */
-const operatorDelayMs = Number(options.operator ?? 0) * 1_000;
+const operatorDelayMs = integerOption('operator', options.operator, 0, 0, 3_600) * 1_000;
 /** 한 사람에게 몇 번까지 재시도해 줄지. 이걸 넘기면 "끝내 실패"로 센다. */
-const maxRetries = Number(options.retries ?? 5);
+const maxRetries = integerOption('retries', options.retries, 5, 0, 20);
+const shouldReset = booleanOption('reset', options.reset, false);
 const label = options.label ?? `${waveSize}명씩 ${waveGapMs / 1000}초 간격`;
+
+let target;
+try {
+  target = new URL(base);
+} catch {
+  exit(`--base가 올바른 URL이 아닙니다: ${base}`);
+}
+if (!['localhost', '127.0.0.1', '[::1]', '::1'].includes(target.hostname)) {
+  exit(`부하 테스트는 로컬 서버만 허용합니다: ${target.hostname}`);
+}
+if (options.confirm !== 'fuji') {
+  exit('실제 테스트넷 자원을 사용합니다. 실행하려면 --confirm fuji를 명시하세요.');
+}
 
 /** 한 번 돌릴 때마다 참가자를 새로 만든다. 목 지갑 주소는 이름에서 나오므로, 이름을
  *  재활용하면 컨트랙트가 이미 발급한 주소로 보고 복구 경로로 새서 민팅을 재지 못한다. */
@@ -53,25 +68,40 @@ const passcode = process.env.OPERATOR_PASSCODE;
 if (!passcode) exit('OPERATOR_PASSCODE가 없습니다. 운영자 상태를 폴링할 수 없습니다.');
 const operatorCookie = `bakery_operator=${createHash('sha256').update(`bakery-operator:${passcode}`).digest('hex')}`;
 
-const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || avalancheFuji.id;
+const configuredChainId = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
+const chainId = configuredChainId ? Number(configuredChainId) : avalancheFuji.id;
+if (chainId !== avalancheFuji.id) {
+  exit(`부하 테스트는 Fuji(${avalancheFuji.id})에서만 실행할 수 있습니다. 현재 체인 ID: ${chainId}`);
+}
+if (process.env.AVALANCHE_RPC_URL?.trim()) {
+  exit('부하 테스트에서는 AVALANCHE_RPC_URL을 비우고 Fuji 공개 RPC를 사용하세요.');
+}
 const publicClient = createPublicClient({
-  chain: chainId === avalanche.id ? avalanche : avalancheFuji,
-  transport: http(process.env.AVALANCHE_RPC_URL),
+  chain: avalancheFuji,
+  transport: http(),
 });
 
 // ---------------------------------------------------------------------------
 // 준비
 // ---------------------------------------------------------------------------
 
+const initialState = await adminState();
+if (initialState.chain?.id !== avalancheFuji.id) {
+  exit(`대상 서버가 Fuji가 아닙니다. 서버 체인 ID: ${initialState.chain?.id ?? '(확인 불가)'}`);
+}
+if (initialState.chain.customRpc) {
+  exit('대상 서버가 커스텀 RPC를 사용 중입니다. Fuji 공개 RPC로 실행한 서버만 허용합니다.');
+}
+
 const template = options.photo ? await readFile(options.photo) : synthesizeJpeg(photoBytes);
 
-if (options.reset) {
+if (shouldReset) {
   const wiped = await fetch(`${base}/api/admin/reset`, { method: 'POST', headers: { cookie: operatorCookie } });
   if (!wiped.ok) exit(`초기화 실패 (${wiped.status}). ALLOW_DB_RESET=1인지 확인하세요.`);
   console.log(`초기화      ${JSON.stringify((await wiped.json()).deleted)}`);
 }
 
-const before = await adminState();
+const before = shouldReset ? await adminState() : initialState;
 // 진열칸은 30개뿐이다. 이미 잡힌 칸이 있으면 그만큼 SHOWCASE_FULL로 튕겨서 부하를 못 잰다.
 const taken = before.entries.filter((entry) => entry.shelfIndex !== null).length;
 if (taken + count > 30) {
@@ -252,14 +282,52 @@ for (const entry of rows) {
 console.log('');
 
 const minted = entries.filter((entry) => entry.status === 'MINTED');
-const lost = entries.filter((entry) => entry.status !== 'MINTED');
 const waits = minted.map((entry) => (finishedAt.get(entry.id) ?? 0) - (startedAt.get(entry.id) ?? 0));
 const helped = [...retried.values()].filter((n) => n > 0).length;
+const entryById = new Map(entries.map((entry) => [entry.id, entry]));
+const claimedEntryIds = new Set();
+const participantOutcomes = participants.map((participant, index) => {
+  const reasons = [];
+  const registrationResult = registered[index];
+  if (!requestSucceeded(registrationResult)) {
+    reasons.push(`등록 실패: ${describeFailure(registrationResult)}`);
+  }
 
-console.log(`증서 받음   ${minted.length}/${mine.size}${waits.length ? `  참가자 체감 ${summarize(waits)}` : ''}`);
+  const submitResult = submitted[index];
+  const entryId = submitResult.value?.body?.id;
+  if (!entryId) {
+    reasons.push(`제출 실패: ${describeFailure(submitResult)}`);
+    return { nickname: participant.nickname, minted: false, reasons };
+  }
+  if (claimedEntryIds.has(entryId)) {
+    reasons.push(`중복 entry ID 응답: ${entryId}`);
+    return { nickname: participant.nickname, minted: false, reasons };
+  }
+  claimedEntryIds.add(entryId);
+
+  const finalEntry = entryById.get(entryId);
+  if (!finalEntry) {
+    reasons.push('운영자 상태에서 제출 항목을 찾지 못함');
+    return { nickname: participant.nickname, minted: false, reasons };
+  }
+  const wasMinted = finalEntry.status === 'MINTED';
+  if (!wasMinted) {
+    reasons.push(String(finalEntry.failureReason ?? finalEntry.status).split('\n')[0].slice(0, 80));
+  }
+  return { nickname: participant.nickname, minted: wasMinted, reasons };
+});
+const mintedParticipants = participantOutcomes.filter((participant) => participant.minted);
+const unmintedParticipants = participantOutcomes.filter((participant) => !participant.minted);
+const failedParticipants = participantOutcomes.filter((participant) => participant.reasons.length > 0);
+const failedChecks = failedParticipants.flatMap((participant) => (
+  participant.reasons.map((reason) => ({ nickname: participant.nickname, reason }))
+));
+
+console.log(`증서 받음   ${mintedParticipants.length}/${count}${waits.length ? `  참가자 체감 ${summarize(waits)}` : ''}`);
 console.log(`운영자 개입 ${helped}명에게 총 ${[...retried.values()].reduce((a, b) => a + b, 0)}회`);
-console.log(`끝내 실패   ${lost.length}${lost.length ? `  (${lost.map((e) => e.nickname).join(', ')})` : ''}`);
-for (const [reason, howMany] of Object.entries(countBy(lost, (entry) => String(entry.failureReason ?? '(사유 없음)').split('\n')[0].slice(0, 80)))) {
+console.log(`끝내 미발행 ${unmintedParticipants.length}${unmintedParticipants.length ? `  (${unmintedParticipants.map((participant) => participant.nickname).join(', ')})` : ''}`);
+console.log(`검증 실패   ${failedParticipants.length}${failedParticipants.length ? `  (${failedParticipants.map((participant) => participant.nickname).join(', ')})` : ''}`);
+for (const [reason, howMany] of Object.entries(countBy(failedChecks, (failure) => failure.reason))) {
   console.log(`  ${howMany}건 · ${reason}`);
 }
 if (finishedAt.size > 0) {
@@ -271,6 +339,8 @@ if (minterBefore && minterAddress) {
   const balance = await publicClient.getBalance({ address: minterAddress });
   console.log(`민터        nonce +${nonce - minterBefore.nonce} · 가스 ${formatEther(minterBefore.balance - balance)} AVAX`);
 }
+
+if (failedParticipants.length > 0 || mintedParticipants.length !== count) process.exitCode = 1;
 
 // ---------------------------------------------------------------------------
 
@@ -307,13 +377,17 @@ async function inWaves(items, size, gapMs, run) {
 }
 
 function report(title, results) {
-  const ok = results.filter((result) => result.value && result.value.status < 400);
-  const bad = results.filter((result) => !result.value || result.value.status >= 400);
+  const ok = results.filter(requestSucceeded);
+  const bad = results.filter((result) => !requestSucceeded(result));
   console.log(title);
   console.log(`  성공      ${ok.length}/${results.length}  ${summarize(results.map((result) => result.ms))}`);
   for (const [reason, howMany] of Object.entries(countBy(bad, describeFailure))) {
     console.log(`  실패      ${howMany}건 · ${reason}`);
   }
+}
+
+function requestSucceeded(result) {
+  return Boolean(result.value && result.value.status < 400);
 }
 
 function describeFailure(result) {
@@ -354,11 +428,29 @@ function synthesizeJpeg(size) {
 }
 
 function parseArguments(argv) {
+  if (argv.length % 2 !== 0) exit(`값이 없는 옵션이 있습니다: ${argv.at(-1)}`);
   const parsed = {};
   for (let index = 0; index < argv.length; index += 2) {
-    parsed[argv[index].replace(/^--/, '')] = argv[index + 1];
+    const option = argv[index];
+    if (!option.startsWith('--')) exit(`옵션은 --로 시작해야 합니다: ${option}`);
+    parsed[option.slice(2)] = argv[index + 1];
   }
   return parsed;
+}
+
+function integerOption(name, raw, fallback, minimum, maximum) {
+  const value = raw === undefined ? fallback : Number(raw);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    exit(`--${name}는 ${minimum}~${maximum} 범위의 정수여야 합니다: ${raw ?? fallback}`);
+  }
+  return value;
+}
+
+function booleanOption(name, raw, fallback) {
+  if (raw === undefined) return fallback;
+  if (raw === '1') return true;
+  if (raw === '0') return false;
+  exit(`--${name}은 0 또는 1이어야 합니다: ${raw}`);
 }
 
 function elapsed(ms) {

@@ -38,10 +38,20 @@ const abi = certificateAbi as Abi;
  * 어느 체인에 쓰는지. 브라우저의 Explorer 링크(`lib/explorer.ts`)와 같은 값을 본다.
  * 하나로 묶어야 링크는 Fuji를 가리키는데 민팅은 메인넷으로 나가는 어긋남이 없다.
  *
- * `Number(...) ||`인 이유는 아래 `MINT_GAS_LIMIT`과 같다. 빈 값이 0으로 새는 것을 막는다.
+ * 빈 값은 Fuji로 두고, 행사에서 쓰는 두 체인 외 값은 시작 단계에서 거절한다.
  */
-const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID) || avalancheFuji.id;
+const configuredChainId = process.env.NEXT_PUBLIC_CHAIN_ID?.trim();
+const chainId = configuredChainId ? Number(configuredChainId) : avalancheFuji.id;
+if (chainId !== avalancheFuji.id && chainId !== avalanche.id) {
+  throw new Error(`지원하지 않는 Avalanche 체인 ID입니다: ${configuredChainId}`);
+}
 const chain = chainId === avalanche.id ? avalanche : avalancheFuji;
+
+/** 운영자와 리허설 도구가 브라우저 쪽 추측 대신 실제 서버 설정을 확인한다. */
+export const chainRuntime = {
+  id: chainId,
+  customRpc: Boolean(process.env.AVALANCHE_RPC_URL?.trim()),
+} as const;
 
 /**
  * 주소와 배포 블록의 정본은 Fuji에서는 `contracts/deployments/43113.json`이다.
@@ -252,6 +262,8 @@ const MINT_GAS_LIMIT = BigInt(Number(process.env.MINT_GAS_LIMIT) || 300_000);
  * `AlreadyIssued`로 되돌아온다 — 그 복구 경로는 이미 아래에 있다.
  */
 const MINT_SEND_ATTEMPTS = 3;
+const TRANSACTION_MISSING_CONFIRMATIONS = 3;
+const TRANSACTION_MISSING_RETRY_MS = 400;
 
 /** 보내려던 번호가 어긋났을 뿐 트랜잭션은 나가지 않은 상태. 다시 보내면 된다. */
 function isStaleNonce(error: unknown): boolean {
@@ -308,7 +320,7 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
 }
 
 /**
- * 그 해시가 체인에도 mempool에도 없는지.
+ * 그 해시가 현재 공개 RPC의 반복 조회에도 없는지.
  *
  * nonce 경합에서 밀려난 트랜잭션은 해시만 남기고 사라진다. 영수증도 없고 앞으로도 안 생기는데,
  * DB에 해시가 남아 있으면 `retryEntry`가 상태를 `MINTING`으로 되돌리고 `mintEntry`는
@@ -316,16 +328,22 @@ export async function waitForMint(txHash: Hex): Promise<{ tokenId: string; txHas
  * 몇 번 눌러도 같은 자리를 돈다 — 실측에서 60명 중 3명이 이렇게 갇혔다.
  *
  * **찾지 못한 것과 조회에 실패한 것을 구분한다.** RPC가 잠시 죽은 것을 "사라졌다"로 읽으면
- * 아직 살아 있는 트랜잭션의 해시를 버려 같은 발급을 두 번 보내게 된다.
+ * 아직 살아 있는 트랜잭션의 해시를 버려 같은 발급을 두 번 보내게 된다. 한 번의 not found도
+ * 노드별 mempool 차이일 수 있어 짧은 간격으로 세 번 확인한다.
  */
 export async function transactionDisappeared(txHash: Hex): Promise<boolean> {
-  try {
-    await publicClient.getTransaction({ hash: txHash });
-    return false;
-  } catch (error) {
-    if (error instanceof TransactionNotFoundError) return true;
-    throw error;
+  for (let attempt = 0; attempt < TRANSACTION_MISSING_CONFIRMATIONS; attempt += 1) {
+    try {
+      await publicClient.getTransaction({ hash: txHash });
+      return false;
+    } catch (error) {
+      if (!(error instanceof TransactionNotFoundError)) throw error;
+    }
+    if (attempt + 1 < TRANSACTION_MISSING_CONFIRMATIONS) {
+      await new Promise((resolve) => setTimeout(resolve, TRANSACTION_MISSING_RETRY_MS));
+    }
   }
+  return true;
 }
 
 export type MintReceipt =

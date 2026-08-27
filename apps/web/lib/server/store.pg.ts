@@ -271,7 +271,7 @@ export async function getState(): Promise<StateResponse> {
  * 가져오면 다시 올려야 한다.
  */
 /** 민터 잔액은 체인 조회라 라우트에서 얹는다. 저장소는 DB만 본다. */
-export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter'>> {
+export async function getAdminState(): Promise<Omit<AdminStateResponse, 'minter' | 'chain'>> {
   const [rows, show] = await Promise.all([
     query<EntryRow & { auto_hidden_at: Date | null; wallet_address: string; metadata_cid: string | null }>(
       `select e.id, e.nickname, e.status, e.shelf_index, e.certificate_path,
@@ -398,7 +398,8 @@ export async function retryEntry(entryId: string): Promise<Entry | null> {
               else 'SUBMITTED'::entry_status
             end,
             failure_reason = null,
-            status_changed_at = now()
+            -- tx_hash가 있으면 새 전송이 아니라 기존 거래 확인 재개다. 최초 전송 시각을 지킨다.
+            status_changed_at = case when tx_hash is not null then status_changed_at else now() end
       where id = $1 and status = 'FAILED'
     returning ${ENTRY_COLUMNS}`,
     [entryId],
@@ -556,7 +557,11 @@ export async function markPipelineFailed(
         set status = 'FAILED',
             failure_reason = $2,
             tx_hash = case when $3 then null else tx_hash end,
-            status_changed_at = now()
+            -- 살아 있을 수 있는 tx_hash를 보존하면 최초 전송 시각도 함께 보존한다.
+            status_changed_at = case
+              when tx_hash is not null and not $3 then status_changed_at
+              else now()
+            end
       where id = $1 and status <> 'MINTED' and certificate_path is not null`,
     [entryId, reason.slice(0, 1_000), options.discardTxHash === true],
   );
@@ -578,7 +583,7 @@ export async function markPipelineFailed(
  */
 /** 차례를 못 잡고 이만큼 지나면 포기한다. 라우트가 `maxDuration = 60`이라 그 안에 끝내고
  *  실패를 기록할 여유를 남긴다. 포기한 건은 FAILED가 되어 운영자가 다시 시도로 푼다. */
-const MINT_LOCK_WAIT_MS = 45_000;
+const MINT_LOCK_WAIT_MS = 20_000;
 /** 다시 시도하기 전 쉬는 시간. 여러 명이 같은 순간에 깨어나 풀을 두드리지 않게 흔들어 준다. */
 const MINT_LOCK_RETRY_MS = 400;
 const MINT_LOCK_JITTER_MS = 600;
@@ -595,16 +600,22 @@ export async function withMintLock<T>(
 
   const deadline = Date.now() + MINT_LOCK_WAIT_MS;
   for (;;) {
-    const attempt = await mintLockAttempt(entryId, run);
-    if (attempt.ran) return attempt.value;
     if (Date.now() >= deadline) throw new Error('민팅 차례를 기다리다 시간이 지났습니다.');
-    await sleep(MINT_LOCK_RETRY_MS + Math.random() * MINT_LOCK_JITTER_MS);
+    const attempt = await mintLockAttempt(entryId, deadline, run);
+    if (attempt.ran) return attempt.value;
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error('민팅 차례를 기다리다 시간이 지났습니다.');
+    await sleep(Math.min(
+      MINT_LOCK_RETRY_MS + Math.random() * MINT_LOCK_JITTER_MS,
+      remaining,
+    ));
   }
 }
 
 /** 차례를 잡았으면 `ran: true`. 못 잡았으면 아무것도 하지 않고 커넥션을 돌려준다. */
 async function mintLockAttempt<T>(
   entryId: string,
+  deadline: number,
   run: (entry: PipelineEntry, actions: MintLockActions) => Promise<T>,
 ): Promise<{ ran: false } | { ran: true; value: T | null }> {
   return transaction(async (client) => {
@@ -612,6 +623,7 @@ async function mintLockAttempt<T>(
       `select pg_try_advisory_xact_lock(hashtext('hot-bakery-mint')) as acquired`,
     );
     if (!lock.rows[0]?.acquired) return { ran: false };
+    if (Date.now() >= deadline) return { ran: false };
 
     const found = await client.query<PipelineRow>(
       `select ${PIPELINE_COLUMNS}
@@ -623,6 +635,7 @@ async function mintLockAttempt<T>(
     );
     const row = found.rows[0];
     if (!row) return { ran: true, value: null };
+    if (Date.now() >= deadline) return { ran: false };
 
     const actions: MintLockActions = {
       async setMinting(txHash) {
