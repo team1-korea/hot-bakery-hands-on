@@ -192,7 +192,9 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   await expect(caption).toHaveCount(1);
   await expect(caption).toHaveCSS('flex-direction', 'row');
   await expect(caption.getByText(`#${minted.tokenId}`)).toBeVisible();
-  await expect(caption.getByText(nickname)).toBeVisible();
+  const captionNickname = caption.getByText(nickname);
+  await expect(captionNickname).toBeVisible();
+  await expect(captionNickname).toHaveCSS('line-height', '21.25px');
   await expect.poll(async () => {
     const cardBox = await page.locator('.showcase .certificate-card').boundingBox();
     const mediaBox = await page.locator('.showcase .certificate-card .card-media').boundingBox();

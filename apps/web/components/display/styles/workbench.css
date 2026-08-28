@@ -52,25 +52,19 @@
 }
 
 .queue-card-position {
-  position: relative;
+  position: absolute;
+  top: 0;
   width: var(--queue-card-width);
   height: 206px;
-  flex: 0 0 var(--queue-card-width);
+  transition:
+    left 320ms var(--ease-settle),
+    transform 320ms var(--ease-settle);
 }
-
-.queue-card-position + .queue-card-position {
-  margin-left: calc((var(--queue-card-width) - 28px) * -1);
-}
-
-.queue-card-position.is-buried {
-  position: absolute;
-  left: 50%;
-  margin-left: 0;
-  transform: translateX(-50%);
-}
-
-.queue-card-position.is-buried + .queue-card-position { margin-left: 0; }
 .workbench-grid .queue-card-position:not(:last-child) .card-caption { visibility: hidden; }
+
+@media (prefers-reduced-motion: reduce) {
+  .queue-card-position { transition: none; }
+}
 
 .queue-card-placeholder,
 .oven-card-placeholder {

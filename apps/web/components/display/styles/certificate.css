@@ -19,7 +19,7 @@
 .card-nickname {
   min-width: 0;
   overflow: hidden;
-  font: 900 17px/1 var(--display);
+  font: 900 17px/1.25 var(--display);
   letter-spacing: -.03em;
   text-overflow: ellipsis;
   white-space: nowrap;
