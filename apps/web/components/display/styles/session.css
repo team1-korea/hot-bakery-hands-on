@@ -168,7 +168,7 @@
 .anatomy-flow {
   display: grid;
   height: 100%;
-  grid-template-rows: minmax(0, 1fr) 66px;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .anatomy-flow ol {
@@ -217,20 +217,12 @@
   word-break: keep-all;
 }
 
-.session-memory-line {
-  margin: 0;
-  padding-top: 20px;
-  color: var(--session-ink);
-  text-align: center;
-  font: 600 27px/1.2 var(--display);
-}
-
 /* Storage */
 .storage-proof {
   display: grid;
   height: 100%;
   grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) 64px;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .storage-field {
@@ -317,18 +309,6 @@
   background: var(--session-ink);
 }
 
-.storage-original {
-  display: flex;
-  grid-column: 1 / -1;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  color: var(--session-ink);
-}
-
-.storage-original strong { font: 700 24px/1 var(--display); }
-.storage-original span { color: var(--session-muted); font: 600 23px/1.2 var(--display); }
-
 /* Wallet */
 .wallet-proof {
   display: grid;
@@ -398,6 +378,7 @@
 .wallet-roles dd { margin: 0; color: var(--session-ink); font: 700 24px/1 var(--display); }
 
 .wallet-key-note {
+  align-self: center;
   margin: 0;
   color: var(--session-muted);
   text-align: center;

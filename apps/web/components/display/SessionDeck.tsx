@@ -218,7 +218,6 @@ function AnatomySlide() {
           </div>
         </li>
       </ol>
-      <p className="session-memory-line">세 요소가 연결돼 지갑과 Explorer에 NFT 한 장으로 보입니다.</p>
     </div>
   );
 }
@@ -251,7 +250,7 @@ function StorageSlide() {
       <section className="storage-field storage-field--chain">
         <header>
           <span>C-CHAIN</span>
-          <strong>소유권을 기록합니다</strong>
+          <strong>토큰 소유 기록을 남깁니다</strong>
           <p>토큰 번호와 소유 지갑 같은 핵심 기록을 남깁니다.</p>
         </header>
         <dl className="storage-records">
@@ -269,10 +268,6 @@ function StorageSlide() {
           </div>
         </dl>
       </section>
-      <aside className="storage-original">
-        <strong>원본 쿠키 사진은 브라우저에서만 사용했습니다.</strong>
-        <span>서버에는 완성된 참가증서만 보냈습니다.</span>
-      </aside>
     </div>
   );
 }
@@ -313,7 +308,7 @@ function WalletSlide() {
 function MintingSlide() {
   const steps = [
     ['1', '증서 제출', '브라우저가 만든 완성본 한 장', 'SUBMITTED'],
-    ['2', 'IPFS 저장', '이미지와 메타데이터에 CID 생성', 'PINNED'],
+    ['2', 'IPFS 저장', '증서 이미지와 설명을 저장하고 주소 받기', 'PINNED'],
     ['3', '민팅 요청', '서버가 가스비를 내고 발행 요청', 'MINTING'],
     ['4', '결과 확인', '영수증과 발행 이벤트 확인', null],
     ['5', '진열', 'tokenId와 txHash 저장', 'MINTED'],
@@ -333,7 +328,7 @@ function MintingSlide() {
       </ol>
       <div className="minting-notes">
         <p><strong>민팅</strong><span>블록체인에 새 토큰을 발행하는 것</span></p>
-        <p><strong>처리 방식</strong><span><b>한 번에 한 명씩</b> 순서대로</span></p>
+        <p><strong>민팅 요청</strong><span><b>한 번에 한 건씩</b> 순서대로</span></p>
       </div>
     </div>
   );
