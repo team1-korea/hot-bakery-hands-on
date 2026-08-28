@@ -44,6 +44,31 @@ test('TV 공개 화면의 참가 QR을 크게 열고 원래 화면으로 돌아�
   expect(errors).toEqual([]);
 });
 
+test('슬라이드 검수 화면은 주소의 장 번호에서 시작하고 키보드로 이동한다', async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+
+  await page.goto('/slides#3');
+
+  await expect(page.getByRole('heading', {
+    name: '증서 파일은 IPFS에, 소유 기록은 C-Chain에 남습니다',
+  })).toBeVisible();
+
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByRole('heading', {
+    name: 'NFT의 주인은 Google 계정이 아니라 지갑 주소입니다',
+  })).toBeVisible();
+
+  const canvas = await page.locator('.display-canvas').boundingBox();
+  const viewport = page.viewportSize();
+  expect(canvas).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(canvas!.x).toBeGreaterThanOrEqual(0);
+  expect(canvas!.y).toBeGreaterThanOrEqual(0);
+  expect(canvas!.x + canvas!.width).toBeLessThanOrEqual(viewport!.width);
+  expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(viewport!.height);
+  expect(errors).toEqual([]);
+});
+
 function entry(nickname: string, status: Entry['status']): Entry {
   const submitted = status !== 'JOINED';
   const minted = status === 'MINTED';
@@ -266,13 +291,13 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
     return (mediaBox?.height ?? 0) / (cardBox?.height ?? 1);
   }).toBeGreaterThan(0.83);
   await page.getByRole('button', { name: 'NFT 교육 세션으로 이동' }).click();
-  await expect(page.getByRole('heading', { name: '방금, 쿠키가 NFT가 되었습니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '방금 받은 참가증서, 이렇게 만들었습니다' })).toBeVisible();
 
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('heading', { name: 'NFT 한 장은 세 겹으로 이루어집니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'NFT 한 장은 세 가지로 이루어집니다' })).toBeVisible();
 
   await page.keyboard.press('End');
-  await expect(page.getByRole('heading', { name: 'C-Chain에는 소유와 발행 기록이 남습니다' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '공개되는 것과 공개하지 않는 것' })).toBeVisible();
   await page.getByRole('button', { name: '진열장으로 돌아가기' }).click();
 
   await expect(page.getByRole('heading', { name: '오늘의 진열장' })).toBeVisible();
