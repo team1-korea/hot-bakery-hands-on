@@ -23,7 +23,13 @@ function backend(): typeof memory {
 }
 
 export type { Photo } from './storage';
-export type { AttachFailure, AttachResult, NicknameUpdateResult, ResetResult } from './store.shared';
+export type {
+  AttachFailure,
+  AttachResult,
+  NicknameUpdateResult,
+  RehearsalCleanupResult,
+  ResetResult,
+} from './store.shared';
 export { ABANDONED_JOIN_MS, STUCK_MS } from './store.shared';
 
 export const register: typeof memory.register = (...args) => backend().register(...args);
@@ -50,3 +56,5 @@ export const sweep: typeof memory.sweep = (...args) => backend().sweep(...args);
 export const resetStore: typeof memory.resetStore = (...args) => backend().resetStore(...args);
 export const resetAdminData: typeof memory.resetAdminData = (...args) =>
   backend().resetAdminData(...args);
+export const deleteRehearsalRun: typeof memory.deleteRehearsalRun = (...args) =>
+  backend().deleteRehearsalRun(...args);

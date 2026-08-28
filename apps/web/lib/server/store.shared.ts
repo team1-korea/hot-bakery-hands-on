@@ -13,6 +13,9 @@ export type NicknameUpdateResult =
   | { ok: true; entry: Entry }
   | { ok: false; code: 'NOT_FOUND' | 'ALREADY_SUBMITTED' };
 export type ResetResult = { deleted: { participants: number; entries: number } };
+export type RehearsalCleanupResult =
+  | { ok: true; deleted: { participants: number; entries: number; photos: number } }
+  | { ok: false; code: 'NOT_FOUND' | 'NOT_READY' };
 
 /** 참가자·공개 응답에는 내부 장애 원문을 내보내지 않는다. */
 export function withoutFailureReason(entry: Entry): Entry {

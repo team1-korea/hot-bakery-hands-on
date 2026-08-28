@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, test, vi } from 'vitest';
 
 import { BakeryScene } from '@/components/display/BakeryScene';
-import type { StateResponse } from '@/lib/api/types';
+import { Workbench } from '@/components/display/Workbench';
+import type { Entry, StateResponse } from '@/lib/api/types';
 
 const LIVE_STATE: StateResponse = {
   entries: [],
@@ -75,5 +76,42 @@ describe('TV 참가 QR 확대', () => {
       expect(screen.queryByRole('dialog', { name: '참가 QR 확대' }))
         .not.toBeInTheDocument();
     });
+  });
+});
+
+describe('오븐 대기 카드 스택', () => {
+  test('여섯 장이 겹쳐져도 모든 카드에 서로 다른 위치를 준다', () => {
+    const entries: Entry[] = Array.from({ length: 6 }, (_, index) => ({
+      id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      nickname: `부하${String(index).padStart(2, '0')}`,
+      status: 'SUBMITTED',
+      photoUrl: `/certificate-${index}.jpg`,
+      tokenId: null,
+      txHash: null,
+      shelfIndex: index,
+      hidden: false,
+      failureReason: null,
+      submittedAt: '2026-08-28T00:00:00.000Z',
+    }));
+    const { container } = render(
+      <Workbench
+        entries={entries}
+        phases={new Map()}
+        qrVisible
+        qrSvg="<svg></svg>"
+        onExpandQr={() => {}}
+        qrButtonRef={null}
+        transition={{ layout: { duration: 0, ease: [0, 0, 1, 1] } }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: '오븐 대기' }).nextElementSibling)
+      .toHaveTextContent('6');
+    const cards = [...container.querySelectorAll<HTMLElement>('.queue-card-position')];
+    expect(cards).toHaveLength(6);
+    expect(cards.map((card) => card.style.left)).toEqual([
+      '0%', '20%', '40%', '60%', '80%', '100%',
+    ]);
+    expect(new Set(cards.map((card) => card.style.transform))).toHaveLength(6);
   });
 });

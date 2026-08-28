@@ -54,20 +54,31 @@ export function Workbench({
           </AnimatePresence>
           <div className="workbench-grid">
             <AnimatePresence initial={false}>
-              {entries.map((entry, index) => (
-                <div className={`queue-card-position ${index < entries.length - 3 ? 'is-buried' : ''}`} key={entry.id}>
-                  {phases.get(entry.id) === 'to-oven' ? (
-                    <span className="queue-card-placeholder" aria-hidden="true" />
-                  ) : (
-                    <CookieCard
-                      entry={entry}
-                      motionPhase={phases.get(entry.id)}
-                      layoutDuration={COUNTER_DURATION}
-                      layoutEase={EASE_SETTLE}
-                    />
-                  )}
-                </div>
-              ))}
+              {entries.map((entry, index) => {
+                const progress = entries.length === 1 ? 0.5 : index / (entries.length - 1);
+                return (
+                  <div
+                    className="queue-card-position"
+                    key={entry.id}
+                    style={{
+                      left: `${progress * 100}%`,
+                      transform: `translateX(${-progress * 100}%)`,
+                      zIndex: index + 1,
+                    }}
+                  >
+                    {phases.get(entry.id) === 'to-oven' ? (
+                      <span className="queue-card-placeholder" aria-hidden="true" />
+                    ) : (
+                      <CookieCard
+                        entry={entry}
+                        motionPhase={phases.get(entry.id)}
+                        layoutDuration={COUNTER_DURATION}
+                        layoutEase={EASE_SETTLE}
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </AnimatePresence>
           </div>
         </div>

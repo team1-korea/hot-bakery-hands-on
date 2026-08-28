@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { clearStoredPhotos, photoUrl, putPhoto, readStoredPhoto } from './storage';
+import {
+  clearStoredPhotos,
+  deleteStoredPhotos,
+  getPhoto,
+  photoUrl,
+  putPhoto,
+  readStoredPhoto,
+} from './storage';
+
+test('리허설 정리는 지정한 메모리 사진만 지운다', async () => {
+  await putPhoto('rehearsal-entry', { bytes: new Uint8Array([1]), contentType: 'image/png' });
+  await putPhoto('real-entry', { bytes: new Uint8Array([2]), contentType: 'image/png' });
+
+  assert.equal(await deleteStoredPhotos(['rehearsal-entry']), 1);
+  assert.equal(await getPhoto('rehearsal-entry'), null);
+  assert.deepEqual(await getPhoto('real-entry'), {
+    bytes: new Uint8Array([2]),
+    contentType: 'image/png',
+  });
+});
 
 test('DATABASE_URL이 있는데 Storage 설정이 빠지면 메모리로 fallback하지 않는다', async () => {
   const keys = [
