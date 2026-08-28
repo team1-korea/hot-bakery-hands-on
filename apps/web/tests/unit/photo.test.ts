@@ -37,6 +37,14 @@ describe('NFT 증서 규격', () => {
     expect(jpegSize(frame)).toEqual({ width: 960, height: 1280 });
   });
 
+  test('배포 화면 리허설은 사진이 든 별도 3:4 JPG를 사용한다', async () => {
+    const certificate = await readFile('tests/fixtures/display-load-certificate.jpg');
+
+    expect([...certificate.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+    expect(jpegSize(certificate)).toEqual({ width: 960, height: 1280 });
+    expect(certificate.length).toBeGreaterThan(100_000);
+  });
+
   test('닉네임 합성에 한글 전체가 든 Pretendard Bold를 사용한다', async () => {
     const font = await readFile('public/assets/fonts/pretendard-bold.woff2');
 

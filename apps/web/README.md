@@ -81,7 +81,8 @@ npm run rehearse:display -- --confirm fuji
 ```
 
 스크립트가 Production `/display`를 브라우저로 연 뒤 대기합니다. 화면이 보일 때 Enter를 누르면
-`부하00`부터 `부하05`까지 6건이 동시에 들어갑니다. 기본 테스트 이미지를 바꾸려면
+`부하00`부터 `부하05`까지 6건이 동시에 들어갑니다. 기본값은 실제 참가자 사진이나 확정 디자인을
+쓰지 않은 `DISPLAY TEST` 쿠키 증서이며, 다른 합성 증서로 확인하려면
 `--photo ./certificate.jpg`를 붙입니다. `apps/web/.env.local`의 `OPERATOR_PASSCODE`가 배포 값과
 같아야 하며, Production이 Fuji 공개 RPC가 아니거나 남은 진열칸이 부족하면 실제 제출 전에
 중단합니다. 이 경로는 메인넷에서 항상 닫힙니다.

@@ -29,7 +29,10 @@ const timeoutMs = integerOption('timeout', options.timeout, 360, 1, 3_600) * 1_0
 const cleanupMode = cleanupOption(options.cleanup);
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(scriptDirectory, '..');
-const photoPath = path.resolve(webRoot, options.photo ?? 'tests/fixtures/certificate-frame.jpg');
+const photoPath = path.resolve(
+  webRoot,
+  options.photo ?? 'tests/fixtures/display-load-certificate.jpg',
+);
 
 if (!existsSync(photoPath)) fail(`화면에 표시할 JPEG을 찾지 못했습니다: ${photoPath}`);
 
@@ -363,6 +366,7 @@ function usage() {
   console.log('npm run rehearse:display -- --confirm fuji --count 6 --photo ./my-certificate.jpg');
   console.log('npm run rehearse:display -- --confirm fuji --cleanup delete');
   console.log('');
+  console.log('기본 이미지: tests/fixtures/display-load-certificate.jpg (사진이 든 DISPLAY TEST 증서)');
   console.log('기본값: 6건 동시 제출, 운영자 복구 5초, 최대 360초 대기, 종료 뒤 정리 여부 확인');
 }
 

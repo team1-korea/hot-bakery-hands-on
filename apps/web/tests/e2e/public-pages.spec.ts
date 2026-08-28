@@ -203,6 +203,44 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   expect(errors).toEqual([]);
 });
 
+test('오븐 밖 대기 카드가 먼저 완성돼도 오븐을 거쳐 진열된다', async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+  const submitted = Array.from({ length: 5 }, (_, index): Entry => ({
+    ...entry(`동시${index + 1}`, 'SUBMITTED'),
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    shelfIndex: index,
+  }));
+  let completed = false;
+  await page.route('**/cookie.png', (route) => route.fulfill({
+    path: path.resolve('tests/fixtures/display-load-certificate.jpg'),
+    contentType: 'image/jpeg',
+  }));
+  await page.route('**/api/state', (route) => route.fulfill({
+    json: state(submitted.map((item, index) => (
+      completed && (index === 0 || index === 4)
+        ? { ...item, status: 'MINTED', tokenId: String(index + 1), txHash: `0x${index + 1}` }
+        : item
+    ))),
+  }));
+
+  await page.goto('/display');
+  const waitingNickname = '동시5';
+  await expect(page.locator('.workbench').getByText(waitingNickname)).toBeVisible();
+  const certificateImages = page.locator('.cookie-card img');
+  await expect(certificateImages).toHaveCount(5);
+  await expect.poll(() => certificateImages.evaluateAll((images) => (
+    images.every((image) => (
+      image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0
+    ))
+  ))).toBe(true);
+
+  completed = true;
+  await expect(page.locator('.oven').getByText(waitingNickname)).toBeVisible({ timeout: 8_000 });
+  await expect(page.locator('.showcase').getByText(waitingNickname)).toHaveCount(0);
+  await expect(page.locator('.showcase').getByText(waitingNickname)).toBeVisible({ timeout: 8_000 });
+  expect(errors).toEqual([]);
+});
+
 test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다', async ({ page }) => {
   const errors = captureRuntimeErrors(page);
   const minted = entry('쿠키선생', 'MINTED');
