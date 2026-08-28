@@ -30,6 +30,7 @@
 - API·파이프라인·DB·운영자·인수인계 문서의 코드 동기화
 - 실제 Supabase·Storage·Pinata·Fuji E2E 검증 및 테스트 데이터 정리
 - 확정된 3:4 NFT 디자인과 Pretendard Bold 닉네임 합성 적용
+- 메인넷 컨트랙트 배포·온체인 코드/역할 검증과 공개 `43114.json` 기록
 
 ### 남은 작업
 

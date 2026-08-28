@@ -29,8 +29,8 @@ Fuji 테스트넷 검증 결과는 [FUJI_SMOKE_TEST.md](./FUJI_SMOKE_TEST.md)에
 
 - ABI: [`abi/AvalancheBakeryCertificate.json`](./abi/AvalancheBakeryCertificate.json)
 - Fuji deployment: [`deployments/43113.json`](./deployments/43113.json)
-- Mainnet deployment: [`deployments/43114.json`](./deployments/43114.json) (`pending`은 아직 미배포이며
-  재사용할 Production 민터 주소만 공개 고정, 배포 후 온체인 검증을 거쳐 `deployed` 기록으로 교체)
+- Mainnet deployment: [`deployments/43114.json`](./deployments/43114.json)
+  (`0x787D2971Ec3eaA6b63d51BB52834aB41d2cd18A9`, 온체인 코드·트랜잭션·역할 검증 완료)
 - ABI regeneration: `./scripts/export-abi.sh`
 
 The frontend and backend should use the committed ABI rather than importing the full Foundry `out/` artifact. Whenever

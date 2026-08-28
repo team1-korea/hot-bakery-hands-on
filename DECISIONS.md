@@ -103,7 +103,7 @@ Railway를 검토했으나 채택하지 않았습니다.
 
 ### 2026-08-19 · 개발 네트워크는 Fuji — 백엔드
 
-`43113` / `0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36`. 메인넷 배포는 **아직 없습니다.**
+`43113` / `0x67Ce0bb25ee58B6D000d209B051b9E846D0d6b36`. 이 결정 당시에는 메인넷 배포가 없었습니다.
 
 **주의.** 프론트의 익스플로러 링크가 C-Chain 메인넷으로 하드코딩돼 있고
 (`components/display/Showcase.tsx`), 어디에도 `chainId`가 없습니다. Fuji에서 실제 `txHash`가
@@ -288,6 +288,17 @@ function zone(status: EntryStatus) {
 이번 행사만 운영한 뒤 서비스를 종료하므로 커스텀 RPC는 추가하지 않습니다.
 `AVALANCHE_RPC_URL`을 비워 선택한 체인의 공개 RPC를 사용합니다. 배포 전에는 메인넷 컨트랙트의
 민터 권한과 서버 민터의 AVAX 잔액을 확인합니다.
+
+### 2026-08-29 · 행사 메인넷 컨트랙트 배포 완료 — 백엔드
+
+Avalanche C-Chain 메인넷(`43114`)의 `0x787D2971Ec3eaA6b63d51BB52834aB41d2cd18A9`에
+`Avalanche Bakery Certificate`를 배포했습니다. 배포 트랜잭션은
+`0x526270f0e7c72c6c6579843c185ad4540f5f6f4aacc588696fcb8f4469ea586d`, 배포 블록은
+`93905564`입니다. 관리자·복구 역할은 `0xd864F9b2641bc4F3c1Be717a7835358105A70322`, 민터 역할은
+기존 Production 민터 `0x57EcCf15d4e1C36670Ee36A0FE84f12AcBeC94b4`에 부여했습니다.
+
+온체인 런타임 코드가 Fuji 검증본과 일치하고, 이름·심볼과 세 역할을 다시 읽어 확인했습니다. 공개
+배포 기록을 `deployments/43114.json`에 커밋한 뒤 Vercel 주소·블록을 준비하고 체인 ID를 전환합니다.
 
 ### 2026-08-25 · 행사 후 같은 지갑을 Core Wallet에서 확인 — 운영
 

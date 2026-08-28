@@ -15,14 +15,17 @@ function record(...args: string[]) {
 }
 
 describe('Production 체인 전환 명령', () => {
-  test('메인넷 배포가 pending이면 준비와 전환을 모두 거절한다', () => {
+  test('검증된 메인넷 배포 기록으로 준비와 전환 dry-run을 만든다', () => {
     const prepare = run('prepare-mainnet');
     const activate = run('mainnet');
 
-    expect(prepare.status).toBe(1);
-    expect(activate.status).toBe(1);
-    expect(prepare.stderr).toContain('메인넷 배포 기록에는');
-    expect(activate.stderr).toContain('메인넷 배포 기록에는');
+    expect(prepare.status).toBe(0);
+    expect(activate.status).toBe(0);
+    expect(prepare.stdout).toContain('메인넷 코드·배포 트랜잭션·민터/관리자 권한 일치');
+    expect(prepare.stdout).toContain('NEXT_PUBLIC_CHAIN_ID를 건드리지 않으므로 Production은 Fuji');
+    expect(activate.stdout).toContain('CERTIFICATE_ADDRESS=0x787D2971Ec3eaA6b63d51BB52834aB41d2cd18A9');
+    expect(activate.stdout).toContain('CERTIFICATE_DEPLOYMENT_BLOCK=93905564');
+    expect(activate.stdout).toContain('NEXT_PUBLIC_CHAIN_ID=43114');
   });
 
   test('Fuji 복귀에는 메인넷 배포 기록이 필요하지 않다', () => {
@@ -46,7 +49,7 @@ describe('Production 체인 전환 명령', () => {
     expect(result.stderr).toContain('알 수 없는 옵션입니다: --artifact');
   });
 
-  test('메인넷 배포 기록은 현재 Production 민터가 아니면 체인 조회 전에 거절한다', () => {
+  test('검증을 마친 메인넷 배포 기록은 자동으로 덮어쓰지 않는다', () => {
     const result = record(
       '--address', '0x1111111111111111111111111111111111111111',
       '--tx', `0x${'a'.repeat(64)}`,
@@ -56,6 +59,6 @@ describe('Production 체인 전환 명령', () => {
     );
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('현재 Production 서버 민터 주소');
+    expect(result.stderr).toContain('메인넷 배포 기록이 이미 존재합니다');
   });
 });
