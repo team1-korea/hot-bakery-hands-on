@@ -1,6 +1,10 @@
 {
   "network": "avalanche",
   "chainId": 43114,
-  "status": "pending",
+  "status": "deployed",
+  "address": "0x787D2971Ec3eaA6b63d51BB52834aB41d2cd18A9",
+  "deploymentTransaction": "0x526270f0e7c72c6c6579843c185ad4540f5f6f4aacc588696fcb8f4469ea586d",
+  "deploymentBlock": 93905564,
+  "admin": "0xd864F9b2641bc4F3c1Be717a7835358105A70322",
   "minter": "0x57EcCf15d4e1C36670Ee36A0FE84f12AcBeC94b4"
 }

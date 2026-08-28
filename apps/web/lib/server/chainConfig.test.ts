@@ -54,7 +54,10 @@ test('메인넷은 주소와 배포 블록을 함께 사용한다', () => {
 
 test('메인넷 배포 정보가 없거나 잘못되면 시작 단계에서 거절한다', () => {
   assert.throws(
-    () => resolveServerChainConfig({ NEXT_PUBLIC_CHAIN_ID: '43114' }),
+    () => resolveServerChainConfig(
+      { NEXT_PUBLIC_CHAIN_ID: '43114' },
+      { network: 'avalanche', chainId: 43114, status: 'pending' },
+    ),
     /배포와 검증이 아직 완료되지 않았습니다/,
   );
   assert.throws(
