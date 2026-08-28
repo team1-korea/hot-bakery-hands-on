@@ -148,8 +148,21 @@ async function mintEntry(entryId: string, deps: PipelineDependencies): Promise<v
     if (entry.status === 'MINTED') return { kind: 'done' };
     if (!entry.metadataCid) throw new Error('메타데이터 CID가 없습니다.');
 
-    // 전송 후 영수증 대기 중 재시작된 경로.
-    if (entry.txHash) return { kind: 'wait', txHash: entry.txHash };
+    // 전송 후 영수증 대기 중 재시작된 경로. 단 그 해시가 아직 살아 있을 때만이다.
+    //
+    // CID는 한 번 성공하면 영원히 유효하지만 txHash는 아니다. nonce 경합에서 밀려난
+    // 트랜잭션은 해시만 남기고 사라지고, 그것을 그대로 믿으면 재시도가 없는 영수증을
+    // 20초씩 기다리다 실패하기를 반복한다. 운영자가 몇 번을 눌러도 같은 자리를 돈다.
+    //
+    // 여기 오는 것은 최초 전송으로부터 최소 20초(영수증 상한) 뒤다. 2초 블록에서 그만큼
+    // 지났으면 살아 있는 트랜잭션은 이미 블록 안이라 mempool 가시성 차이를 걱정하지
+    // 않아도 된다. 살아 있으면 조회 한 번으로 끝나므로 정상 경로가 치르는 값도 작다.
+    if (entry.txHash) {
+      if (!(await deps.chain.transactionDisappeared(entry.txHash))) {
+        return { kind: 'wait', txHash: entry.txHash };
+      }
+      // 사라졌다. 아래로 내려가 새로 보내고, setMinting이 죽은 해시를 덮어쓴다.
+    }
 
     const issued = await deps.chain.hasBeenIssued(entry.walletAddress);
     if (issued) {

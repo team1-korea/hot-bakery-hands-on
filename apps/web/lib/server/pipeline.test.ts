@@ -209,6 +209,30 @@ test('txHash가 있으면 다시 보내지 않고 영수증만 확인한다', as
   assert.equal(repository.row?.status, 'MINTED');
 });
 
+test('죽은 해시로 재시도하면 그것을 버리고 새 트랜잭션을 보낸다', async () => {
+  // 운영자가 「다시 시도」를 누른 직후. retryEntry가 txHash를 보고 MINTING으로 되돌린 상태다.
+  repository.row = entry({
+    status: 'MINTING',
+    certificateCid: 'bafy-certificate',
+    metadataCid: 'bafy-metadata',
+    txHash: TX,
+  });
+  // nonce 경합에서 밀려나 채굴되지 못한 해시. 영수증도 mempool 조회도 영영 비어 있다.
+  deps.chain.transactionDisappeared = async () => true;
+  deps.chain.mint = async (_recipient, uri) => { calls.push(`mint:${uri}`); return RETRY_TX; };
+  deps.chain.waitForMint = async (txHash) => {
+    calls.push('receipt');
+    return { tokenId: '299', txHash };
+  };
+
+  await runPipeline(ENTRY_ID, deps);
+
+  assert.deepEqual(calls, ['has-issued', 'mint:ipfs://bafy-metadata', 'receipt']);
+  assert.equal(repository.row?.status, 'MINTED');
+  assert.equal(repository.row?.txHash, RETRY_TX);
+  assert.equal(repository.row?.tokenId, '299');
+});
+
 test('이미 발급된 주소는 이벤트로 tokenId·txHash를 복구한다', async () => {
   repository.row = entry({
     status: 'PINNED',
