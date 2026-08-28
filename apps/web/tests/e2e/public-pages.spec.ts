@@ -294,10 +294,14 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
   await expect(page.getByRole('heading', { name: '방금 받은 참가증서, 이렇게 만들었습니다' })).toBeVisible();
 
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('heading', { name: 'NFT 한 장은 세 가지로 이루어집니다' })).toBeVisible();
+  await expect(page.getByRole('heading', {
+    name: 'NFT 한 장은 세 가지 요소가 연결되어 있습니다',
+  })).toBeVisible();
 
   await page.keyboard.press('End');
-  await expect(page.getByRole('heading', { name: '공개되는 것과 공개하지 않는 것' })).toBeVisible();
+  await expect(page.getByRole('heading', {
+    name: 'RWA는 아니지만, 토큰화의 구조를 경험했습니다',
+  })).toBeVisible();
   await page.getByRole('button', { name: '진열장으로 돌아가기' }).click();
 
   await expect(page.getByRole('heading', { name: '오늘의 진열장' })).toBeVisible();

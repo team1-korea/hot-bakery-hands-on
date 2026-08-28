@@ -4,15 +4,16 @@ import { describe, expect, test, vi } from 'vitest';
 import { SESSION_SLIDES, SessionDeck } from '@/components/display/SessionDeck';
 
 describe('교육 세션 슬라이드', () => {
-  test('도입부터 공개 검증까지 일곱 장으로 설명한다', () => {
+  test('도입부터 토큰화 정리까지 여덟 장으로 설명한다', () => {
     expect(SESSION_SLIDES.map((slide) => slide.title)).toEqual([
       '방금 받은 참가증서, 이렇게 만들었습니다',
-      'NFT 한 장은 세 가지로 이루어집니다',
+      'NFT 한 장은 세 가지 요소가 연결되어 있습니다',
       '증서 파일은 IPFS에, 소유 기록은 C-Chain에 남습니다',
       'NFT의 주인은 Google 계정이 아니라 지갑 주소입니다',
       '제출부터 진열까지 다섯 단계를 거칩니다',
       'ERC-721 형식이지만 다른 지갑으로 보낼 수 없습니다',
       '공개되는 것과 공개하지 않는 것',
+      'RWA는 아니지만, 토큰화의 구조를 경험했습니다',
     ]);
   });
 
@@ -31,8 +32,10 @@ describe('교육 세션 슬라이드', () => {
     expect(screen.queryByText(/개의 참가증서/)).not.toBeInTheDocument();
     expect(screen.queryByText('NFT 교육 세션')).not.toBeInTheDocument();
     expect(screen.queryByText('Space')).not.toBeInTheDocument();
-    expect(screen.getByText('블록체인')).toBeVisible();
+    expect(screen.getAllByText('블록체인')).toHaveLength(2);
     expect(screen.getByText('여러 사람이 같은 내용을 확인하는 공개 기록')).toBeVisible();
+    expect(screen.getByText('완성된 참가증서')).toBeVisible();
+    expect(screen.getByText('소유 기록')).toBeVisible();
     expect(screen.queryByRole('img', { name: '예시용 쿠키 참가증서' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '이전 슬라이드' })).toBeDisabled();
 
@@ -53,16 +56,34 @@ describe('교육 세션 슬라이드', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '진열장으로 돌아가기' }));
     expect(onExit).toHaveBeenCalledOnce();
+    expect(screen.getByText('오늘 연결한 것')).toBeVisible();
+    expect(screen.getByText(/쿠키를 담은/)).toBeVisible();
+    expect(screen.getByText('쿠키 실물의 소유권')).toBeVisible();
+    expect(screen.getByText('경제적인 권리')).toBeVisible();
+    expect(screen.getByText(/토큰화의 기본 구조/)).toBeVisible();
+    expect(screen.queryByText(/Core/)).not.toBeInTheDocument();
+  });
+
+  test('공개 범위를 마무리 장과 분리해 설명한다', () => {
+    render(
+      <SessionDeck
+        slide={6}
+        stale={false}
+        onSlide={() => {}}
+        onExit={() => {}}
+      />,
+    );
+
     expect(screen.getByText('C-Chain')).toBeVisible();
     expect(screen.getByText('IPFS')).toBeVisible();
     expect(screen.getByText(/최종 참가증서\(쿠키 사진·닉네임\)/)).toBeVisible();
     expect(screen.getByText('원본 사진')).toBeVisible();
     expect(screen.getByText('Google 계정')).toBeVisible();
+    expect(screen.queryByText(/토큰화의 기본 구조/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Chain ID 43113/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Avalanche Bakery Certificate/)).not.toBeInTheDocument();
     expect(screen.queryByText(/서버도 받지 않습니다/)).not.toBeInTheDocument();
     expect(screen.queryByText(/원본 사진 · 이미지 바이트/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Core/)).not.toBeInTheDocument();
   });
 
   test('기술 샘플 대신 세 요소와 저장 위치의 역할만 설명한다', () => {
@@ -75,7 +96,7 @@ describe('교육 세션 슬라이드', () => {
       />,
     );
 
-    const anatomySlide = screen.getByRole('group', { name: '2 / 7' });
+    const anatomySlide = screen.getByRole('group', { name: '2 / 8' });
     expect(within(anatomySlide).getByText('쿠키 사진과 프레임을 합친 완성본')).toBeVisible();
     expect(within(anatomySlide).getByText('증서 이름과 이미지를 설명하는 정보')).toBeVisible();
     expect(within(anatomySlide).getByText('증서 번호와 소유 지갑을 연결한 기록')).toBeVisible();
@@ -92,13 +113,15 @@ describe('교육 세션 슬라이드', () => {
       />,
     );
 
-    const storageSlide = screen.getByRole('group', { name: '3 / 7' });
+    const storageSlide = screen.getByRole('group', { name: '3 / 8' });
     expect(within(storageSlide).getByRole('heading', {
       name: '증서 파일은 IPFS에, 소유 기록은 C-Chain에 남습니다',
     })).toBeVisible();
     expect(within(storageSlide).getByText('참가증서 이미지')).toBeVisible();
     expect(within(storageSlide).getByText('증서 번호')).toBeVisible();
     expect(within(storageSlide).getByText('참가자의 지갑 주소')).toBeVisible();
+    expect(within(storageSlide).getByText('tokenURI')).toBeVisible();
+    expect(within(storageSlide).getByText('메타데이터 주소')).toBeVisible();
     expect(within(storageSlide).queryByText(/ipfs:\/\//)).not.toBeInTheDocument();
     expect(within(storageSlide).queryByText('번호')).not.toBeInTheDocument();
 
@@ -111,7 +134,7 @@ describe('교육 세션 슬라이드', () => {
       />,
     );
 
-    const walletSlide = screen.getByRole('group', { name: '4 / 7' });
+    const walletSlide = screen.getByRole('group', { name: '4 / 8' });
     expect(within(walletSlide).getByText('참가자 지갑')).toBeVisible();
     expect(within(walletSlide).queryByText(/0x…A91C/)).not.toBeInTheDocument();
   });

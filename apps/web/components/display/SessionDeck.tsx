@@ -11,7 +11,8 @@ type SessionSlideId =
   | 'wallet'
   | 'minting'
   | 'certificate'
-  | 'chain';
+  | 'chain'
+  | 'closing';
 
 export type SessionSlide = {
   id: SessionSlideId;
@@ -27,7 +28,7 @@ export const SESSION_SLIDES: readonly SessionSlide[] = [
   },
   {
     id: 'anatomy',
-    title: 'NFT 한 장은 세 가지로 이루어집니다',
+    title: 'NFT 한 장은 세 가지 요소가 연결되어 있습니다',
   },
   {
     id: 'storage',
@@ -48,6 +49,10 @@ export const SESSION_SLIDES: readonly SessionSlide[] = [
   {
     id: 'chain',
     title: '공개되는 것과 공개하지 않는 것',
+  },
+  {
+    id: 'closing',
+    title: 'RWA는 아니지만, 토큰화의 구조를 경험했습니다',
   },
 ] as const;
 
@@ -153,6 +158,7 @@ function SlideContent({ slide }: { slide: SessionSlide }) {
         {slide.id === 'minting' ? <MintingSlide /> : null}
         {slide.id === 'certificate' ? <CertificateSlide /> : null}
         {slide.id === 'chain' ? <ChainSlide /> : null}
+        {slide.id === 'closing' ? <ClosingSlide /> : null}
       </div>
     </div>
   );
@@ -168,12 +174,18 @@ function OpeningSlide({ slide }: { slide: SessionSlide }) {
           <strong>블록체인</strong>
           <span>여러 사람이 같은 내용을 확인하는 공개 기록</span>
         </div>
-        <div className="opening-parts" aria-label="참가증서를 이루는 세 요소">
-          <span>쿠키 사진</span>
-          <i aria-hidden="true" />
-          <span>증서 정보</span>
-          <i aria-hidden="true" />
-          <span>지갑 소유 기록</span>
+        <div className="opening-records" aria-label="참가증서 파일과 블록체인 소유 기록">
+          <div>
+            <span>파일</span>
+            <strong>완성된 참가증서</strong>
+            <p>증서 이미지로 따로 저장</p>
+          </div>
+          <i aria-hidden="true">+</i>
+          <div>
+            <span>블록체인</span>
+            <strong>소유 기록</strong>
+            <p>이 증서가 누구의 것인지 기록</p>
+          </div>
         </div>
       </div>
     </div>
@@ -232,7 +244,8 @@ function StorageSlide() {
         </dl>
       </section>
       <div className="storage-bridge">
-        <strong>연결</strong>
+        <strong>tokenURI</strong>
+        <span>메타데이터 주소</span>
         <i aria-hidden="true" />
       </div>
       <section className="storage-field storage-field--chain">
@@ -378,6 +391,32 @@ function ChainSlide() {
         <p>Google 계정</p>
         <p>참가자 개인키</p>
       </section>
+    </div>
+  );
+}
+
+function ClosingSlide() {
+  return (
+    <div className="closing-proof">
+      <section className="closing-connected">
+        <h2>오늘 연결한 것</h2>
+        <div className="closing-path">
+          <strong>쿠키를 담은<br />디지털 증서</strong>
+          <Arrow direction="right" />
+          <strong>참가자<br />지갑</strong>
+          <Arrow direction="right" />
+          <strong>사용<br />규칙</strong>
+        </div>
+      </section>
+      <section className="closing-boundary">
+        <h2>나타내지 않는 것</h2>
+        <p>쿠키 실물의 소유권</p>
+        <p>경제적인 권리</p>
+        <p>상환이나 수익</p>
+      </section>
+      <p className="closing-summary">
+        대상과 정보, 소유자와 규칙을 연결하는 것이 <b>토큰화의 기본 구조</b>입니다.
+      </p>
     </div>
   );
 }
