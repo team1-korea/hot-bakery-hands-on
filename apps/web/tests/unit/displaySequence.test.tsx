@@ -108,6 +108,44 @@ describe('TV 첫 상태 동기화', () => {
     expect(result.current.entries.find((item) => item.id === 'cookie-5')?.status).toBe('FAILED');
   });
 
+  test('오븐 밖 대기 카드가 먼저 민팅돼도 빈 슬롯을 거쳐 진열장으로 간다', () => {
+    vi.useFakeTimers();
+    const submitted = Array.from({ length: 5 }, (_, index) => (
+      entry(`cookie-${index + 1}`, 'SUBMITTED', index)
+    ));
+    const { result, rerender } = renderHook(
+      ({ entries }) => useDisplaySequence(entries, false, true),
+      { initialProps: { entries: submitted } },
+    );
+    act(() => vi.advanceTimersByTime(0));
+    expect(result.current.ovenSlots.has('cookie-5')).toBe(false);
+
+    rerender({
+      entries: submitted.map((item) => (
+        item.id === 'cookie-1' || item.id === 'cookie-5'
+          ? entry(item.id, 'MINTED', item.shelfIndex)
+          : item
+      )),
+    });
+    act(() => vi.advanceTimersByTime(0));
+
+    expect(result.current.phases.get('cookie-5')).not.toBe('to-shelf');
+    expect(result.current.ovenSlots.has('cookie-5')).toBe(false);
+
+    // 먼저 오븐에 있던 카드가 진열장으로 이동한 뒤 대기 카드가 빈 슬롯으로 들어간다.
+    act(() => vi.advanceTimersByTime(2_840));
+    expect(result.current.phases.get('cookie-5')).toBe('to-oven');
+    expect(result.current.ovenSlots.has('cookie-5')).toBe(true);
+
+    // 오븐에서 최소 2초를 보낸 다음에만 진열장 이동을 시작한다.
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(result.current.phases.get('cookie-5')).toBe('to-shelf');
+
+    act(() => vi.advanceTimersByTime(720));
+    expect(result.current.entries.find((item) => item.id === 'cookie-5')?.status).toBe('MINTED');
+    expect(result.current.ovenSlots.has('cookie-5')).toBe(false);
+  });
+
   test('새 카드를 처음부터 발행 완료 상태로 받아도 진열장 도착으로 집계한다', () => {
     vi.useFakeTimers();
     const minted = entry('minted-late', 'MINTED', 0);

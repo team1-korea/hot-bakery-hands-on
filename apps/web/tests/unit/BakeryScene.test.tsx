@@ -113,5 +113,9 @@ describe('오븐 대기 카드 스택', () => {
       '0%', '20%', '40%', '60%', '80%', '100%',
     ]);
     expect(new Set(cards.map((card) => card.style.transform))).toHaveLength(6);
+    expect([...container.querySelectorAll<HTMLImageElement>('.queue-card-position img')]
+      .map((image) => image.getAttribute('loading'))).toEqual(
+      Array.from({ length: 6 }, () => 'eager'),
+    );
   });
 });

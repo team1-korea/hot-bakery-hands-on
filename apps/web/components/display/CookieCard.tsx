@@ -93,7 +93,7 @@ export function CookieCard({
               fill
               unoptimized
               sizes="320px"
-              loading={(entry.shelfIndex ?? 15) < 3 ? 'eager' : 'lazy'}
+              loading={!minted || (entry.shelfIndex ?? 15) < 3 ? 'eager' : 'lazy'}
               onError={() => setFailedImageUrl(imageUrl)}
             />
           ) : null}

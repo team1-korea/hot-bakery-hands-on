@@ -16,6 +16,7 @@ describe('배포 화면 동시 발행 리허설 명령', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('npm run rehearse:display -- --confirm fuji');
     expect(result.stdout).toContain('6건 동시 제출');
+    expect(result.stdout).toContain('display-load-certificate.jpg');
   });
 
   test('명시적인 Fuji 확인 없이는 Vercel 환경을 읽기 전에 중단한다', () => {

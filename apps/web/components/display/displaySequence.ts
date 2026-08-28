@@ -66,6 +66,14 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     const index = queue.current.findIndex((move) => {
       if (activeMoves.current.has(move.entry.id)) return false;
       if (move.phase === 'to-oven') return hasOpenOvenSlot();
+      // 처리 중에는 오븐 밖에서 기다렸지만 그사이 민팅이 끝난 카드도 있다.
+      // 같은 카드의 오븐 이동이 앞에 남아 있으면 진열장 이동이 그것을 추월하지 않는다.
+      const waitingForOven = queue.current.some((candidate) => (
+        candidate !== move
+        && candidate.entry.id === move.entry.id
+        && candidate.phase === 'to-oven'
+      ));
+      if (waitingForOven) return false;
       const enteredAt = ovenEnteredAt.current.get(move.entry.id);
       return enteredAt === undefined || now - enteredAt >= MIN_OVEN_MS;
     });
@@ -150,7 +158,11 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     activeMoves.current.forEach((move, id) => {
       const latest = latestEntries.get(id);
       const target = move.phase === 'to-oven' ? 'oven' : 'shelf';
-      if (!latest || latest.hidden || entryZone(latest.status) !== target) {
+      const latestZone = latest ? entryZone(latest.status) : null;
+      // 오븐으로 움직이는 동안 실제 민팅이 끝나도 시각적 이동은 마친다.
+      // 이어서 큐에 들어갈 to-shelf가 최신 MINTED 상태를 반영한다.
+      const finishedWhileEnteringOven = move.phase === 'to-oven' && latestZone === 'shelf';
+      if (!latest || latest.hidden || (latestZone !== target && !finishedWhileEnteringOven)) {
         activeMoves.current.delete(id);
         releaseOvenSlot(id);
         ovenEnteredAt.current.delete(id);
@@ -167,7 +179,15 @@ export function useDisplaySequence(source: Entry[], reducedMotion: boolean, read
     queue.current = queue.current.flatMap((move) => {
       const latest = latestEntries.get(move.entry.id);
       if (!latest || latest.hidden) return [];
-      if (move.phase === 'to-oven' && (entryZone(latest.status) !== 'oven' || hasOvenSlot(latest.id))) return [];
+      if (move.phase === 'to-oven') {
+        if (hasOvenSlot(latest.id)) return [];
+        const latestZone = entryZone(latest.status);
+        if (latestZone === 'workbench') return [];
+        // 기다리는 동안 MINTED가 된 경우에도 기존 처리 상태를 보존해 오븐을 먼저 거친다.
+        // 최신 MINTED 엔트리는 뒤따르는 to-shelf 이동이 반영한다.
+        if (latestZone === 'shelf') return [move];
+        return [{ ...move, entry: latest }];
+      }
       if (move.phase === 'to-shelf' && entryZone(latest.status) !== 'shelf') return [];
       return [{ ...move, entry: latest }];
     });
