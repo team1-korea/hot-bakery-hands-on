@@ -2,8 +2,6 @@
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
-import { C_CHAIN } from '@/lib/explorer';
-
 import { TopBar } from './TopBar';
 
 type SessionSlideId =
@@ -18,44 +16,38 @@ type SessionSlideId =
 export type SessionSlide = {
   id: SessionSlideId;
   title: string;
-  lead: string;
+  lead?: string;
 };
 
 export const SESSION_SLIDES: readonly SessionSlide[] = [
   {
     id: 'opening',
-    title: '방금, 쿠키가 NFT가 되었습니다',
-    lead: '진열장의 한 장은 사진 파일만도, 블록체인 기록만도 아닙니다.',
+    title: '방금 받은 참가증서, 이렇게 만들었습니다',
+    lead: '어디에 저장되고, 누구 소유로 남는지 짧게 보겠습니다.',
   },
   {
     id: 'anatomy',
-    title: 'NFT 한 장은 세 겹으로 이루어집니다',
-    lead: '우리가 보는 이미지, 그 이미지를 설명하는 메타데이터, 소유권을 기록한 토큰이 연결됩니다.',
+    title: 'NFT 한 장은 세 가지로 이루어집니다',
   },
   {
     id: 'storage',
-    title: '사진은 체인 안이 아니라 IPFS에 있습니다',
-    lead: '블록체인에는 큰 이미지 파일 대신, 내용을 가리키는 짧은 주소가 기록됩니다.',
+    title: '증서 파일은 IPFS에, 소유 기록은 C-Chain에 남습니다',
   },
   {
     id: 'wallet',
-    title: 'Google 로그인 뒤, 내 지갑이 만들어졌습니다',
-    lead: 'Privy가 로그인 계정과 연결된 임베디드 EVM 지갑을 만들고, 그 주소가 증서의 주인이 됩니다.',
+    title: 'NFT의 주인은 Google 계정이 아니라 지갑 주소입니다',
   },
   {
     id: 'minting',
-    title: '오븐 안에서는 다섯 단계가 지나갔습니다',
-    lead: '합성본을 받은 서버가 이미지와 메타데이터를 고정하고, 한 명씩 체인에 발행했습니다.',
+    title: '제출부터 진열까지 다섯 단계를 거칩니다',
   },
   {
     id: 'certificate',
-    title: '이번 참가증서는 팔 수 없는 NFT입니다',
-    lead: 'ERC-721이라는 뼈대는 같지만, 소유권을 옮기지 못하도록 잠근 참여 증명입니다.',
+    title: 'ERC-721 형식이지만 다른 지갑으로 보낼 수 없습니다',
   },
   {
     id: 'chain',
-    title: 'C-Chain에는 소유와 발행 기록이 남습니다',
-    lead: '누가 어떤 토큰을 받았는지, 무엇을 가리키는지, 어느 거래에서 발행됐는지 확인할 수 있습니다.',
+    title: '공개되는 것과 공개하지 않는 것',
   },
 ] as const;
 
@@ -64,11 +56,13 @@ export function SessionDeck({
   stale,
   onSlide,
   onExit,
+  exitLabel = '진열장으로 돌아가기',
 }: {
   slide: number;
   stale: boolean;
   onSlide: (slide: number) => void;
   onExit: () => void;
+  exitLabel?: string;
 }) {
   const reduceMotion = useReducedMotion();
   const currentIndex = Math.min(Math.max(slide, 0), SESSION_SLIDES.length - 1);
@@ -76,21 +70,21 @@ export function SessionDeck({
   const last = currentIndex === SESSION_SLIDES.length - 1;
 
   return (
-    <section className="session-deck" aria-label="NFT 교육 세션">
+    <section className={`session-deck session-deck--${current.id}`} aria-label="NFT 교육 세션">
       <TopBar stale={stale} />
 
       <div className="session-stage">
-        <AnimatePresence initial={false} mode="wait">
+        <AnimatePresence initial={false} mode="sync">
           <motion.article
             className={`session-slide session-slide--${current.id}`}
             key={current.id}
             role="group"
             aria-roledescription="슬라이드"
             aria-label={`${currentIndex + 1} / ${SESSION_SLIDES.length}`}
-            initial={reduceMotion ? false : { x: 90, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={reduceMotion ? undefined : { x: -70, opacity: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+            initial={reduceMotion ? false : { clipPath: 'inset(0 0 0 100%)' }}
+            animate={{ clipPath: 'inset(0 0 0 0)' }}
+            exit={reduceMotion ? undefined : { clipPath: 'inset(0 100% 0 0)' }}
+            transition={{ duration: reduceMotion ? 0 : 0.4, ease: [0.22, 1, 0.36, 1] }}
           >
             <SlideContent slide={current} />
           </motion.article>
@@ -126,7 +120,7 @@ export function SessionDeck({
 
         {last ? (
           <button className="session-nav-button is-exit" type="button" onClick={onExit}>
-            진열장으로 돌아가기
+            {exitLabel}
           </button>
         ) : (
           <button
@@ -145,20 +139,12 @@ export function SessionDeck({
 }
 
 function SlideContent({ slide }: { slide: SessionSlide }) {
-  if (slide.id === 'opening') {
-    return (
-      <div className="session-opening">
-        <h1 aria-label={slide.title}>방금, 쿠키가 <em>NFT</em>가 되었습니다</h1>
-        <p>{slide.lead}</p>
-      </div>
-    );
-  }
+  if (slide.id === 'opening') return <OpeningSlide slide={slide} />;
 
   return (
-    <>
+    <div className="session-panel">
       <header className="session-slide-head">
         <h1>{slide.title}</h1>
-        <p>{slide.lead}</p>
       </header>
       <div className="session-slide-body">
         {slide.id === 'anatomy' ? <AnatomySlide /> : null}
@@ -168,173 +154,230 @@ function SlideContent({ slide }: { slide: SessionSlide }) {
         {slide.id === 'certificate' ? <CertificateSlide /> : null}
         {slide.id === 'chain' ? <ChainSlide /> : null}
       </div>
-    </>
+    </div>
+  );
+}
+
+function OpeningSlide({ slide }: { slide: SessionSlide }) {
+  return (
+    <div className="session-opening">
+      <div className="opening-copy">
+        <h1>{slide.title}</h1>
+        <p>{slide.lead}</p>
+        <div className="opening-definition">
+          <strong>블록체인</strong>
+          <span>여러 사람이 같은 내용을 확인하는 공개 기록</span>
+        </div>
+        <div className="opening-parts" aria-label="참가증서를 이루는 세 요소">
+          <span>쿠키 사진</span>
+          <i aria-hidden="true" />
+          <span>증서 정보</span>
+          <i aria-hidden="true" />
+          <span>지갑 소유 기록</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
 function AnatomySlide() {
   return (
-    <ol className="session-layers">
-      <li>
-        <span>IMAGE</span>
-        <div>
-          <strong>완성된 증서 이미지</strong>
-          <p>쿠키 사진에 프레임을 합성한, 눈에 보이는 한 장</p>
-        </div>
-        <code>certificate.jpg</code>
-      </li>
-      <li>
-        <span>METADATA</span>
-        <div>
-          <strong>이름 · 설명 · 속성</strong>
-          <p>닉네임, 행사, 발행일을 이미지 주소와 연결</p>
-        </div>
-        <code>image: ipfs://&lt;사진 CID&gt;</code>
-      </li>
-      <li>
-        <span>TOKEN</span>
-        <div>
-          <strong>C-Chain의 소유 기록</strong>
-          <p>누가 소유하고 어떤 메타데이터를 보는지 기록</p>
-        </div>
-        <code>ownerOf · tokenURI</code>
-      </li>
-    </ol>
+    <div className="anatomy-flow">
+      <ol>
+        <li>
+          <span className="anatomy-step-number">1</span>
+          <div className="anatomy-step-copy">
+            <strong>증서 이미지</strong>
+            <p>쿠키 사진과 프레임을 합친 완성본</p>
+          </div>
+        </li>
+        <li>
+          <span className="anatomy-step-number">2</span>
+          <div className="anatomy-step-copy">
+            <strong>메타데이터</strong>
+            <p>증서 이름과 이미지를 설명하는 정보</p>
+          </div>
+        </li>
+        <li>
+          <span className="anatomy-step-number">3</span>
+          <div className="anatomy-step-copy">
+            <strong>ERC-721 토큰</strong>
+            <p>증서 번호와 소유 지갑을 연결한 기록</p>
+          </div>
+        </li>
+      </ol>
+      <p className="session-memory-line">세 요소가 연결돼 지갑과 Explorer에 NFT 한 장으로 보입니다.</p>
+    </div>
   );
 }
 
 function StorageSlide() {
   return (
-    <ol className="session-storage">
-      <li>
-        <span>1</span>
-        <strong>브라우저</strong>
-        <p>사진을 자르고 증서 프레임을 합성합니다.</p>
-        <small>원본 사진은 서버로 보내지지 않음</small>
-      </li>
-      <li>
-        <span>2</span>
-        <strong>운영 저장소</strong>
-        <p>최종 합성 증서 한 장을 행사 운영용으로 보관합니다.</p>
-        <small>Supabase Storage · 행사 종료 30일 후 파기</small>
-      </li>
-      <li>
-        <span>3</span>
-        <strong>IPFS</strong>
-        <p>이미지와 메타데이터에 내용 기반 CID가 생깁니다.</p>
-        <code>ipfs://bafy…</code>
-      </li>
-      <li>
-        <span>4</span>
-        <strong>C-Chain</strong>
-        <p>이미지 바이트 대신 메타데이터 CID를 기록합니다.</p>
-        <small>체인에는 파일이 아닌 주소만 기록</small>
-      </li>
-    </ol>
+    <div className="storage-proof">
+      <section className="storage-field storage-field--ipfs">
+        <header>
+          <span>IPFS</span>
+          <strong>파일을 보관합니다</strong>
+          <p>완성된 증서와 증서 설명을 보관합니다.</p>
+        </header>
+        <dl className="storage-records">
+          <div>
+            <dt>참가증서 이미지</dt>
+            <dd>쿠키 사진과 프레임을 합친 완성본</dd>
+          </div>
+          <div>
+            <dt>메타데이터</dt>
+            <dd>증서 이름과 이미지를 설명하는 정보</dd>
+          </div>
+        </dl>
+      </section>
+      <div className="storage-bridge">
+        <strong>연결</strong>
+        <i aria-hidden="true" />
+      </div>
+      <section className="storage-field storage-field--chain">
+        <header>
+          <span>C-CHAIN</span>
+          <strong>소유권을 기록합니다</strong>
+          <p>토큰 번호와 소유 지갑 같은 핵심 기록을 남깁니다.</p>
+        </header>
+        <dl className="storage-records">
+          <div>
+            <dt>증서 번호</dt>
+            <dd>한 장마다 부여되는 번호</dd>
+          </div>
+          <div>
+            <dt>소유 지갑</dt>
+            <dd>참가자의 지갑 주소</dd>
+          </div>
+          <div>
+            <dt>증서 정보</dt>
+            <dd>IPFS에 보관한 메타데이터의 주소</dd>
+          </div>
+        </dl>
+      </section>
+      <aside className="storage-original">
+        <strong>원본 쿠키 사진은 브라우저에서만 사용했습니다.</strong>
+        <span>서버에는 완성된 참가증서만 보냈습니다.</span>
+      </aside>
+    </div>
   );
 }
 
 function WalletSlide() {
   return (
-    <div className="session-wallet">
+    <div className="wallet-proof">
       <div className="wallet-path">
-        <span>Google 로그인</span>
-        <i aria-hidden="true" />
-        <span>Privy</span>
-        <i aria-hidden="true" />
-        <strong>나의 지갑 <code>0x…</code></strong>
+        <section>
+          <span>로그인</span>
+          <strong>Google</strong>
+          <p>참가자를 확인할 때만 사용합니다.</p>
+        </section>
+        <Arrow direction="right" />
+        <section>
+          <span>지갑 생성</span>
+          <strong>Privy</strong>
+          <p>참가자용 지갑과 주소를 만듭니다.</p>
+        </section>
+        <Arrow direction="right" />
+        <section className="wallet-owner">
+          <span>NFT 소유자</span>
+          <strong>참가자 지갑</strong>
+          <p>블록체인에서 공개 계정 번호처럼 쓰는 주소입니다.</p>
+        </section>
       </div>
-      <div className="wallet-owner">
-        <code>ownerOf(tokenId)</code>
-        <span>=</span>
-        <strong>참가자 지갑 주소</strong>
-      </div>
+
       <dl className="wallet-roles">
-        <div>
-          <dt>Google 계정</dt>
-          <dd>지갑을 여는 로그인 열쇠</dd>
-        </div>
-        <div>
-          <dt>참가자 지갑</dt>
-          <dd>NFT의 실제 소유 주소</dd>
-        </div>
-        <div>
-          <dt>서버 민터</dt>
-          <dd>발행만 하고 소유하지 않음</dd>
-        </div>
+        <div><dt>지갑 주소</dt><dd>공개되는 계정 번호</dd></div>
+        <div><dt>개인키</dt><dd>지갑을 쓰는 비밀 정보</dd></div>
+        <div><dt>서버 민터</dt><dd>가스비를 내고 발행만</dd></div>
       </dl>
+      <p className="wallet-key-note">참가자 개인키는 서버가 받거나 저장하지 않습니다.</p>
     </div>
   );
 }
 
 function MintingSlide() {
   const steps = [
-    ['합성본 제출', '브라우저가 완성한 증서 한 장'],
-    ['IPFS 고정', '이미지와 메타데이터에 CID 생성'],
-    ['mint 호출', '서버 민터가 참가자 주소로 발행'],
-    ['체인 확인', '영수증과 CertificateIssued 이벤트 검증'],
-    ['진열 완료', 'tokenId와 txHash를 저장하고 TV로 이동'],
+    ['1', '증서 제출', '브라우저가 만든 완성본 한 장', 'SUBMITTED'],
+    ['2', 'IPFS 저장', '이미지와 메타데이터에 CID 생성', 'PINNED'],
+    ['3', '민팅 요청', '서버가 가스비를 내고 발행 요청', 'MINTING'],
+    ['4', '결과 확인', '영수증과 발행 이벤트 확인', null],
+    ['5', '진열', 'tokenId와 txHash 저장', 'MINTED'],
   ] as const;
 
   return (
-    <ol className="session-minting">
-      {steps.map(([title, description], index) => (
-        <li key={title}>
-          <span>{index + 1}</span>
-          <strong>{title}</strong>
-          <p>{description}</p>
-        </li>
-      ))}
-      <p className="minting-note">참가자마다 즉시 · 한 번에 한 명씩 직렬 발행</p>
-    </ol>
+    <div className="minting-flow">
+      <ol className="minting-steps">
+        {steps.map(([number, title, description, state]) => (
+          <li key={number}>
+            <span>{number}</span>
+            <strong>{title}</strong>
+            <p>{description}</p>
+            {state ? <code>{state}</code> : null}
+          </li>
+        ))}
+      </ol>
+      <div className="minting-notes">
+        <p><strong>민팅</strong><span>블록체인에 새 토큰을 발행하는 것</span></p>
+        <p><strong>처리 방식</strong><span><b>한 번에 한 명씩</b> 순서대로</span></p>
+      </div>
+    </div>
   );
 }
 
 function CertificateSlide() {
   return (
-    <div className="session-certificate">
-      <div className="certificate-common">
-        <strong>공통 기반</strong>
-        <b>ERC-721</b>
-        <p>tokenId · ownerOf · tokenURI · 공개된 체인 기록</p>
-      </div>
-      <div className="certificate-compare">
-        <section>
-          <strong>많은 NFT</strong>
-          <p>소유자가 다른 지갑으로 보내거나 거래소에서 사고팔 수 있습니다.</p>
-        </section>
-        <section>
-          <strong>이번 참가증서</strong>
-          <p><b>EIP-5192 Locked</b> — 전송과 승인을 막은 소울바운드 참여 증명입니다.</p>
-          <small>
-            한 지갑에 한 장 · {C_CHAIN.testnet ? 'Fuji 테스트넷' : 'Avalanche 메인넷'} ·
-            오발급은 소각 후 새 토큰으로 재발급
-          </small>
-        </section>
-      </div>
+    <div className="certificate-proof">
+      <section className="erc-standard">
+        <strong>ERC-721</strong>
+        <p>지갑과 Explorer가 NFT를 읽을 때 쓰는 공통 규격입니다.</p>
+        <dl>
+          <div><dt>tokenId</dt><dd>증서 번호</dd></div>
+          <div><dt>ownerOf</dt><dd>소유 지갑 주소</dd></div>
+          <div><dt>tokenURI</dt><dd>메타데이터 주소</dd></div>
+        </dl>
+      </section>
+
+      <section className="locked-rules">
+        <strong>EIP-5192 Locked</strong>
+        <p>전송할 수 없다는 상태를 표시하는 잠금 규칙입니다.</p>
+        <ul>
+          <li><span>다른 지갑으로 보내기</span><b>불가</b></li>
+          <li><span>거래를 위한 승인</span><b>불가</b></li>
+          <li><span>일반 발급</span><b>지갑당 한 장</b></li>
+        </ul>
+      </section>
+
+      <p className="certificate-result">
+        NFT라고 모두 거래할 수 있는 것은 아닙니다. <b>전송과 판매는 막혀 있습니다.</b>
+      </p>
     </div>
   );
 }
 
 function ChainSlide() {
   return (
-    <div className="session-chain">
-      <dl className="chain-ledger">
-        <div><dt>NETWORK</dt><dd>{C_CHAIN.label} · {C_CHAIN.id}</dd></div>
-        <div><dt>CONTRACT</dt><dd>Avalanche Bakery Certificate</dd></div>
-        <div><dt>EVENT</dt><dd>CertificateIssued</dd></div>
-        <div><dt>TOKEN</dt><dd>#&lt;tokenId&gt; → 0x&lt;참가자 지갑&gt;</dd></div>
-        <div><dt>URI</dt><dd>ipfs://&lt;metadata CID&gt;</dd></div>
-      </dl>
-      <div className="chain-meaning">
-        <strong>체인에 직접 넣지 않은 것</strong>
-        <ul>
-          <li>원본 쿠키 사진</li>
-          <li>이미지 파일의 바이트</li>
-          <li>참가자 지갑의 개인키</li>
-        </ul>
-        <p>트랜잭션 해시를 열면 이 발행과 이벤트를 Explorer에서 직접 확인할 수 있습니다.</p>
-      </div>
+    <div className="chain-proof">
+      <section className="chain-public">
+        <h2>공개되는 것</h2>
+        <dl>
+          <div>
+            <dt>C-Chain</dt>
+            <dd>증서 번호 · 소유 지갑 · 증서 정보 주소 · 발행 기록</dd>
+          </div>
+          <div>
+            <dt>IPFS</dt>
+            <dd>최종 참가증서(쿠키 사진·닉네임) · 증서 정보</dd>
+          </div>
+        </dl>
+      </section>
+      <section className="chain-private">
+        <h2>공개하지 않는 것</h2>
+        <p>원본 사진</p>
+        <p>Google 계정</p>
+        <p>참가자 개인키</p>
+      </section>
     </div>
   );
 }
