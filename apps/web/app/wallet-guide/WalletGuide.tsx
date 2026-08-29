@@ -7,7 +7,7 @@ import {
   usePrivy,
 } from '@privy-io/react-auth';
 import Image from 'next/image';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { PRIVY_ENABLED } from '@/app/join/PrivyClientProvider';
 import { BrandMark } from '@/components/BrandMark';
@@ -90,7 +90,7 @@ function StepButton({
 }: {
   step: number;
   open: boolean;
-  onClick: (button: HTMLButtonElement) => void;
+  onClick: () => void;
 }) {
   return (
     <button
@@ -99,16 +99,11 @@ function StepButton({
       type="button"
       aria-expanded={open}
       aria-controls={`wallet-guide-step-${step}`}
-      onClick={(event) => onClick(event.currentTarget)}
+      onClick={onClick}
       id={`wallet-guide-step-button-${step}`}
     >
-      <span className="wallet-ticket-stub" aria-hidden="true">
-        <small>STEP</small>
-        <b>{String(step).padStart(2, '0')}</b>
-      </span>
       <span className="wallet-ticket-title">{STEP_LABELS[step - 1]}</span>
       <span className="wallet-ticket-control" aria-hidden="true">
-        <small>{open ? 'FOLD' : 'OPEN'}</small>
         <Chevron open={open} />
       </span>
     </button>
@@ -119,28 +114,23 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
   state: GuideState;
   actions?: GuideActions;
 }) {
-  const [openStep, setOpenStep] = useState(state.authenticated ? 2 : 1);
-  const ticketAnchor = useRef<{ step: number; top: number } | null>(null);
+  const initialStep = state.authenticated ? 2 : 1;
+  const [activeStep, setActiveStep] = useState(initialStep);
+  const [openSteps, setOpenSteps] = useState(() => new Set([initialStep]));
   const safeAddress = compactAddress(state.walletAddress);
 
-  useLayoutEffect(() => {
-    const anchor = ticketAnchor.current;
-    if (!anchor) return;
-
-    const button = document.getElementById(`wallet-guide-step-button-${anchor.step}`);
-    if (button) {
-      const offset = button.getBoundingClientRect().top - anchor.top;
-      if (Math.abs(offset) > 1) window.scrollBy(0, offset);
-    }
-    ticketAnchor.current = null;
-  }, [openStep]);
-
-  const open = (step: number, button: HTMLButtonElement) => {
-    ticketAnchor.current = { step, top: button.getBoundingClientRect().top };
-    setOpenStep((current) => current === step ? 0 : step);
+  const open = (step: number) => {
+    setActiveStep(step);
+    setOpenSteps((current) => {
+      const next = new Set(current);
+      if (next.has(step)) next.delete(step);
+      else next.add(step);
+      return next;
+    });
   };
   const moveToStep = (step: number) => {
-    setOpenStep(step);
+    setActiveStep(step);
+    setOpenSteps((current) => new Set(current).add(step));
     window.setTimeout(() => {
       const button = document.getElementById(`wallet-guide-step-button-${step}`);
       button?.focus({ preventScroll: true });
@@ -162,7 +152,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
         </div>
         <ol className="wallet-guide-progress" aria-label="Core 지갑 안내 4단계">
           {STEP_LABELS.map((label, index) => (
-            <li key={label} data-active={openStep === index + 1}>
+            <li key={label} data-active={activeStep === index + 1}>
               <span className="sr-only">{index + 1}. {label}</span>
             </li>
           ))}
@@ -171,19 +161,14 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
 
       <div className="wallet-guide-paper">
         <section className="wallet-guide-intro">
-          <div className="wallet-guide-ticket-meta" aria-hidden="true">
-            <span>CORE MOBILE GUIDE</span>
-            <span>4 STEPS</span>
-            <i />
-          </div>
           <h1>내 참가증서를<br /><span><em>Core</em>에서 확인해요</span></h1>
           <p>NFT를 옮기는 것이 아니라, 행사 때 만든 <strong>같은 지갑을 Core 모바일에서 여는 과정</strong>입니다.</p>
         </section>
 
         <div className="wallet-ticket-stack">
           <section className="wallet-ticket" data-step="1">
-            <StepButton step={1} open={openStep === 1} onClick={(button) => open(1, button)} />
-            {openStep === 1 ? (
+            <StepButton step={1} open={openSteps.has(1)} onClick={() => open(1)} />
+            {openSteps.has(1) ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-1">
                 <h2>행사 때 쓴 Google 계정으로 로그인</h2>
                 <p>참가증서를 받을 때 선택한 Google 계정으로 로그인해 주세요.</p>
@@ -207,12 +192,12 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-ticket" data-step="2">
-            <StepButton step={2} open={openStep === 2} onClick={(button) => open(2, button)} />
+            <StepButton step={2} open={openSteps.has(2)} onClick={() => open(2)} />
             <div className="wallet-security-strip">
               <WarningMark />
               <strong>개인키는 누구에게도 보내지 마세요</strong>
             </div>
-            {openStep === 2 ? (
+            {openSteps.has(2) ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-2">
                 <h2>내 Privy 지갑 내보내기</h2>
                 <p>Privy 보안 창에서 개인키를 복사합니다. 이 사이트는 개인키를 보거나 저장할 수 없습니다.</p>
@@ -224,17 +209,12 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                   </div>
                 ) : null}
                 <aside className="wallet-copy-help" aria-labelledby="wallet-copy-help-title">
-                  <h3 id="wallet-copy-help-title">Privy 창에서 복사할 곳</h3>
-                  <div className="wallet-copy-choice" data-choice="wrong">
-                    <span>복사하지 않음</span>
-                    <strong><code>Your wallet</code> 옆 Copy</strong>
-                    <small>지갑 주소라 Core에 가져올 수 없습니다.</small>
-                  </div>
-                  <div className="wallet-copy-choice" data-choice="right">
-                    <span>이것을 복사</span>
-                    <strong><code>Private key</code> 옆 Copy</strong>
-                    <small><code>Loading...</code>이 끝나면 전체 값을 복사하세요.</small>
-                  </div>
+                  <h3 id="wallet-copy-help-title">Privy 창이 열리면</h3>
+                  <ol>
+                    <li><code>Loading...</code>이 사라질 때까지 기다립니다.</li>
+                    <li>아래쪽 <strong><code>Private key</code></strong> 항목의 <strong>Copy</strong>를 누릅니다.</li>
+                  </ol>
+                  <p><strong><code>Your wallet</code> 옆 Copy는 누르지 마세요.</strong> 지갑 주소만 복사됩니다.</p>
                 </aside>
                 <button
                   className="wallet-guide-action"
@@ -252,24 +232,24 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-ticket" data-step="3">
-            <StepButton step={3} open={openStep === 3} onClick={(button) => open(3, button)} />
-            {openStep === 3 ? (
+            <StepButton step={3} open={openSteps.has(3)} onClick={() => open(3)} />
+            {openSteps.has(3) ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-3">
                 <h2>Core 모바일로 같은 지갑 가져오기</h2>
                 <ol className="wallet-guide-instructions">
-                  <li><strong>계정 이름</strong>을 누르고 오른쪽 위의 <strong>+</strong>를 누릅니다.</li>
-                  <li><strong>Import a private key</strong>를 선택합니다.</li>
-                  <li>Privy의 <strong>Private key</strong>에서 복사한 <code>0x</code> 포함 66자 전체를 붙여 넣고 <strong>Import</strong>를 누릅니다.</li>
+                  <li>Core 앱 왼쪽 위의 <strong>현재 계정 이름</strong>을 누릅니다.</li>
+                  <li>계정 목록 오른쪽 위의 <strong>+</strong>를 누르고 <strong>Import a private key</strong>를 선택합니다.</li>
+                  <li>Privy에서 복사한 <strong>Private key</strong>를 붙여 넣고 <strong>Import</strong>를 누릅니다.</li>
                 </ol>
-                <a className="wallet-guide-link" href="https://core.app/download" target="_blank" rel="noreferrer">Core 모바일 설치 페이지 열기</a>
-                <button className="wallet-guide-action" type="button" onClick={() => moveToStep(4)}>가져오기를 마쳤어요</button>
+                <p className="wallet-guide-key-format"><code>0x</code>로 시작하는 66자 전체를 그대로 붙여 넣으세요.</p>
+                <a className="wallet-guide-link" href="https://core.app/download" target="_blank" rel="noreferrer">Core 모바일 설치</a>
               </div>
             ) : null}
           </section>
 
           <section className="wallet-ticket" data-step="4">
-            <StepButton step={4} open={openStep === 4} onClick={(button) => open(4, button)} />
-            {openStep === 4 ? (
+            <StepButton step={4} open={openSteps.has(4)} onClick={() => open(4)} />
+            {openSteps.has(4) ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-4">
                 <h2>가져온 계정의 Collectibles에서 확인</h2>
                 {safeAddress ? (

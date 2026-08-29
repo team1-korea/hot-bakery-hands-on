@@ -58,17 +58,15 @@ describe('Core 모바일 참가증서 안내', () => {
     );
 
     expect(screen.getByText('0x123456…345678')).toBeVisible();
-    expect(screen.getByText('Your wallet').closest('strong')).toHaveTextContent('Your wallet 옆 Copy');
-    expect(screen.getByText('Private key').closest('strong')).toHaveTextContent('Private key 옆 Copy');
-    expect(screen.getByText('Loading...').closest('small')).toHaveTextContent('Loading...이 끝나면');
+    expect(screen.getByText('Loading...').closest('li')).toHaveTextContent('Loading...이 사라질 때까지');
+    expect(screen.getByText('Your wallet').closest('p')).toHaveTextContent('Copy는 누르지 마세요');
+    expect(screen.getByText('Private key').closest('li')).toHaveTextContent('Copy를 누릅니다');
     fireEvent.click(screen.getByRole('button', { name: '내 지갑 내보내기' }));
 
     await waitFor(() => expect(exportWallet).toHaveBeenCalledOnce());
     expect(await screen.findByRole('heading', { name: 'Core 모바일로 같은 지갑 가져오기' })).toBeVisible();
     await waitFor(() => expect(screen.getByRole('button', { name: /Core로 가져오기/ })).toHaveFocus());
-
-    fireEvent.click(screen.getByRole('button', { name: '가져오기를 마쳤어요' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: /참가증서 확인/ })).toHaveFocus());
+    expect(screen.queryByRole('button', { name: '가져오기를 마쳤어요' })).not.toBeInTheDocument();
   });
 
   test('Core 공식 가져오기 순서와 NFT 새로고침 안내를 제공한다', () => {
@@ -85,8 +83,8 @@ describe('Core 모바일 참가증서 안내', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Core로 가져오기/ }));
     expect(screen.getByText('Import a private key')).toBeVisible();
-    expect(screen.getByText('0x').closest('li')).toHaveTextContent('0x 포함 66자 전체');
-    expect(screen.getByRole('link', { name: 'Core 모바일 설치 페이지 열기' })).toHaveAttribute('href', 'https://core.app/download');
+    expect(screen.getByText('0x').closest('p')).toHaveTextContent('0x로 시작하는 66자 전체');
+    expect(screen.getByRole('link', { name: 'Core 모바일 설치' })).toHaveAttribute('href', 'https://core.app/download');
 
     fireEvent.click(screen.getByRole('button', { name: /참가증서 확인/ }));
     expect(screen.getByText('Collectibles')).toBeVisible();
@@ -105,16 +103,14 @@ describe('Core 모바일 참가증서 안내', () => {
     );
   });
 
-  test('다른 티켓을 열어도 누른 티켓 머리의 화면 위치를 유지한다', () => {
-    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
-    rect.mockReturnValueOnce(new DOMRect(0, 520, 350, 80));
-    rect.mockReturnValueOnce(new DOMRect(0, 180, 350, 80));
-    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
-
+  test('다른 단계를 열어도 기존 단계를 자동으로 접지 않는다', () => {
     render(<WalletGuideContent state={unauthenticated} />);
     fireEvent.click(screen.getByRole('button', { name: /참가증서 확인/ }));
 
-    expect(scrollBy).toHaveBeenCalledWith(0, -340);
+    expect(screen.getByRole('button', { name: '로그인' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: /참가증서 확인/ })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('heading', { name: '행사 때 쓴 Google 계정으로 로그인' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: '가져온 계정의 Collectibles에서 확인' })).toBeVisible();
   });
 
   test('여러 Privy EVM 지갑 중 백엔드와 같이 가장 낮은 wallet index를 고른다', () => {
