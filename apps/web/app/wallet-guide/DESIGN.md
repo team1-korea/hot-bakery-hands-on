@@ -95,9 +95,9 @@ components:
     rounded: "{rounded.square}"
     padding: "18px"
     width: "100%"
-  screenshot-placeholder:
-    backgroundColor: "{colors.warm-paper}"
-    textColor: "{colors.carbon-ink}"
+  core-screenshot:
+    backgroundColor: "{colors.carbon-ink}"
+    textColor: "{colors.warm-paper}"
     typography: "{typography.caption}"
     rounded: "{rounded.square}"
     padding: "18px"
@@ -208,8 +208,8 @@ components:
 
 ### Accordion Tickets
 
-- **Shape:** 2px 외곽선과 직각 모서리, 번호 열 뒤의 1px 점선 절취선으로 구성한다.
-- **Header:** 최소 높이 80px이며 번호 열 78px, 제목 열, 화살표 열 52px의 세 칸 구조다.
+- **Shape:** 2px 외곽선과 직각 모서리, 양옆의 원형 절취 홈, 번호·조작 열의 1px 점선으로 실제 작업 티켓처럼 구성한다.
+- **Header:** 최소 높이 80px이며 `STEP + 두 자리 번호` 스텁 78px, 제목 열, `OPEN/FOLD + 화살표` 스텁 62px의 세 칸 구조다.
 - **Open State:** 머리 전체를 Avalanche Red로 채우고 글자와 화살표를 Warm Paper로 뒤집는다. 본문은 1px 점선 아래에 좌우 22px로 펼친다.
 - **Closed State:** Warm Paper 바탕과 Carbon Ink 텍스트를 유지한다. 2단계 보안 띠는 티켓이 닫혀 있어도 계속 노출한다.
 - **Focus:** 전역 4px Focus Gold 외곽선과 2px 간격을 그대로 사용한다.
@@ -233,11 +233,11 @@ components:
 - **Style:** Avalanche Red가 7% 섞인 종이 면, 위 4px 빨간 규칙선, 18px 내부 여백, 8px 수직 간격을 사용한다.
 - **Content:** 계정은 줄바꿈 가능한 굵은 텍스트로, 주소는 축약한 모노스페이스 문자열로 표시한다.
 
-### Screenshot Placeholders
+### Core Screenshots
 
-- **Character:** 실제 캡처가 들어올 자리와 안전한 촬영 범위를 동시에 설명하는 제작 메모다.
-- **Style:** 2px 점선 테두리 안에 9:16 비율의 작은 선형 화면과 15px 설명을 나란히 둔다.
-- **Content:** `SCREENSHOT` 표시는 자리표시자에서만 사용한다. 개인키 입력·표시 화면은 예시로 그리지 않는다.
+- **Character:** 실제 Core 모바일 화면으로 계정 가져오기 뒤 참가증서를 어디서 확인하는지 보여 준다.
+- **Style:** 2px Carbon Ink 테두리, 원본 비율의 화면, Carbon Ink 캡션 면과 15px 설명을 쓴다. 560px 이상에서만 두 열로 놓는다.
+- **Content:** Collectibles 목록에서는 전체 증서가 보이고, 상세 화면에서는 Core의 정사각형 미리보기 때문에 위아래 일부가 잘릴 수 있음을 함께 설명한다. 개인키 입력·표시 화면은 캡처하지 않는다.
 
 ### Instruction Lists & Dark Notes
 

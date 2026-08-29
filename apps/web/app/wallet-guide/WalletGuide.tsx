@@ -6,7 +6,8 @@ import {
   useLogout,
   usePrivy,
 } from '@privy-io/react-auth';
-import { useMemo, useState, type ReactNode } from 'react';
+import Image from 'next/image';
+import { useMemo, useState } from 'react';
 
 import { PRIVY_ENABLED } from '@/app/join/PrivyClientProvider';
 import { BrandMark } from '@/components/BrandMark';
@@ -82,23 +83,6 @@ function WarningMark() {
   );
 }
 
-function ScreenshotSlot({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <figure className="wallet-screenshot-slot">
-      <div className="wallet-screenshot-screen" aria-hidden="true">
-        <span>SCREENSHOT</span>
-        <i />
-        <i />
-        <i />
-      </div>
-      <figcaption>
-        <strong>{title}</strong>
-        {children}
-      </figcaption>
-    </figure>
-  );
-}
-
 function StepButton({
   step,
   open,
@@ -118,9 +102,15 @@ function StepButton({
       onClick={onClick}
       id={`wallet-guide-step-button-${step}`}
     >
-      <b>{String(step).padStart(2, '0')}</b>
-      <span>{STEP_LABELS[step - 1]}</span>
-      <Chevron open={open} />
+      <span className="wallet-ticket-stub" aria-hidden="true">
+        <small>STEP</small>
+        <b>{String(step).padStart(2, '0')}</b>
+      </span>
+      <span className="wallet-ticket-title">{STEP_LABELS[step - 1]}</span>
+      <span className="wallet-ticket-control" aria-hidden="true">
+        <small>{open ? 'FOLD' : 'OPEN'}</small>
+        <Chevron open={open} />
+      </span>
     </button>
   );
 }
@@ -161,6 +151,11 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
 
       <div className="wallet-guide-paper">
         <section className="wallet-guide-intro">
+          <div className="wallet-guide-ticket-meta" aria-hidden="true">
+            <span>CORE MOBILE GUIDE</span>
+            <span>4 STEPS</span>
+            <i />
+          </div>
           <h1>내 참가증서를<br /><span><em>Core</em>에서 확인해요</span></h1>
           <p>NFT를 옮기는 것이 아니라, 행사 때 만든 <strong>같은 지갑을 Core 모바일에서 여는 과정</strong>입니다.</p>
         </section>
@@ -208,6 +203,19 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                     <small>Core로 가져온 뒤에도 이 주소가 같아야 합니다.</small>
                   </div>
                 ) : null}
+                <aside className="wallet-copy-help" aria-labelledby="wallet-copy-help-title">
+                  <h3 id="wallet-copy-help-title">Privy 창에서 복사할 곳</h3>
+                  <div className="wallet-copy-choice" data-choice="wrong">
+                    <span>복사하지 않음</span>
+                    <strong><code>Your wallet</code> 옆 Copy</strong>
+                    <small>Core에 넣을 수 없는 지갑 주소입니다.</small>
+                  </div>
+                  <div className="wallet-copy-choice" data-choice="right">
+                    <span>이것을 복사</span>
+                    <strong><code>Private key</code> 옆 Copy</strong>
+                    <small><code>Loading...</code>이 끝난 뒤 나타나는 전체 값을 복사하세요.</small>
+                  </div>
+                </aside>
                 <button
                   className="wallet-guide-action"
                   type="button"
@@ -219,9 +227,6 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                 {!state.authenticated ? <p className="wallet-guide-help">먼저 1단계에서 Google 로그인을 완료해 주세요.</p> : null}
                 {state.authenticated && !state.walletAddress ? <p className="wallet-guide-error" role="alert">이 계정에서 행사 때 만든 지갑을 찾지 못했습니다. Google 계정이 맞는지 확인해 주세요.</p> : null}
                 {state.exportError ? <p className="wallet-guide-error" role="alert">{state.exportError}</p> : null}
-                <ScreenshotSlot title="Privy 지갑 내보내기 화면">
-                  <p>개인키가 표시된 화면은 캡처하지 않습니다. 안내에는 보안 창을 여는 단계까지만 보여 줄 예정입니다.</p>
-                </ScreenshotSlot>
               </div>
             ) : null}
           </section>
@@ -235,12 +240,9 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                   <li>Core 앱 왼쪽 위의 <strong>계정 이름</strong>을 누릅니다.</li>
                   <li>오른쪽 위의 <strong>+</strong> 버튼을 누릅니다.</li>
                   <li><strong>Import a private key</strong>를 선택합니다.</li>
-                  <li>본인이 복사한 개인키를 붙여 넣고 <strong>Import</strong>를 누릅니다.</li>
+                  <li>Privy의 <strong>Private key</strong>에서 복사한 <code>0x</code> 포함 66자 전체를 붙여 넣고 <strong>Import</strong>를 누릅니다.</li>
                 </ol>
                 <a className="wallet-guide-link" href="https://core.app/download" target="_blank" rel="noreferrer">Core 모바일 설치 페이지 열기</a>
-                <ScreenshotSlot title="Core 계정 추가 화면">
-                  <p>계정 이름, + 버튼, ‘Import a private key’가 함께 보이도록 촬영합니다. 개인키 입력 화면은 찍지 않습니다.</p>
-                </ScreenshotSlot>
                 <button className="wallet-guide-action" type="button" onClick={() => moveToStep(4)}>가져오기를 마쳤어요</button>
               </div>
             ) : null}
@@ -250,19 +252,46 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
             <StepButton step={4} open={openStep === 4} onClick={() => open(4)} />
             {openStep === 4 ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-4">
-                <h2>Collectibles에서 참가증서 확인</h2>
+                <h2>가져온 계정의 Collectibles에서 확인</h2>
+                {safeAddress ? (
+                  <div className="wallet-address-proof">
+                    <span>Core에서 선택할 EVM 계정</span>
+                    <code>{safeAddress}</code>
+                    <small>왼쪽 위 계정 이름을 누른 뒤, 이 주소와 같은 계정을 선택하세요.</small>
+                  </div>
+                ) : null}
                 <ol className="wallet-guide-instructions">
-                  <li>Core 아래 메뉴에서 <strong>Collectibles</strong>를 엽니다.</li>
+                  <li>Core 왼쪽 위의 <strong>계정 이름</strong>을 누르고, 방금 가져온 계정을 선택합니다.</li>
+                  <li><strong>Collectibles</strong> 탭을 엽니다.</li>
                   <li><strong>Avalanche Bakery Certificate</strong>를 선택합니다.</li>
-                  <li>바로 보이지 않으면 NFT 상세를 위로 밀고 <strong>Refresh</strong>를 누릅니다.</li>
+                  <li>이미지가 바로 보이지 않으면 NFT 상세를 위로 밀고 <strong>Refresh</strong>를 누릅니다.</li>
                 </ol>
                 <div className="wallet-guide-note">
                   <strong>참가증서가 바로 보이지 않나요?</strong>
-                  <p>Core 안내에 따르면 메타데이터 새로고침에는 최대 24시간이 걸릴 수 있습니다.</p>
+                  <p>참가증서 자체가 없다면 선택한 계정 주소부터 확인하세요. 증서는 보이지만 이미지나 정보가 최신이 아니라면 상세 화면의 <strong>Refresh</strong>를 누르세요. 메타데이터 갱신에는 최대 24시간이 걸릴 수 있습니다.</p>
                 </div>
-                <ScreenshotSlot title="Core Collectibles 화면">
-                  <p>참가증서 카드와 NFT 상세의 Refresh 위치를 실제 화면으로 교체합니다.</p>
-                </ScreenshotSlot>
+                <div className="wallet-core-gallery" aria-label="Core에서 참가증서를 확인한 실제 화면">
+                  <figure>
+                    <Image
+                      src="/wallet-guide/core-collectibles.png"
+                      alt="Core 모바일 Collectibles 탭에 세로형 Avalanche Bakery 참가증서가 표시된 화면"
+                      width={945}
+                      height={2048}
+                      sizes="(max-width: 760px) calc(100vw - 84px), 290px"
+                    />
+                    <figcaption><strong>1. Collectibles 목록</strong><span>가져온 계정을 선택하면 참가증서 전체 모양을 확인할 수 있습니다.</span></figcaption>
+                  </figure>
+                  <figure>
+                    <Image
+                      src="/wallet-guide/core-certificate-detail.png"
+                      alt="Core 모바일 참가증서 상세 화면에서 세로형 증서의 위아래 일부가 정사각형으로 잘려 보이는 화면"
+                      width={945}
+                      height={2048}
+                      sizes="(max-width: 760px) calc(100vw - 84px), 290px"
+                    />
+                    <figcaption><strong>2. NFT 상세 화면</strong><span>Core가 상세 이미지를 정사각형으로 잘라 보여 줄 수 있습니다. IPFS에 저장된 원본 증서가 잘린 것은 아닙니다.</span></figcaption>
+                  </figure>
+                </div>
                 <p className="wallet-guide-locked">이 참가증서는 전송이 잠긴 NFT입니다. Core에서 확인하고 같은 지갑을 관리할 수 있지만 다른 지갑으로 보낼 수는 없습니다.</p>
               </div>
             ) : null}
@@ -275,6 +304,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           <div>
             <a href="https://docs.privy.io/wallets/wallets/export" target="_blank" rel="noreferrer">Privy 공식 안내</a>
             <a href="https://support.core.app/en/articles/11716428-core-mobile-how-do-i-import-an-account" target="_blank" rel="noreferrer">Core 공식 안내</a>
+            <a href="https://support.core.app/en/articles/11469838-core-mobile-how-do-i-refresh-nft-metadata" target="_blank" rel="noreferrer">Core NFT 확인 안내</a>
           </div>
         </footer>
       </div>
