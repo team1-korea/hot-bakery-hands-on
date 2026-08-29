@@ -7,7 +7,7 @@ import {
   usePrivy,
 } from '@privy-io/react-auth';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { PRIVY_ENABLED } from '@/app/join/PrivyClientProvider';
 import { BrandMark } from '@/components/BrandMark';
@@ -90,7 +90,7 @@ function StepButton({
 }: {
   step: number;
   open: boolean;
-  onClick: () => void;
+  onClick: (button: HTMLButtonElement) => void;
 }) {
   return (
     <button
@@ -99,7 +99,7 @@ function StepButton({
       type="button"
       aria-expanded={open}
       aria-controls={`wallet-guide-step-${step}`}
-      onClick={onClick}
+      onClick={(event) => onClick(event.currentTarget)}
       id={`wallet-guide-step-button-${step}`}
     >
       <span className="wallet-ticket-stub" aria-hidden="true">
@@ -120,12 +120,32 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
   actions?: GuideActions;
 }) {
   const [openStep, setOpenStep] = useState(state.authenticated ? 2 : 1);
+  const ticketAnchor = useRef<{ step: number; top: number } | null>(null);
   const safeAddress = compactAddress(state.walletAddress);
 
-  const open = (step: number) => setOpenStep((current) => current === step ? 0 : step);
+  useLayoutEffect(() => {
+    const anchor = ticketAnchor.current;
+    if (!anchor) return;
+
+    const button = document.getElementById(`wallet-guide-step-button-${anchor.step}`);
+    if (button) {
+      const offset = button.getBoundingClientRect().top - anchor.top;
+      if (Math.abs(offset) > 1) window.scrollBy(0, offset);
+    }
+    ticketAnchor.current = null;
+  }, [openStep]);
+
+  const open = (step: number, button: HTMLButtonElement) => {
+    ticketAnchor.current = { step, top: button.getBoundingClientRect().top };
+    setOpenStep((current) => current === step ? 0 : step);
+  };
   const moveToStep = (step: number) => {
     setOpenStep(step);
-    window.setTimeout(() => document.getElementById(`wallet-guide-step-button-${step}`)?.focus(), 0);
+    window.setTimeout(() => {
+      const button = document.getElementById(`wallet-guide-step-button-${step}`);
+      button?.focus({ preventScroll: true });
+      button?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
   };
 
   const handleExport = async () => {
@@ -162,11 +182,11 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
 
         <div className="wallet-ticket-stack">
           <section className="wallet-ticket" data-step="1">
-            <StepButton step={1} open={openStep === 1} onClick={() => open(1)} />
+            <StepButton step={1} open={openStep === 1} onClick={(button) => open(1, button)} />
             {openStep === 1 ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-1">
                 <h2>행사 때 쓴 Google 계정으로 로그인</h2>
-                <p>참가증서를 받을 때 선택한 Google 계정과 같아야 정확한 지갑을 찾을 수 있습니다.</p>
+                <p>참가증서를 받을 때 선택한 Google 계정으로 로그인해 주세요.</p>
                 {!state.ready ? (
                   <button className="wallet-guide-action" type="button" disabled>로그인 준비 중…</button>
                 ) : state.authenticated ? (
@@ -187,7 +207,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-ticket" data-step="2">
-            <StepButton step={2} open={openStep === 2} onClick={() => open(2)} />
+            <StepButton step={2} open={openStep === 2} onClick={(button) => open(2, button)} />
             <div className="wallet-security-strip">
               <WarningMark />
               <strong>개인키는 누구에게도 보내지 마세요</strong>
@@ -195,7 +215,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
             {openStep === 2 ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-2">
                 <h2>내 Privy 지갑 내보내기</h2>
-                <p>아래 버튼을 누르면 Privy의 보안 창이 열립니다. 개인키는 그 창에서 본인만 확인하며, 이 사이트는 내용을 읽거나 저장할 수 없습니다.</p>
+                <p>Privy 보안 창에서 개인키를 복사합니다. 이 사이트는 개인키를 보거나 저장할 수 없습니다.</p>
                 {safeAddress ? (
                   <div className="wallet-address-proof">
                     <span>행사 때 만든 EVM 지갑</span>
@@ -208,12 +228,12 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                   <div className="wallet-copy-choice" data-choice="wrong">
                     <span>복사하지 않음</span>
                     <strong><code>Your wallet</code> 옆 Copy</strong>
-                    <small>Core에 넣을 수 없는 지갑 주소입니다.</small>
+                    <small>지갑 주소라 Core에 가져올 수 없습니다.</small>
                   </div>
                   <div className="wallet-copy-choice" data-choice="right">
                     <span>이것을 복사</span>
                     <strong><code>Private key</code> 옆 Copy</strong>
-                    <small><code>Loading...</code>이 끝난 뒤 나타나는 전체 값을 복사하세요.</small>
+                    <small><code>Loading...</code>이 끝나면 전체 값을 복사하세요.</small>
                   </div>
                 </aside>
                 <button
@@ -232,13 +252,12 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-ticket" data-step="3">
-            <StepButton step={3} open={openStep === 3} onClick={() => open(3)} />
+            <StepButton step={3} open={openStep === 3} onClick={(button) => open(3, button)} />
             {openStep === 3 ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-3">
                 <h2>Core 모바일로 같은 지갑 가져오기</h2>
                 <ol className="wallet-guide-instructions">
-                  <li>Core 앱 왼쪽 위의 <strong>계정 이름</strong>을 누릅니다.</li>
-                  <li>오른쪽 위의 <strong>+</strong> 버튼을 누릅니다.</li>
+                  <li><strong>계정 이름</strong>을 누르고 오른쪽 위의 <strong>+</strong>를 누릅니다.</li>
                   <li><strong>Import a private key</strong>를 선택합니다.</li>
                   <li>Privy의 <strong>Private key</strong>에서 복사한 <code>0x</code> 포함 66자 전체를 붙여 넣고 <strong>Import</strong>를 누릅니다.</li>
                 </ol>
@@ -249,7 +268,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-ticket" data-step="4">
-            <StepButton step={4} open={openStep === 4} onClick={() => open(4)} />
+            <StepButton step={4} open={openStep === 4} onClick={(button) => open(4, button)} />
             {openStep === 4 ? (
               <div className="wallet-ticket-body" id="wallet-guide-step-4">
                 <h2>가져온 계정의 Collectibles에서 확인</h2>
@@ -262,13 +281,12 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                 ) : null}
                 <ol className="wallet-guide-instructions">
                   <li>Core 왼쪽 위의 <strong>계정 이름</strong>을 누르고, 방금 가져온 계정을 선택합니다.</li>
-                  <li><strong>Collectibles</strong> 탭을 엽니다.</li>
-                  <li><strong>Avalanche Bakery Certificate</strong>를 선택합니다.</li>
+                  <li><strong>Collectibles</strong>에서 <strong>Avalanche Bakery Certificate</strong>를 선택합니다.</li>
                   <li>이미지가 바로 보이지 않으면 NFT 상세를 위로 밀고 <strong>Refresh</strong>를 누릅니다.</li>
                 </ol>
                 <div className="wallet-guide-note">
                   <strong>참가증서가 바로 보이지 않나요?</strong>
-                  <p>참가증서 자체가 없다면 선택한 계정 주소부터 확인하세요. 증서는 보이지만 이미지나 정보가 최신이 아니라면 상세 화면의 <strong>Refresh</strong>를 누르세요. 메타데이터 갱신에는 최대 24시간이 걸릴 수 있습니다.</p>
+                  <p>증서가 없으면 계정 주소를 확인하세요. 이미지만 최신이 아니라면 <strong>Refresh</strong>를 누르세요. 갱신에는 최대 24시간이 걸릴 수 있습니다.</p>
                 </div>
                 <div className="wallet-core-gallery" aria-label="Core에서 참가증서를 확인한 실제 화면">
                   <figure>
@@ -279,7 +297,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                       height={2048}
                       sizes="(max-width: 760px) calc(100vw - 84px), 290px"
                     />
-                    <figcaption><strong>1. Collectibles 목록</strong><span>가져온 계정을 선택하면 참가증서 전체 모양을 확인할 수 있습니다.</span></figcaption>
+                    <figcaption><strong>1. Collectibles 목록</strong><span>여기서는 참가증서 전체가 보입니다.</span></figcaption>
                   </figure>
                   <figure>
                     <Image
@@ -289,7 +307,7 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                       height={2048}
                       sizes="(max-width: 760px) calc(100vw - 84px), 290px"
                     />
-                    <figcaption><strong>2. NFT 상세 화면</strong><span>Core가 상세 이미지를 정사각형으로 잘라 보여 줄 수 있습니다. IPFS에 저장된 원본 증서가 잘린 것은 아닙니다.</span></figcaption>
+                    <figcaption><strong>2. NFT 상세 화면</strong><span>Core 미리보기만 정사각형으로 보이며, IPFS 원본은 그대로입니다.</span></figcaption>
                   </figure>
                 </div>
                 <p className="wallet-guide-locked">이 참가증서는 전송이 잠긴 NFT입니다. Core에서 확인하고 같은 지갑을 관리할 수 있지만 다른 지갑으로 보낼 수는 없습니다.</p>

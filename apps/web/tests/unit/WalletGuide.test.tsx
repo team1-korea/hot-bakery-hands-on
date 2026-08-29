@@ -60,7 +60,7 @@ describe('Core 모바일 참가증서 안내', () => {
     expect(screen.getByText('0x123456…345678')).toBeVisible();
     expect(screen.getByText('Your wallet').closest('strong')).toHaveTextContent('Your wallet 옆 Copy');
     expect(screen.getByText('Private key').closest('strong')).toHaveTextContent('Private key 옆 Copy');
-    expect(screen.getByText('Loading...').closest('small')).toHaveTextContent('Loading...이 끝난 뒤');
+    expect(screen.getByText('Loading...').closest('small')).toHaveTextContent('Loading...이 끝나면');
     fireEvent.click(screen.getByRole('button', { name: '내 지갑 내보내기' }));
 
     await waitFor(() => expect(exportWallet).toHaveBeenCalledOnce());
@@ -92,10 +92,10 @@ describe('Core 모바일 참가증서 안내', () => {
     expect(screen.getByText('Collectibles')).toBeVisible();
     expect(screen.getByText(/방금 가져온 계정을 선택/)).toBeVisible();
     expect(screen.getByText('Avalanche Bakery Certificate')).toBeVisible();
-    expect(screen.getByText(/메타데이터 갱신에는 최대 24시간/)).toBeVisible();
+    expect(screen.getByText(/갱신에는 최대 24시간/)).toBeVisible();
     expect(screen.getByAltText(/Collectibles 탭에 세로형/)).toBeVisible();
     expect(screen.getByAltText(/상세 화면에서 세로형 증서의 위아래 일부/)).toBeVisible();
-    expect(screen.getByText(/IPFS에 저장된 원본 증서가 잘린 것은 아닙니다/)).toBeVisible();
+    expect(screen.getByText(/IPFS 원본은 그대로입니다/)).toBeVisible();
     expect(screen.getByText('Core에서 선택할 EVM 계정')).toBeVisible();
     expect(screen.getAllByText('0x123456…345678').at(-1)).toBeVisible();
     expect(screen.getByText(/다른 지갑으로 보낼 수는 없습니다/)).toBeVisible();
@@ -103,6 +103,18 @@ describe('Core 모바일 참가증서 안내', () => {
       'href',
       'https://support.core.app/en/articles/11469838-core-mobile-how-do-i-refresh-nft-metadata',
     );
+  });
+
+  test('다른 티켓을 열어도 누른 티켓 머리의 화면 위치를 유지한다', () => {
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect');
+    rect.mockReturnValueOnce(new DOMRect(0, 520, 350, 80));
+    rect.mockReturnValueOnce(new DOMRect(0, 180, 350, 80));
+    const scrollBy = vi.spyOn(window, 'scrollBy').mockImplementation(() => undefined);
+
+    render(<WalletGuideContent state={unauthenticated} />);
+    fireEvent.click(screen.getByRole('button', { name: /참가증서 확인/ }));
+
+    expect(scrollBy).toHaveBeenCalledWith(0, -340);
   });
 
   test('여러 Privy EVM 지갑 중 백엔드와 같이 가장 낮은 wallet index를 고른다', () => {

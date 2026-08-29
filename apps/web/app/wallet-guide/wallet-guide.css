@@ -119,24 +119,46 @@
   counter-increment: wallet-ticket;
 }
 
-.wallet-ticket + .wallet-ticket { margin-top: 14px; }
+.wallet-ticket + .wallet-ticket { margin-top: 20px; }
 
 .wallet-ticket::before,
 .wallet-ticket::after {
   content: '';
   position: absolute;
-  z-index: 2;
-  top: 68px;
-  width: 18px;
-  height: 18px;
-  border: var(--line-thin) solid var(--ink);
-  border-radius: 50%;
-  background: var(--paper);
+  z-index: 3;
+  left: -2px;
+  width: calc(100% + 4px);
+  height: 10px;
+  background: var(--ink);
   pointer-events: none;
 }
 
-.wallet-ticket::before { left: -11px; }
-.wallet-ticket::after { right: -11px; }
+.wallet-ticket::before {
+  display: none;
+  top: -9px;
+  clip-path: polygon(
+    0 100%, 2.5% 0, 5% 100%, 7.5% 0, 10% 100%, 12.5% 0, 15% 100%, 17.5% 0,
+    20% 100%, 22.5% 0, 25% 100%, 27.5% 0, 30% 100%, 32.5% 0, 35% 100%, 37.5% 0,
+    40% 100%, 42.5% 0, 45% 100%, 47.5% 0, 50% 100%, 52.5% 0, 55% 100%, 57.5% 0,
+    60% 100%, 62.5% 0, 65% 100%, 67.5% 0, 70% 100%, 72.5% 0, 75% 100%, 77.5% 0,
+    80% 100%, 82.5% 0, 85% 100%, 87.5% 0, 90% 100%, 92.5% 0, 95% 100%, 97.5% 0,
+    100% 100%
+  );
+}
+
+.wallet-ticket:first-child::before { display: block; }
+
+.wallet-ticket::after {
+  bottom: -9px;
+  clip-path: polygon(
+    0 0, 2.5% 100%, 5% 0, 7.5% 100%, 10% 0, 12.5% 100%, 15% 0, 17.5% 100%,
+    20% 0, 22.5% 100%, 25% 0, 27.5% 100%, 30% 0, 32.5% 100%, 35% 0, 37.5% 100%,
+    40% 0, 42.5% 100%, 45% 0, 47.5% 100%, 50% 0, 52.5% 100%, 55% 0, 57.5% 100%,
+    60% 0, 62.5% 100%, 65% 0, 67.5% 100%, 70% 0, 72.5% 100%, 75% 0, 77.5% 100%,
+    80% 0, 82.5% 100%, 85% 0, 87.5% 100%, 90% 0, 92.5% 100%, 95% 0, 97.5% 100%,
+    100% 0
+  );
+}
 
 .wallet-ticket-head {
   position: relative;
