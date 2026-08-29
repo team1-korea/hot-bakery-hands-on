@@ -290,6 +290,18 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
                     <figcaption><strong>2. NFT 상세 화면</strong><span>Core 미리보기만 정사각형으로 보이며, IPFS 원본은 그대로입니다.</span></figcaption>
                   </figure>
                 </div>
+                <aside className="wallet-opensea-viewer" aria-labelledby="wallet-opensea-title">
+                  <h3 id="wallet-opensea-title">잘리지 않은 참가증서 확인하기</h3>
+                  <p>지갑을 연결하지 않아도 OpenSea에서 전체 증서와 소유 주소를 볼 수 있습니다. 발급 화면에서 본 토큰 번호나 닉네임으로 내 증서를 찾아보세요.</p>
+                  <a
+                    className="wallet-guide-link"
+                    href="https://opensea.io/collection/0x787d2971ec3eaa6b63d51bb52834ab41d2cd18a9"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    OpenSea에서 참가증서 확인
+                  </a>
+                </aside>
                 <p className="wallet-guide-locked">이 참가증서는 전송이 잠긴 NFT입니다. Core에서 확인하고 같은 지갑을 관리할 수 있지만 다른 지갑으로 보낼 수는 없습니다.</p>
               </div>
             ) : null}

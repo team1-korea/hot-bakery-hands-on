@@ -244,6 +244,12 @@ components:
 - **Style:** 2px Carbon Ink 테두리, 원본 비율의 화면, Carbon Ink 캡션 면과 15px 설명을 쓴다. 560px 이상에서만 두 열로 놓는다.
 - **Content:** Collectibles 목록에서는 전체 증서가 보이고, 상세 화면에서는 Core의 정사각형 미리보기 때문에 위아래 일부가 잘릴 수 있음을 함께 설명한다. 개인키 입력·표시 화면은 캡처하지 않는다.
 
+### External NFT Viewer
+
+- **Character:** Core 상세 화면에서 잘린 증서를 전체 비율로 확인할 수 있는 공개 보조 경로다.
+- **Style:** Warm Paper에 Avalanche Red를 7% 섞은 면, 2px Carbon Ink 테두리, 전체 너비 기본 링크 버튼을 사용한다.
+- **Content:** 지갑 연결 없이 OpenSea의 고정된 메인넷 컬렉션을 열고, 발급 화면의 토큰 번호나 닉네임으로 본인 증서를 찾게 한다. 개별 참가자의 토큰 번호를 추측해 링크하지 않는다.
+
 ### Instruction Lists & Dark Notes
 
 - **Instruction List:** 각 행 왼쪽에 Avalanche Red `01–04` 카운터를 고정하고 1px 중립 구분선으로 순서를 나눈다. 행은 최소 높이 66px다.
@@ -258,6 +264,7 @@ components:
 - **Do** 2단계 개인키 경고를 단계의 열림 여부와 무관하게 계속 노출한다.
 - **Do** 지갑 주소는 앞 8자와 뒤 6자만 남겨 축약하고 Core에서 같은 주소인지 확인하는 맥락으로만 보여 준다.
 - **Do** 휴대폰에서 16px 이상 본문과 48px 이상 터치 대상을 유지한다.
+- **Do** 외부 NFT 확인 링크는 지갑 연결 없이 열리는 공개 컬렉션으로만 제공한다.
 
 ### Don't:
 

@@ -96,6 +96,11 @@ describe('Core 모바일 참가증서 안내', () => {
     expect(screen.getByText(/IPFS 원본은 그대로입니다/)).toBeVisible();
     expect(screen.getByText('Core에서 선택할 EVM 계정')).toBeVisible();
     expect(screen.getAllByText('0x123456…345678').at(-1)).toBeVisible();
+    expect(screen.getByText(/지갑을 연결하지 않아도 OpenSea/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'OpenSea에서 참가증서 확인' })).toHaveAttribute(
+      'href',
+      'https://opensea.io/collection/0x787d2971ec3eaa6b63d51bb52834ab41d2cd18a9',
+    );
     expect(screen.getByText(/다른 지갑으로 보낼 수는 없습니다/)).toBeVisible();
     expect(screen.getByRole('link', { name: 'Core NFT 확인 안내' })).toHaveAttribute(
       'href',

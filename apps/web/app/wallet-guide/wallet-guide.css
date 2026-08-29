@@ -366,6 +366,32 @@
   word-break: keep-all;
 }
 
+.wallet-opensea-viewer {
+  margin-top: 26px;
+  padding: 20px;
+  border: var(--line-thin) solid var(--ink);
+  background: color-mix(in srgb, var(--ava) 7%, var(--paper));
+}
+
+.wallet-opensea-viewer h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: -.025em;
+  word-break: keep-all;
+}
+
+.wallet-opensea-viewer p {
+  margin: 10px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.wallet-opensea-viewer .wallet-guide-link { margin-top: 18px; }
+
 .wallet-guide-instructions {
   display: grid;
   margin: 24px 0 0;
