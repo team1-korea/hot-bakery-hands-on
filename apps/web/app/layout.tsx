@@ -31,11 +31,11 @@ export const viewport: Viewport = {
 };
 
 const WALLET_GUIDE_DESIGN_CONTRACT = [
-  'THESIS: 네 단계의 작업 영수증으로 복잡한 지갑 가져오기를 한 번에 한 행동씩 안내하며, 둥근 SaaS 카드형 설명서를 거절한다.',
-  'OWN-WORLD: 살구빛 종이 #f7f1e8, Avalanche red #e84142, carbon ink #17110f, 굵은 고딕 제목, 2–4px 규칙선과 절취선 티켓.',
-  'STORY: 같은 Google 계정으로 로그인하고, 본인만 개인키를 확인해 Core 모바일에서 같은 지갑을 연 뒤 참가증서를 확인한다.',
-  'FIRST VIEWPORT: 빨간 브랜드 띠와 4칸 진행선, 2줄 제목, 같은 지갑 안내, 펼쳐진 01 로그인 티켓과 02 보안 띠의 시작.',
-  'FORM: 승인된 Four Work Receipts의 A안, 펼치는 작업 티켓. surface seed 3f899613.',
+  'THESIS: 참가증서 확인을 먼저 완료하게 하고, 개인키가 필요한 Core 관리는 명확한 선택 경로로 분리한다.',
+  'OWN-WORLD: 살구빛 종이 #f7f1e8, Avalanche red #e84142, carbon ink #17110f, 굵은 고딕 제목과 직선적인 규칙선.',
+  'STORY: OpenSea에서 개인키 없이 확인한 뒤, 원하는 사람만 같은 Google 계정으로 로그인해 Core 모바일에서 기존 지갑을 연다.',
+  'FIRST VIEWPORT: 빨간 브랜드 띠, 참가증서와 지갑 안내 제목, 선택 사항 설명, OpenSea 기본 행동.',
+  'FORM: 카드 전환 없이 위에서 아래로 읽는 모바일 우선 단일 안내 페이지.',
   'FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance',
 ].join(' ');
 
