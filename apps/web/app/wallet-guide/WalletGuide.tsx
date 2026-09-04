@@ -129,10 +129,6 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
         <section className="wallet-core-intro" id="core-wallet" aria-labelledby="core-wallet-heading">
           <h2 id="core-wallet-heading">Core Wallet에서 직접 관리하고 싶다면</h2>
           <p>NFT를 다른 지갑으로 보내는 과정이 아닙니다. 행사 때 만든 <strong>같은 지갑을 Core 모바일에서도 여는 과정</strong>입니다.</p>
-          <div className="wallet-core-choice">
-            <strong>참가증서만 확인하려는 경우</strong>
-            <span>여기서 멈춰도 됩니다. 위의 OpenSea 확인에는 개인키가 필요하지 않습니다.</span>
-          </div>
           <div className="wallet-guide-readonly">
             <strong>개인키는 참가자 본인에게만 보입니다.</strong>
             <span>아래 버튼은 Privy 공식 보안 창을 열어 줄 뿐입니다. 이 안내 페이지와 서버는 개인키 값을 읽거나 저장하지 않습니다.</span>

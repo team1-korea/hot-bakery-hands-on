@@ -144,21 +144,9 @@
 .wallet-core-intro > p { color: color-mix(in srgb, var(--ink) 76%, var(--paper)); }
 .wallet-core-intro > p strong { color: var(--ink); }
 
-.wallet-core-choice {
-  display: grid;
-  margin-top: 24px;
-  padding: 18px;
-  border-top: var(--line-thick) solid var(--ava);
-  background: color-mix(in srgb, var(--ava) 7%, var(--paper));
-  gap: 8px;
-}
-
-.wallet-core-choice strong { font-size: 18px; line-height: 1.4; }
-.wallet-core-choice span { font-size: 16px; font-weight: 700; line-height: 1.55; word-break: keep-all; }
-
 .wallet-guide-readonly {
   display: grid;
-  margin-top: 14px;
+  margin-top: 24px;
   padding: 18px;
   background: var(--ink);
   color: var(--paper);
