@@ -73,6 +73,11 @@ export type StateResponse = {
   counts: { submitted: number; minted: number };
 };
 
+/** 지갑 안내에서 현재 Privy 지갑이 실제 발급 기록과 일치하는지만 공개한다. */
+export type WalletGuideEligibilityResponse = {
+  eligible: boolean;
+};
+
 export type ApiErrorBody = {
   error: {
     code: ApiErrorCode;

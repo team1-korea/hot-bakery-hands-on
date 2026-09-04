@@ -194,6 +194,14 @@ export async function findEntryByDid(privyDid: string): Promise<Entry | null> {
   return rowByDid(privyDid)?.entry ?? null;
 }
 
+export async function findEntryByDidAndWallet(
+  privyDid: string,
+  walletAddress: string,
+): Promise<Entry | null> {
+  const row = rowByDid(privyDid);
+  return row?.walletAddress === walletAddress.toLowerCase() ? row.entry : null;
+}
+
 export async function findEntryById(entryId: string): Promise<Entry | null> {
   return store.rows.find((row) => row.entry.id === entryId)?.entry ?? null;
 }

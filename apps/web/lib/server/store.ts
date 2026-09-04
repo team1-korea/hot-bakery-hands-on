@@ -38,6 +38,8 @@ export const isFull: typeof memory.isFull = (...args) => backend().isFull(...arg
 
 export const findEntryByDid: typeof memory.findEntryByDid = (...args) =>
   backend().findEntryByDid(...args);
+export const findEntryByDidAndWallet: typeof memory.findEntryByDidAndWallet = (...args) =>
+  backend().findEntryByDidAndWallet(...args);
 export const findEntryById: typeof memory.findEntryById = (...args) =>
   backend().findEntryById(...args);
 export const getPhoto: typeof memory.getPhoto = (...args) => backend().getPhoto(...args);

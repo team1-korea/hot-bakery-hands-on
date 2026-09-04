@@ -11,6 +11,7 @@ const unauthenticated = {
   authenticated: false,
   email: null,
   walletAddress: null,
+  certificateStatus: 'idle' as const,
   authError: null,
   exportError: null,
   exporting: false,
@@ -27,6 +28,7 @@ describe('참가증서 확인 및 Core 모바일 안내', () => {
           login,
           useAnotherAccount: vi.fn(),
           exportWallet: vi.fn().mockResolvedValue(false),
+          retryCertificateCheck: vi.fn(),
         }}
       />,
     );
@@ -52,11 +54,13 @@ describe('참가증서 확인 및 Core 모바일 안내', () => {
           authenticated: true,
           email: 'participant@example.com',
           walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
+          certificateStatus: 'verified',
         }}
         actions={{
           login: vi.fn(),
           useAnotherAccount: vi.fn(),
           exportWallet,
+          retryCertificateCheck: vi.fn(),
         }}
       />,
     );
@@ -83,6 +87,7 @@ describe('참가증서 확인 및 Core 모바일 안내', () => {
           authenticated: true,
           email: 'participant@example.com',
           walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
+          certificateStatus: 'verified',
         }}
       />,
     );
@@ -93,6 +98,62 @@ describe('참가증서 확인 및 Core 모바일 안내', () => {
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Collectibles에서 참가증서 확인' })).toBeVisible();
     expect(screen.getByAltText(/Collectibles 탭에 세로형/)).toBeVisible();
+  });
+
+  test('발급되지 않은 Google 계정은 지갑 주소와 내보내기를 열지 않는다', () => {
+    const exportWallet = vi.fn().mockResolvedValue(true);
+
+    render(
+      <WalletGuideContent
+        state={{
+          ...unauthenticated,
+          authenticated: true,
+          email: 'other@example.com',
+          walletAddress: '0x9999999999999999999999999999999999999999',
+          certificateStatus: 'not-found',
+        }}
+        actions={{
+          login: vi.fn(),
+          useAnotherAccount: vi.fn(),
+          exportWallet,
+          retryCertificateCheck: vi.fn(),
+        }}
+      />,
+    );
+
+    expect(screen.getByText('other@example.com')).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent('안내 메일을 받은 Google 계정');
+    expect(screen.queryByText('0x999999…999999')).not.toBeInTheDocument();
+
+    const exportButton = screen.getByRole('button', { name: 'Privy 보안 창 열기' });
+    expect(exportButton).toBeDisabled();
+    fireEvent.click(exportButton);
+    expect(exportWallet).not.toHaveBeenCalled();
+  });
+
+  test('발급 기록 확인 실패는 다시 확인할 수 있다', () => {
+    const retryCertificateCheck = vi.fn();
+
+    render(
+      <WalletGuideContent
+        state={{
+          ...unauthenticated,
+          authenticated: true,
+          email: 'participant@example.com',
+          walletAddress: '0x1234567890abcdef1234567890abcdef12345678',
+          certificateStatus: 'error',
+        }}
+        actions={{
+          login: vi.fn(),
+          useAnotherAccount: vi.fn(),
+          exportWallet: vi.fn().mockResolvedValue(false),
+          retryCertificateCheck,
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: '발급 기록 다시 확인' }));
+    expect(retryCertificateCheck).toHaveBeenCalledOnce();
   });
 
   test('여러 Privy EVM 지갑 중 백엔드와 같이 가장 낮은 wallet index를 고른다', () => {

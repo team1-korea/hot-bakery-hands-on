@@ -1,16 +1,18 @@
 'use client';
 
 import {
+  getAccessToken,
   useExportWallet,
   useLogin,
   useLogout,
   usePrivy,
 } from '@privy-io/react-auth';
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { PRIVY_ENABLED } from '@/app/join/PrivyClientProvider';
 import { BrandMark } from '@/components/BrandMark';
+import { getWalletGuideEligibility, setAuthTokenGetter } from '@/lib/api/client';
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const OPENSEA_COLLECTION_URL = 'https://opensea.io/collection/0x787d2971ec3eaa6b63d51bb52834ab41d2cd18a9';
@@ -28,6 +30,7 @@ type GuideState = {
   authenticated: boolean;
   email: string | null;
   walletAddress: string | null;
+  certificateStatus: 'idle' | 'checking' | 'verified' | 'not-found' | 'error';
   authError: string | null;
   exportError: string | null;
   exporting: boolean;
@@ -37,12 +40,19 @@ type GuideActions = {
   login: () => void;
   useAnotherAccount: () => Promise<void>;
   exportWallet: () => Promise<boolean>;
+  retryCertificateCheck: () => void;
+};
+
+type CertificateCheck = {
+  key: string;
+  status: 'verified' | 'not-found' | 'error';
 };
 
 const EMPTY_ACTIONS: GuideActions = {
   login: () => undefined,
   useAnotherAccount: async () => undefined,
   exportWallet: async () => false,
+  retryCertificateCheck: () => undefined,
 };
 
 function compactAddress(address: string | null) {
@@ -93,7 +103,8 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
   actions?: GuideActions;
 }) {
   const [riskAcknowledged, setRiskAcknowledged] = useState(false);
-  const safeAddress = compactAddress(state.walletAddress);
+  const certificateVerified = state.certificateStatus === 'verified';
+  const safeAddress = certificateVerified ? compactAddress(state.walletAddress) : null;
 
   return (
     <main className="wallet-guide">
@@ -143,8 +154,8 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
           </section>
 
           <section className="wallet-guide-step" aria-labelledby="login-heading">
-            <StepHeading number={2} id="login-heading">행사 때 쓴 Google 계정으로 로그인</StepHeading>
-            <p>참가증서를 받을 때 사용한 Google 계정을 선택해 주세요. 다른 계정으로 로그인하면 내 참가증서 지갑이 열리지 않습니다.</p>
+            <StepHeading number={2} id="login-heading">안내 메일을 받은 Google 계정으로 로그인</StepHeading>
+            <p>이 안내 메일은 참가증서가 발급된 Google 계정으로 보냈습니다. 다른 계정으로 로그인하면 참가증서가 없는 Privy 지갑이 열릴 수 있습니다.</p>
             {!state.ready ? (
               <button className="wallet-guide-action" type="button" disabled>로그인 준비 중…</button>
             ) : state.authenticated ? (
@@ -157,6 +168,18 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
               <button className="wallet-guide-action" type="button" onClick={actions.login}>Google로 로그인</button>
             )}
             {state.authError ? <p className="wallet-guide-error" role="alert">{state.authError}</p> : null}
+            {state.certificateStatus === 'checking' ? (
+              <p className="wallet-guide-help" role="status">이 계정의 참가증서 발급 기록을 확인하고 있습니다…</p>
+            ) : null}
+            {state.certificateStatus === 'not-found' ? (
+              <p className="wallet-guide-error" role="alert">이 계정의 발급 완료 기록과 현재 지갑이 일치하지 않습니다. 안내 메일을 받은 Google 계정인지 확인해 주세요.</p>
+            ) : null}
+            {state.certificateStatus === 'error' ? (
+              <>
+                <p className="wallet-guide-error" role="alert">참가증서 발급 기록을 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.</p>
+                <button className="wallet-guide-action" type="button" onClick={actions.retryCertificateCheck}>발급 기록 다시 확인</button>
+              </>
+            ) : null}
           </section>
 
           <section className="wallet-guide-step" aria-labelledby="export-heading">
@@ -200,13 +223,13 @@ export function WalletGuideContent({ state, actions = EMPTY_ACTIONS }: {
             <button
               className="wallet-guide-action"
               type="button"
-              disabled={!state.ready || !state.authenticated || !state.walletAddress || !riskAcknowledged || state.exporting}
+              disabled={!state.ready || !state.authenticated || !certificateVerified || !state.walletAddress || !riskAcknowledged || state.exporting}
               onClick={() => void actions.exportWallet()}
             >
               {state.exporting ? 'Privy 보안 창 여는 중…' : 'Privy 보안 창 열기'}
             </button>
             {!state.authenticated ? <p className="wallet-guide-help">먼저 2단계에서 Google 로그인을 완료해 주세요.</p> : null}
-            {state.authenticated && !state.walletAddress ? <p className="wallet-guide-error" role="alert">이 계정에서 행사 때 만든 지갑을 찾지 못했습니다. Google 계정이 맞는지 확인해 주세요.</p> : null}
+            {state.authenticated && certificateVerified && !state.walletAddress ? <p className="wallet-guide-error" role="alert">이 계정에서 행사 때 만든 지갑을 찾지 못했습니다. Google 계정이 맞는지 확인해 주세요.</p> : null}
             {state.exportError ? <p className="wallet-guide-error" role="alert">{state.exportError}</p> : null}
           </section>
 
@@ -274,6 +297,8 @@ function PrivyWalletGuide() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [certificateCheck, setCertificateCheck] = useState<CertificateCheck | null>(null);
+  const [certificateCheckAttempt, setCertificateCheckAttempt] = useState(0);
 
   const { login } = useLogin({
     onComplete: () => setAuthError(null),
@@ -291,8 +316,42 @@ function PrivyWalletGuide() {
     selectEmbeddedEthereumWallet(user?.linkedAccounts ?? [])
   ), [user]);
 
+  const certificateCheckKey = `${user?.id ?? 'anonymous'}:${certificateCheckAttempt}`;
+  const certificateStatus: GuideState['certificateStatus'] = !authenticated
+    ? 'idle'
+    : certificateCheck?.key === certificateCheckKey
+      ? certificateCheck.status
+      : 'checking';
+
+  useEffect(() => {
+    if (!ready) return;
+
+    setAuthTokenGetter(() => getAccessToken());
+    let cancelled = false;
+
+    if (authenticated) {
+      void getWalletGuideEligibility()
+        .then(({ eligible }) => {
+          if (!cancelled) {
+            setCertificateCheck({
+              key: certificateCheckKey,
+              status: eligible ? 'verified' : 'not-found',
+            });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setCertificateCheck({ key: certificateCheckKey, status: 'error' });
+        });
+    }
+
+    return () => {
+      cancelled = true;
+      setAuthTokenGetter(null);
+    };
+  }, [authenticated, certificateCheckKey, ready]);
+
   const handleExport = async () => {
-    if (!walletAddress) return false;
+    if (!walletAddress || certificateStatus !== 'verified') return false;
     setExporting(true);
     setExportError(null);
     try {
@@ -313,6 +372,7 @@ function PrivyWalletGuide() {
         authenticated,
         email: googleEmail,
         walletAddress,
+        certificateStatus,
         authError,
         exportError,
         exporting,
@@ -326,6 +386,7 @@ function PrivyWalletGuide() {
           await logout();
         },
         exportWallet: handleExport,
+        retryCertificateCheck: () => setCertificateCheckAttempt((attempt) => attempt + 1),
       }}
     />
   );
@@ -340,6 +401,7 @@ export function WalletGuide() {
         authenticated: false,
         email: null,
         walletAddress: null,
+        certificateStatus: 'idle',
         authError: null,
         exportError: null,
         exporting: false,

@@ -183,6 +183,7 @@ Authorization: Bearer <privy-access-token>
 | `POST` | `/api/participants` | 참가자 | 폰 | **등록.** 닉네임을 넘기고 카드를 만든다 |
 | `GET` | `/api/entries` | 참가자 | 폰 | 내 항목 조회 |
 | `POST` | `/api/entries` | 참가자 | 폰 | 합성 증서 제출 |
+| `GET` | `/api/wallet-guide` | 참가자 | 지갑 안내 | 현재 Privy 지갑과 발급 완료 지갑의 일치 확인 |
 | `GET` | `/api/state` | 없음 | **TV** | 공개 화면 폴링 |
 | `GET` | `/api/photos/{entryId}` | 없음 | 전부 | 증서 이미지 바이트 |
 | `PATCH` | `/api/admin/show` | 운영자 | **TV**·운영자 | 앞 화면 전환·쪽 넘기기 |
@@ -286,6 +287,27 @@ Authorization: Bearer eyJhbGci...
 // 200 — 아직 등록하지 않음
 null
 ```
+
+---
+
+### `GET /api/wallet-guide`
+
+지갑 안내 페이지에서 로그인 직후 한 번 호출합니다. 서버가 access token의 DID와 Privy Users API에서
+조회한 현재 embedded EVM 지갑을 기존 참가자 기록과 대조합니다. 기존 기록이 `MINTED`이고 저장된
+발급 지갑 주소까지 같을 때만 `eligible`이 true입니다. 이메일 명단이나 지갑 주소는 응답에 넣지 않습니다.
+
+```http
+GET /api/wallet-guide
+Authorization: Bearer eyJhbGci...
+```
+
+```jsonc
+// 200
+{ "eligible": true }
+```
+
+아직 발급되지 않았거나 현재 Privy 지갑이 발급 지갑과 다르면 `200`에 `{ "eligible": false }`입니다.
+인증 실패는 다른 참가자 API와 같이 `401 UNAUTHENTICATED`입니다.
 
 ---
 

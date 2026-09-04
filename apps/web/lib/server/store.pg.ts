@@ -224,6 +224,24 @@ export async function findEntryByDid(privyDid: string): Promise<Entry | null> {
   return result.rows[0] ? toEntry(result.rows[0]) : null;
 }
 
+export async function findEntryByDidAndWallet(
+  privyDid: string,
+  walletAddress: string,
+): Promise<Entry | null> {
+  const result = await query<EntryRow>(
+    `select ${ENTRY_COLUMNS}
+       from entries
+      where participant_id = (
+        select id
+          from participants
+         where privy_did = $1
+           and lower(wallet_address) = lower($2)
+      )`,
+    [privyDid, walletAddress],
+  );
+  return result.rows[0] ? toEntry(result.rows[0]) : null;
+}
+
 export async function findEntryById(entryId: string): Promise<Entry | null> {
   if (!UUID.test(entryId)) return null;
   const result = await query<EntryRow>(

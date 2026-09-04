@@ -12,11 +12,17 @@ import { GET as getEntry, POST as postEntry } from '@/app/api/entries/route';
 import { POST as sweepRoute } from '@/app/api/internal/sweep/route';
 import { POST as postParticipant } from '@/app/api/participants/route';
 import { GET as getPublicState } from '@/app/api/state/route';
-import type { ApiErrorBody, Entry, StateResponse } from '@/lib/api/types';
+import { GET as getWalletGuideEligibility } from '@/app/api/wallet-guide/route';
+import type {
+  ApiErrorBody,
+  Entry,
+  StateResponse,
+  WalletGuideEligibilityResponse,
+} from '@/lib/api/types';
 
 import { callerFrom } from './auth';
 import { OPERATOR_COOKIE, operatorToken } from './http';
-import { STUCK_MS, getAdminState, resetStore, sweep } from './store';
+import { STUCK_MS, findEntryByDid, getAdminState, register, resetStore, sweep } from './store';
 
 /**
  * 라우트 핸들러를 직접 부른다. **직렬화된 실제 응답**을 봐야 하는 검사가 있어서다 —
@@ -110,6 +116,40 @@ test('POST /api/participants — 폰이 다르면 다른 참가자다', async ()
   await postParticipant(asParticipant('phone-b', joinBody('나')));
 
   assert.equal((await getAdminState()).entries.length, 2);
+});
+
+test('GET /api/wallet-guide — MINTED 기록과 현재 Privy 지갑이 같아야 연다', async () => {
+  const request = asParticipant('phone-a');
+  const caller = await callerFrom(request);
+  assert.ok(caller);
+
+  await postParticipant(asParticipant('phone-a', joinBody('쿠키왕')));
+  const entry = await findEntryByDid(caller.did);
+  assert.ok(entry);
+  entry.status = 'MINTED';
+
+  const response = await getWalletGuideEligibility(asParticipant('phone-a'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { eligible: true });
+});
+
+test('GET /api/wallet-guide — 같은 DID라도 저장된 발급 지갑과 다르면 잠근다', async () => {
+  const caller = await callerFrom(asParticipant('phone-a'));
+  assert.ok(caller);
+
+  const { entry } = await register({
+    privyDid: caller.did,
+    walletAddress: '0x1111111111111111111111111111111111111111',
+    nickname: '쿠키왕',
+  });
+  entry.status = 'MINTED';
+
+  const response = await getWalletGuideEligibility(asParticipant('phone-a'));
+  assert.equal(response.status, 200);
+  assert.deepEqual(
+    (await response.json()) as WalletGuideEligibilityResponse,
+    { eligible: false },
+  );
 });
 
 test('POST /api/participants — 닉네임이 12자를 넘으면 INVALID_NICKNAME', async () => {

@@ -1,4 +1,11 @@
-import type { ApiErrorBody, ApiErrorCode, Entry, ShowState, StateResponse } from './types';
+import type {
+  ApiErrorBody,
+  ApiErrorCode,
+  Entry,
+  ShowState,
+  StateResponse,
+  WalletGuideEligibilityResponse,
+} from './types';
 
 /**
  * 화면이 서버와 이야기하는 유일한 통로.
@@ -123,6 +130,11 @@ export async function submitEntry(input: { photo: Blob }) {
 
 export function getMyEntry() {
   return call<Entry | null>('/api/entries');
+}
+
+/** 현재 Privy 지갑이 이 DID로 발급된 참가증서 지갑과 같은지 서버에서 확인한다. */
+export function getWalletGuideEligibility() {
+  return call<WalletGuideEligibilityResponse>('/api/wallet-guide', { cache: 'no-store' });
 }
 
 export function getState() {
