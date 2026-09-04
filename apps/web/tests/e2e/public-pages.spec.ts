@@ -20,6 +20,28 @@ test('참가자는 닉네임 입력 단계에 도달한다', async ({ page }) =>
   expect(errors).toEqual([]);
 });
 
+test('지갑 안내는 로그인 전 발급 계정을 안내하고 지갑 정보를 잠근다', async ({ page }) => {
+  const errors = captureRuntimeErrors(page);
+
+  await page.goto('/wallet-guide');
+
+  await expect(page.getByRole('heading', {
+    name: '안내 메일을 받은 Google 계정으로 로그인',
+  })).toBeVisible();
+  await expect(page.getByText(/이 안내 메일은 참가증서가 발급된 Google 계정으로 보냈습니다/))
+    .toBeVisible();
+  await expect(page.getByRole('button', { name: 'Google로 로그인' })).toBeVisible();
+  await expect(page.getByText('행사 때 만든 EVM 지갑')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Privy 보안 창 열기' })).toBeDisabled();
+
+  const eligibility = await page.request.get('/api/wallet-guide');
+  expect(eligibility.status()).toBe(401);
+  expect(await eligibility.json()).toEqual({
+    error: { code: 'UNAUTHENTICATED', message: '다시 로그인해 주세요.' },
+  });
+  expect(errors).toEqual([]);
+});
+
 test('TV 공개 화면의 참가 QR을 크게 열고 원래 화면으로 돌아간다', async ({ page }) => {
   const errors = captureRuntimeErrors(page);
 
@@ -126,7 +148,8 @@ test('참가자는 사진을 합성해 제출하고 발행 완료까지 복원�
   await page.getByRole('button', { name: '다음' }).click();
   await expect(page.getByRole('heading', { name: /쿠키 사진을/ })).toBeVisible();
 
-  await page.locator('input[type="file"]').nth(1).setInputFiles(path.resolve('cookie.png'));
+  await page.locator('input[type="file"]').nth(1)
+    .setInputFiles(path.resolve('tests/fixtures/display-load-certificate.jpg'));
   await expect(page.getByAltText('맞추는 중인 쿠키 사진')).toBeVisible();
   const frameResponse = page.waitForResponse((response) => (
     response.url() === 'https://certificate-frame.test/nft-design.jpg'
@@ -197,8 +220,8 @@ test('TV는 첫 응답의 제출 카드를 오븐에 놓고 진열장까지 이�
   const minted = entry(nickname, 'MINTED');
   let polls = 0;
   await page.route('**/cookie.png', (route) => route.fulfill({
-    path: path.resolve('cookie.png'),
-    contentType: 'image/png',
+    path: path.resolve('tests/fixtures/display-load-certificate.jpg'),
+    contentType: 'image/jpeg',
   }));
   await page.route('**/api/state', (route) => {
     polls += 1;
@@ -270,8 +293,8 @@ test('TV 진열장에서 교육 슬라이드로 전환해 끝까지 진행한다
   const errors = captureRuntimeErrors(page);
   const minted = entry('쿠키선생', 'MINTED');
   await page.route('**/cookie.png', (route) => route.fulfill({
-    path: path.resolve('cookie.png'),
-    contentType: 'image/png',
+    path: path.resolve('tests/fixtures/display-load-certificate.jpg'),
+    contentType: 'image/jpeg',
   }));
   await page.route('**/api/state', (route) => route.fulfill({
     json: state([minted]),
